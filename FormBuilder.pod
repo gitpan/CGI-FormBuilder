@@ -1,5 +1,5 @@
 
-# Copyright (c) 2001-2003 Nathan Wiger <nate@sun.com>
+# Copyright (c) 2001-2004 Nathan Wiger <nate@sun.com>
 # Please visit www.formbuilder.org for support and examples
 # See "FormBuilder.pm" for actual code, this is documentation
 
@@ -2084,9 +2084,9 @@ And field data is in a hash-of-hashrefs format:
 
     For a field named...  The field data is in...
     --------------------  -----------------------
-    job                   <% $form{field}{job}   %]
-    size                  <% $form{field}{size}  %]
-    email                 <% $form{field}{email} %]
+    job                   <% $form{field}{job}   %>
+    size                  <% $form{field}{size}  %>
+    email                 <% $form{field}{email} %>
 
 Since C<Text::Template> looks so much like Perl, you can access individual
 elements and create variables like so:
@@ -2721,11 +2721,11 @@ L<CGI>, L<CGI::Application>
 
 =head1 VERSION
 
-$Id: FormBuilder.pod,v 2.12 2003/07/25 21:17:30 nwiger Exp nwiger $
+$Id: FormBuilder.pod,v 2.13 2004/08/11 21:15:46 nwiger Exp $
 
 =head1 AUTHOR
 
-Copyright (c) 2001-2003 Nathan Wiger, Sun Microsystems <nate@sun.com>.
+Copyright (c) 2001-2004 Nathan Wiger, Sun Microsystems <nate@sun.com>.
 All Rights Reserved.
 
 This module is free software; you may copy this under the terms of

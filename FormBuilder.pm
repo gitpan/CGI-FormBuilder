@@ -1,5 +1,5 @@
 
-# Copyright (c) 2001-2003 Nathan Wiger <nate@sun.com>
+# Copyright (c) 2001-2004 Nathan Wiger <nate@sun.com>
 # Please visit www.formbuilder.org for support and examples
 # Use "perldoc FormBuilder.pod" for documentation
 
@@ -8,7 +8,7 @@ package CGI::FormBuilder;
 use Carp;
 use strict;
 use vars qw($VERSION $CGIMOD $CGI $AUTOLOAD);
-$VERSION = do { my @r=(q$Revision: 2.12 $=~/\d+/g); sprintf "%d."."%02d"x$#r,@r };
+$VERSION = do { my @r=(q$Revision: 2.13 $=~/\d+/g); sprintf "%d."."%02d"x$#r,@r };
 
 # We used to try to use CGI::Minimal for better speed, but
 # unfortunately its support for file uploads it unsuitable
@@ -35,6 +35,7 @@ my %VALID = (
     FLOAT => '/^-?\s*[0-9]+\.[0-9]+$/',
     PHONE => ['/^\d{3}\-\d{3}\-\d{4}$|^\(\d{3}\)\s+\d{3}\-\d{4}$/', '123-456-7890'],
     INTPHONE => ['/^\+\d+[\s\-][\d\-\s]+$/', '+prefix local-number'],
+    ALLPHONE => ['/^(\d{3}[\-\.]?\s*|\(\d{3}\)\s*)\d{3}[\-\.]?\s*\d{4}$/', '(123) 456-7890'],
     EMAIL => ['/^[\w\-\+\._]+\@[a-zA-Z0-9][-a-zA-Z0-9\.]*\.[a-zA-Z]+$/', 'name@host.domain'],
     CARD  => '/^\d{4}[\- ]?\d{4}[\- ]?\d{4}[\- ]?\d{4}$|^\d{4}[\- ]?\d{6}[\- ]?\d{5}$/',
     MMYY  => ['/^(0?[1-9]|1[0-2])\/?[0-9]{2}$/', 'MM/YY'],
@@ -47,13 +48,13 @@ my %VALID = (
     COUNTRY => ['/^[a-zA-Z]{2}$/', 'two-letter abbr'],
     IPV4  => ['/^([0-1]??\d{1,2}|2[0-4]\d|25[0-5])\.([0-1]??\d{1,2}|2[0-4]\d|25[0-5])\.([0-1]??\d{1,2}|2[0-4]\d|25[0-5])\.([0-1]??\d{1,2}|2[0-4]\d|25[0-5])$/', 'IP address'],
     NETMASK => ['/^([0-1]??\d{1,2}|2[0-4]\d|25[0-5])\.([0-1]??\d{1,2}|2[0-4]\d|25[0-5])\.([0-1]??\d{1,2}|2[0-4]\d|25[0-5])\.([0-1]??\d{1,2}|2[0-4]\d|25[0-5])$/', 'IP netmask'],
-    FILE  => ['/^[\/\w\.\-_]+$/', 'UNIX format'],
-    WINFILE => ['/^[a-zA-Z]:\\[\\\w\s\.\-]+$/', 'Windows format'],
+    FILE  => ['/(^[\w\+_\040\#\(\)\{\}\[\]\/\-\^,\.:;&%@\\~]+\$?$)/ ', 'UNIX format'],
+    WINFILE => ['/^(([a-zA-Z]:)?\\?[\w\+_\040\(\)\{\}\[\]\/\-\^,\.;&%@\$!\\~\#]+)$/', 'Windows format'],
     MACFILE => ['/^[:\w\.\-_]+$/', 'Mac format'],
     USER  => ['/^[-a-zA-Z0-9_]{4,8}$/', '4-8 characters'],  # require a 4-8 char username
     HOST  => ['/^[a-zA-Z0-9][-a-zA-Z0-9]*$/', 'valid hostname'],
     DOMAIN=> ['/^[a-zA-Z0-9][-a-zA-Z0-9\.]*\.[a-zA-Z]+$/', 'DNS domain'],   # mostly correct, but allows "dom.c-o.uk"
-    ETHER => ['/^[\da-f]{1,2}[\.:]?[\da-f]{1,2}[\.:]?[\da-f]{1,2}[\.:]?[\da-f]{1,2}[\.:]?[\da-f]{1,2}[\.:]?[\da-f]{1,2}$/i', 'ethernet' ],
+    ETHER => ['/^[\dA-Fa-f]{1,2}[.:][\dA-Fa-f]{1,2}[.:][\dA-Fa-f]{1,2}[.:][\dA-Fa-f]{1,2}[.:][\dA-Fa-f]{1,2}[.:][\dA-Fa-f]{1,2}$|^[\dA-Fa-f]{12}$/', 'ethernet' ],
     # Many thanks to Mark Belanger for these additions
     FNAME => '/^[a-zA-Z]+[- ]?[a-zA-Z]*$/',
     LNAME => '/^[a-zA-Z]+[- ]?[a-zA-Z]+\s*,?([a-zA-Z]+|[a-zA-Z]+\.)?$/',
@@ -72,7 +73,7 @@ my @OURATTR = qw(
     linebreaks nameopts options override params radionum required
     reset selectnum smartness sortopts static sticky submit table
     template title type_orig validate valign value_orig values messages 
-    columns
+    columns ulist
 );
 
 # trick for speedy lookup
@@ -843,12 +844,12 @@ sub render () {
             debug 2, "$field: reset value to '@value' as src was CGI and sticky => 0";
         }
 
+        # set default field type to fieldtype if exists
+        $attr->{type} ||= $args{fieldtype} if $args{fieldtype};
+
         # Pre-catch setting type to 'static', by twiddling an extra flag, which
         # then tells our else statement below to also print out the value
         my $static = $attr->{type} eq 'static' || $args{static};
-
-        # set default field type to fieldtype if exists
-        $attr->{type} ||= $args{fieldtype} if $args{fieldtype};
 
         # in fact, allow a whole fieldattr thing to work globally
         if ($args{fieldattr} && ref $args{fieldattr} eq 'HASH') {
@@ -939,7 +940,7 @@ sub render () {
 
             # Touch a special element so that this element's label prints out bold
             # This is actually an HTML feature that must be nested here...
-            $self->{fields}{$field}{required} = 1;
+            $self->{fields}{$field}{required} = 1 if $need{$field};
 
             # Check our hash to see if it's a special pattern
             ($pattern, $helptag) = _data($VALID{$pattern}) if $VALID{$pattern};
@@ -967,6 +968,7 @@ sub render () {
                 my $et = $attr->{type} || 'text';
                 $et = 'input' if $et eq 'text';
                 my $alertstr = sprintf $args{messages}{"js_invalid_$et"}, $label;
+                $alertstr =~ s/'/\\'/g;     # handle embedded '
                 $alertstr .= '\n';
 
                 if ($attr->{type} eq 'select') {
@@ -1067,7 +1069,9 @@ EOF
         HTMLGEN:
 
         # Save options for template creation below
-        my @opt = ();
+        # "options" are the options for our select list
+        my @opt = _opt($attr->{options} ||= $vattr);
+        @opt = _sort(@opt, $attr->{sortopts}) if $attr->{sortopts};
 
         # Must catch this to prevent non-existent fault below
         $attr->{labels} = {} unless ref $attr->{labels} eq 'HASH';
@@ -1081,13 +1085,11 @@ EOF
             # handle multiples.
             $attr->{multiple} = 'multiple' if @value > 1;   # auto-detect
 
-            # "options" are the options for our select list
-            @opt = _opt($attr->{options} ||= $vattr);
-            @opt = _sort(@opt, $attr->{sortopts}) if $attr->{sortopts};
             unshift @opt, ['', $args{messages}{form_select_default}]
                 if $args{smartness} && ! $attr->{multiple};
 
             # generate our select tag. 
+            delete $attr->{type};     # prevent <select type="select">
             $tag = _tag('select', name => $field, %{$attr});
             for my $opt (@opt) {
                 # Since our data structure is a series of ['',''] things,
@@ -1099,45 +1101,52 @@ EOF
                 $tag .= _tag('option', value => $o, @slct) . _escapehtml($n) . '</option>';
             }
             $tag .= '</select>';
+            $attr->{type} = 'select';
 
         } elsif ($attr->{type} eq 'radio' || $attr->{type} eq 'checkbox') {
             $attr->{onClick} = delete $attr->{jsclick} if $attr->{jsclick};
 
+            # to allow checkboxes/radio buttons to wrap in columns
             my $checkbox_table = 0;  # toggle
             my $col_num = 0;
-            if ($attr->{type} eq 'checkbox' 
-                && defined($attr->{columns}) && $attr->{columns} > 0)
-            {
+            if (defined($attr->{columns}) && $attr->{columns} > 0) {
                 $checkbox_table = 1;
                 $tag .= _tag('table', %{$args{table}});
             }
 
-            # get our options
-            @opt = _opt($attr->{options} ||= $vattr);
-            @opt = _sort(@opt, $attr->{sortopts}) if $attr->{sortopts};
+            # for making an unordered list out of our options (for both checkbox and radio)
+            my $checkbox_ulist = 0;
+            if ($attr->{ulist}) {
+                $checkbox_ulist = 1;
+                $tag .= '<ul>';
+            }
 
             for my $opt (@opt) {
                 #  Divide up checkboxes in a user-controlled manner
                 if ($checkbox_table) {
-                    $tag .= "<tr>\n" if $col_num % $attr->{columns} == 0;
+                    $tag .= '<tr>' if $col_num % $attr->{columns} == 0;
                     $tag .= '<td>' . $font;
                 }
+                $tag .= '<li>' if $checkbox_ulist;
                 # Since our data structure is a series of ['',''] things,
                 # we get the name from that. If not, then it's a list
                 # of regular old data that we _toname if nameopts => 1 
                 my($o,$n) = (ref $opt eq 'ARRAY') ? (@{$opt}) : ($opt);
                 $n ||= $attr->{labels}{$o} || ($attr->{nameopts} ? _toname($o) : $o);
                 my @slct = _ismember($o, @value) ? (checked => 'checked') : ();
-                $tag .= _tag('input', name => $field, value => $o, %{$attr}, @slct) 
-                      . ' ' . _escapehtml($n) . ' ';
+                $tag .= _tag('input', name => $field, value => $o, id => "${field}_$o", %{$attr}, @slct) 
+                      . ' ' . _tag('label', for => "${field}_$o") . _escapehtml($n) . '</label> ';
                 $tag .= '<br />' if $attr->{linebreaks};
-                $tag .= "</tr>\n" if $checkbox_table && $col_num++ % $attr->{columns} == 0;
+                $tag .= '</td></tr>' if $checkbox_table && 
+                                     ($col_num++ % $attr->{columns} == 0 || $col_num == @opt);
+                $tag .= "</li>\n" if $checkbox_ulist;
             }
-            $tag .= "</table>\n" if $checkbox_table;
+            $tag .= '</table>' if $checkbox_table;
+            $tag .= '</ul>' if $checkbox_ulist;
         } elsif ($attr->{type} eq 'textarea') {
             $attr->{onChange} = delete $attr->{jsclick} if $attr->{jsclick};
             my $text = join "\n", @value;
-            $tag = _tag('textarea', name => $field, %{$attr}) . _escapehtml($text) . "</textarea>";
+            $tag = _tag('textarea', name => $field, %{$attr}) . _escapehtml($text) . '</textarea>';
 
         } else {
             $attr->{onChange} = delete $attr->{jsclick} if $attr->{jsclick};
@@ -1159,9 +1168,24 @@ EOF
                 # Check for passwords
                 $value = '********' if $attr->{type_orig} eq 'password' && $args{smartness};
 
-                # print the value out too when in a static context
-                my $tagcom = _escapehtml($value);
-                $tag .= $tagcom . ' ' if $attr->{type} eq 'hidden' && $static && $tagcom;
+                # This is a static field
+                if ($attr->{type} eq 'hidden' && $static) {
+                    # Lookup the description of the option, and print it
+                    # if available, otherwise it will use whatever value was set to.
+                    for my $opt (@opt) {
+                        # Since our data structure is a series of ['',''] things,
+                        # we get the name from that. If not, then it's a list
+                        # of regular old data that we _toname if nameopts => 1 
+                        my($o,$n) = (ref $opt eq 'ARRAY') ? (@{$opt}) : ($opt);
+
+                        if ($o eq $value) {
+                            # We found a matching option.
+                            $n ||= $attr->{labels}{$o} || ($attr->{nameopts} ? _toname($o) : $o);
+                            $tag .= _escapehtml($n) . ' ';
+                            last;
+                        }
+                    }
+                }
                 $tag .= '<br />' if $attr->{linebreaks};
             }
 
@@ -1493,23 +1517,32 @@ EOJS
             $outhtml = $header . $tt2output;
 
       } elsif( $tmpltype eq 'Text' ) {
-            # Text::Template support. Nearly identical to Template Toolkit support.
+            # Text::Template support. Similar to Template Toolkit support.
             eval { require Text::Template };
             puke "Can't use templates because Text::Template is not installed!" if $@;
+            # This sub taken helps us to support all of Text::Template's argument naming conventions
+            my $tt_param_name = sub {
+              my ($arg, %h) = @_;
+              my ($key) = grep { exists $h{$_} } ($arg, "\u$arg", "\U$arg", "-$arg", "-\u$arg", "-\U$arg");
+              return $key || $arg;
+            };
 
-            my ($tt2engine, $tt2data, $tt2var, $tt2output);
-            $tt2engine = $tmplopt{engine} || { }; 
-            unless (UNIVERSAL::isa($tt2engine, 'Text::Template')) {
-                $tt2engine->{TYPE}   ||= 'FILE';
-                $tt2engine->{SOURCE} ||= $tmplopt{template};
-                puke "Text::Template source not specified, use the 'template' option"
-                    unless $tt2engine->{SOURCE};
-                $tt2engine->{DELIMITERS} ||= [ '<%','%>' ];
-                $tt2engine = Text::Template->new(%$tt2engine)
+            my ($tt_engine, $tt_data, $tt_var, $tt_output, $tt_fill_in);
+            $tt_engine = $tmplopt{engine} || { }; 
+            unless (UNIVERSAL::isa($tt_engine, 'Text::Template')) {
+                $tt_engine->{&$tt_param_name('type',%$tt_engine)}   ||= 'FILE';
+                $tt_engine->{&$tt_param_name('source',%$tt_engine)} ||= $tmplopt{template} ||
+                    puke "Text::Template source not specified, use the 'template' option";
+                $tt_engine->{&$tt_param_name('delimiters',%$tt_engine)} ||= [ '<%','%>' ];
+                $tt_engine = Text::Template->new(%$tt_engine)
                     || puke $Text::Template::ERROR;
             }
-            $tt2data = $tmplopt{data} || {};
-            $tt2var  = $tmplopt{variable};      # optional var for nesting
+            if( ref($tmplopt{data}) eq 'ARRAY' ) {
+                $tt_data = $tmplopt{data};
+            } else {
+                $tt_data = [ $tmplopt{data} ];
+            }
+            $tt_var  = $tmplopt{variable};      # optional var for nesting
 
             # special fields
             $tmplvar{'title'}  = $args{title} || '';
@@ -1521,16 +1554,26 @@ EOJS
             $tmplvar{'invalid'} = $self->{state}{invalid};
             $tmplvar{'fields'} = [ map $tmplvar{field}{$_},
                    @{ $self->{field_names} } ];
-            if ($tt2var) {
-                $tt2data->{$tt2var} = \%tmplvar;
+            if ($tt_var) {
+                push @$tt_data, { $tt_var => \%tmplvar };
             } else {
-                $tt2data = { %$tt2data, %tmplvar };
+                push @$tt_data, \%tmplvar;
             }
 
-            $tt2output = $tt2engine->fill_in(HASH=> $tt2data)
+            $tt_fill_in = $tmplopt{fill_in} || {};
+            my $tt_fill_in_hash = $tt_fill_in->{&$tt_param_name('hash',%$tt_fill_in)} || {};
+            if( ref($tt_fill_in_hash) eq 'ARRAY' ) {
+                push @$tt_fill_in_hash, @$tt_data;
+            } else {
+                $tt_fill_in_hash = [ $tt_fill_in_hash, @$tt_data ];
+            }
+		
+            $tt_fill_in_hash = {} unless scalar(@$tt_fill_in_hash);
+            $tt_fill_in->{&$tt_param_name('hash',%$tt_fill_in)} = $tt_fill_in_hash;
+            $tt_output = $tt_engine->fill_in(%$tt_fill_in)
                 || puke "Text::Template expansion failed: $Text::Template::ERROR";
 
-            $outhtml = $header . $tt2output;
+            $outhtml = $header . $tt_output;
 
         } else {
             puke "Invalid template type '$tmpltype' specified - can be 'HTML' or 'TT2' or 'Text'";
