@@ -1,15 +1,20 @@
 
 RCS file: /home/nwiger/perlmod/lib/CGI/RCS/FormBuilder.pm,v
 Working file: /home/nwiger/perlmod/lib/CGI/FormBuilder.pm
-head: 1.92
+head: 1.93
 branch:
 locks: strict
 access list:
 symbolic names:
 keyword substitution: kv
-total revisions: 92;	selected revisions: 92
+total revisions: 93;	selected revisions: 93
 description:
 CGI::FormBuilder for building form-based applications
+----------------------------
+revision 1.93
+date: 2001/12/12 23:32:47;  author: nwiger;  state: Exp;  lines: +27 -10
+fixed an insidious bug with $form->submitted that was preventing
+it from working in edge cases; also added ability to key off alt field
 ----------------------------
 revision 1.92
 date: 2001/12/12 22:00:43;  author: nwiger;  state: Exp;  lines: +3 -3

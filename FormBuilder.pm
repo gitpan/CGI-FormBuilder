@@ -105,7 +105,7 @@ CGI::FormBuilder - Easily generate and process stateful forms
 use Carp;
 use strict;
 use vars qw($VERSION @ISA @EXPORT @EXPORT_OK);
-$VERSION = do { my @r=(q$Revision: 1.92 $=~/\d+/g); sprintf "%d."."%02d"x$#r,@r };
+$VERSION = do { my @r=(q$Revision: 1.93 $=~/\d+/g); sprintf "%d."."%02d"x$#r,@r };
 
 # use CGI for stickiness (prefer CGI::Minimal for _much_ better speed)
 # we try the faster one first, since they're compatible for our needs
@@ -1291,14 +1291,16 @@ sub mailresults {
 
 sub submitted {
     # this returns the value of the submit key, if any
-    my $self = shift;
-    my $smtag = '_submitted' . ($self->{opt}{name} ? "_$self->{opt}{name}" : '');
     return unless $CGI;
-    if ($CGI->param($smtag)) {
-        # If we've been submitted, then we return the
-        # value of the submit tag (which allows multiple
-        # submission buttons)
-        return $CGI->param('submit');
+    my $self = shift;
+    my $smtag = shift || ('_submitted' . ($self->{opt}{name} ? "_$self->{opt}{name}" : ''));
+    if ($CGI->param($smtag) || $CGI->param('submit')) {
+        # If we've been submitted, then we return the value of
+        # the submit tag (which allows multiple submission buttons).
+        # Must use an "|| 1" or else hitting "Enter" won't cause
+        # $form->submitted to be true (as the button is only sent
+        # across CGI when clicked).
+        return $CGI->param('submit') || 1;
     } else {
         return;
     }
@@ -2632,7 +2634,7 @@ screen showing a short message along with the values that were
 submitted. This takes a single option - C<text> - which does the 
 same thing listed above. 
 
-=head2 submitted()
+=head2 submitted('fieldname')
 
 This returns the value of the "Submit" button if the form has been
 submitted, undef otherwise. This allows you to either test it in
@@ -2653,6 +2655,21 @@ It's best to call C<validate()> in conjunction with this to make
 sure the form validation works. To make sure you're getting accurate
 info, it's recommended that you name your forms with the C<name>
 option described above.
+
+Though this not usually what you want, you can also specify the
+name of an optional field which you want to "watch" instead of
+the default C<_submitted> hidden field. This is useful if you
+have a search form and also want to be able to link to it from
+other documents directly, such as:
+
+    mysearch.cgi?lookup=what+to+look+for
+
+Normally, C<submitted()> would return false since the C<_submitted>
+field is not included. However, you can override this by saying:
+
+    $form->submitted('lookup');
+
+Then, if the lookup key is present, you'll get a true value.
 
 =head2 validate(field => '/regex/', field => '/regex/')
 
@@ -3138,7 +3155,7 @@ L<HTML::Template>, L<Template>, L<CGI::Minimal>, L<CGI>
 
 =head1 VERSION
 
-$Id: FormBuilder.pm,v 1.92 2001/12/12 22:00:43 nwiger Exp $
+$Id: FormBuilder.pm,v 1.93 2001/12/12 23:32:47 nwiger Exp $
 
 =head1 AUTHOR
 

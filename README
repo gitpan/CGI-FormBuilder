@@ -1245,7 +1245,7 @@ FUNCTIONS
     submitted. This takes a single option - "text" - which does the same
     thing listed above.
 
-  submitted()
+  submitted('fieldname')
 
     This returns the value of the "Submit" button if the form has been
     submitted, undef otherwise. This allows you to either test it in a
@@ -1266,6 +1266,21 @@ FUNCTIONS
     form validation works. To make sure you're getting accurate info, it's
     recommended that you name your forms with the "name" option described
     above.
+
+    Though this not usually what you want, you can also specify the name of
+    an optional field which you want to "watch" instead of the default
+    "_submitted" hidden field. This is useful if you have a search form and
+    also want to be able to link to it from other documents directly, such
+    as:
+
+        mysearch.cgi?lookup=what+to+look+for
+
+    Normally, "submitted()" would return false since the "_submitted" field
+    is not included. However, you can override this by saying:
+
+        $form->submitted('lookup');
+
+    Then, if the lookup key is present, you'll get a true value.
 
   validate(field => '/regex/', field => '/regex/')
 
@@ -1740,7 +1755,7 @@ SEE ALSO
     manpage, the CGI manpage
 
 VERSION
-    $Id: FormBuilder.pm,v 1.92 2001/12/12 22:00:43 nwiger Exp $
+    $Id: FormBuilder.pm,v 1.93 2001/12/12 23:32:47 nwiger Exp $
 
 AUTHOR
     Copyright (c) 2001 Nathan Wiger <nate@wiger.org>. All Rights Reserved.
