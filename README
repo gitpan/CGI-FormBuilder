@@ -252,7 +252,7 @@ DESCRIPTION
         my $email = $form->field('email');
 
     FormBuilder is good at giving you the data that you should be getting.
-    That is, let's say that you initially setup your "$form" object to use a
+    That is, let's say that you initially setup your $form object to use a
     hash of existing values from a database select or something. Then, you
     "render()" the form, the user fills it out, and submits it. When you
     call "field()", you'll get whatever the correct value is, either the
@@ -332,8 +332,8 @@ REFERENCES
                         validate => { name => 'NAME', email => 'EMAIL' }
                    );
 
-    Except that the latter doesn't require that we first create "@fields"
-    and "%validate" variables.
+    Except that the latter doesn't require that we first create @fields and
+    %validate variables.
 
     Now back to our regularly-scheduled program...
 
@@ -346,7 +346,7 @@ FUNCTIONS
   new(opt => $val, opt => $val)
 
     This is the constructor, and must be called very first. It returns a
-    "$form" object, which you can then modify and print out to create the
+    $form object, which you can then modify and print out to create the
     form. Options will be described shortly.
 
   render(opt => $val, opt => $val)
@@ -389,6 +389,25 @@ FUNCTIONS
     fields => \@array
         The "fields" option takes an arrayref of fields to use in the form.
         The fields will be printed out in the same order they are specified.
+        This option is needed if you expect your form to have any fields.
+
+    fieldtype => 'type'
+        This can be used to set the default type for all fields. For
+        example, if you're writing a survey application, you may want all of
+        your fields to be of type "textarea". Easy:
+
+            my $form = CGI::FormBuilder->new(fields => ..., fieldtype => 'textarea');
+
+    fieldattr => { opt => val, opt => val }
+        Even more flexible than "fieldtype", this option allows you to
+        specify *any* type of HTML attribute and have it be the default for
+        all fields. For example:
+
+            my $form = CGI::FormBuilder->new(..., fieldattr => { class => 'myClass' });
+
+        Would set the "class" HTML attribute on all fields by default, so
+        that when they are printed out they will have a "class="myClass""
+        part of their HTML tag.
 
     font => $font
         The font to use for the form. This is output as a series of "<font>"
@@ -534,6 +553,9 @@ FUNCTIONS
             my @states = qw(AK CA FL NY TX);
             $form->field(name => 'state', options => \@states);
 
+            # This is the one special case - single items are checkboxes
+            $form->field(name => 'answer', options => 'Yes');
+
         There is no threshold for checkboxes since these are basically a
         type of multiple radio select group. As such, a radio group becomes
         a checkbox group if there are multiple values (not options, but
@@ -544,9 +566,8 @@ FUNCTIONS
         By default CGI::FormBuilder tries to be pretty smart for you, like
         figuring out the types of fields based on their names and number of
         options. If you don't want this behavior at all, set "smartness" to
-        "0". If you want it to be really smart, like figuring out what type
-        of validation routines to use for you, set it to "2". It defaults to
-        "1".
+        0. If you want it to be really smart, like figuring out what type of
+        validation routines to use for you, set it to 2. It defaults to 1.
 
     static => 1 | 0
         If set to 1, then the form will be output with static hidden fields.
@@ -579,7 +600,7 @@ FUNCTIONS
             my $clicked = $form->submitted;
 
         So if the user clicked "Add A Gift" then that is what would end up
-        in the variable "$clicked" above. This allows nice conditionality:
+        in the variable $clicked above. This allows nice conditionality:
 
             if ($form->submitted eq 'Add A Gift') {
                 # show the gift selection screen
@@ -718,9 +739,9 @@ FUNCTIONS
 
         Note that for both the "javascript" and "perl" hashref code options,
         the form will be present as the variable named "form". For the Perl
-        code, you actually get a complete "$form" object meaning that you
-        have full access to all its methods (although the "field()" method
-        is probably the only one you'll need for validation).
+        code, you actually get a complete $form object meaning that you have
+        full access to all its methods (although the "field()" method is
+        probably the only one you'll need for validation).
 
         In addition to taking any regular expression you'd like, the
         "validate" option also has many builtin defaults that can prove
@@ -729,6 +750,8 @@ FUNCTIONS
             VALUE   -  is any type of non-null value
             WORD    -  is a word (\w+)
             NAME    -  matches [a-zA-Z] only
+            FNAME   -  person's first name, like "Jim" or "Joe-Bob"
+            LNAME   -  person's last name, like "Smith" or "King, Jr."
             NUM     -  number, decimal or integer
             INT     -  integer
             FLOAT   -  floating-point number
@@ -739,6 +762,8 @@ FUNCTIONS
             DATE    -  date in format MM/DD/YYYY or DD/MM/YYYY
             MMYY    -  date in format MM/YY or MMYY
             MMYYYY  -  date in format MM/YYYY or MMYYYY
+            CCMM    -  strict checking for valid credit card 2-digit month ([0-9]|1[012])
+            CCYY    -  valid credit card 2-digit year
             ZIPCODE -  US postal code in format 12345 or 12345-6789
             STATE   -  valid two-letter state all in uppercase
             IPV4    -  valid IPv4 address (sort of, see module)
@@ -759,7 +784,7 @@ FUNCTIONS
 
   field(name => $name, opt => $val, opt => $val)
 
-    This method is called on the "$form" object you get from the "new()"
+    This method is called on the $form object you get from the "new()"
     method above, and is used to manipulate individual fields. Normally you
     do not need to use this at all. However, if you want to specify
     something is a certain type of input, or has a certain set of options,
@@ -776,7 +801,7 @@ FUNCTIONS
                      options => \@states);
 
     Then, when you used "render()" to create the form output, the "state"
-    field would appear as a select list with the values in "@states" as
+    field would appear as a select list with the values in @states as
     options.
 
     If just given the "name" argument and no other options, then the value
@@ -841,7 +866,7 @@ FUNCTIONS
                          options => \@cards)
 
         This would generate the following code, depending on the number of
-        "@cards":
+        @cards:
 
             <select name="credit_card" onChange="recalc_total();"> ...
 
@@ -954,7 +979,7 @@ FUNCTIONS
             $form->field(name => 'category', options => \@cats,
                          sortopts => 'alpha');
 
-        Would sort the "@cats" options in alpha order.
+        Would sort the @cats options in alpha order.
 
     type => $type
         Type of input box to make it. Default is "text", and valid values
@@ -993,6 +1018,10 @@ FUNCTIONS
 
         (Of course, for this to really work you still have to create a class
         called "FormField" in your stylesheet.)
+
+        See also the "fieldattr" option which can be passed to either
+        "new()" or "render()" and which provides global defaults for all
+        fields.
 
   cgi_param(opt => $val, opt => $val)
 
@@ -1134,7 +1163,7 @@ FUNCTIONS
 
         my $id = $form->sessionid;
 
-    This would set "$id" to "0123-091231" in your script.
+    This would set $id to "0123-091231" in your script.
 
 EXAMPLES
     I find this module incredibly useful, so here are even more examples,
@@ -1304,9 +1333,92 @@ EXAMPLES
         print $form->render(values => $default_hashref,
                             title => "User information for '$user'");
 
-QUESTIONS AND TRAPS
+FREQUENTLY ASKED QUESTIONS
     There are a couple questions and subtle traps that seem to poke people
     on a regular basis. Here are some hints.
+
+  I'm confused. Why doesn't field() work like CGI's param()?
+
+        If you're used to "CGI.pm", you have to do a little bit of a brain
+        shift when working with this module.
+
+        First, this module is designed to address fields as *abstract
+        entities*. That is, you don't create a "checkbox" or "radio group"
+        per se. Instead, you create a field named for the data you want to
+        collect. FormBuilder takes care of figuring out what the most
+        optimal HTML representation is for you.
+
+        So, if you want a single-option checkbox, simply say something like
+        this:
+
+            $form->field(name => 'join_mailing_list', options => 'Yes');
+
+        If you want it to be checked by default, you add the "value" arg:
+
+            $form->field(name  => 'join_mailing_list', options => 'Yes',
+                         value => 'Yes');
+
+        You see, you're creating a field that has one possible option:
+        "Yes". Then, you're saying its current value is, in fact, "Yes".
+        This will result in FormBuilder creating a single-option field
+        (which is a checkbox by default) and selecting the requested value
+        (meaning that the box will be checked).
+
+        If you want multiple values, then all you have to do is specify
+        multiple options:
+
+            $form->field(name  => 'join_mailing_list', options => [qw/Yes No/],
+                         value => 'Yes');
+
+        Now you'll get a radio group, and "Yes" will be selected for you! By
+        viewing fields as data entities (instead of HTML tags) you get much
+        more flexibility and less code maintenance. If you want to be able
+        to accept multiple values, simply add the "multiple" arg:
+
+            $form->field(name    => 'favorite_colors', multiple => 1,
+                         options => [qw/red green blue]);
+
+        Depending on the number of "options" you have, you'll get either a
+        set of checkboxes or a multiple select list (unless you manually
+        override this with the "type" arg). Regardless, though, to get the
+        data back all you have to say is:
+
+            my @colors = $form->field('favorite_colors');
+
+        And the rest is taken care of for you.
+
+  How do I make a multi-screen/multi-mode form?
+
+        This is easily doable, but you have to remember a couple things.
+        Most importantly, that FormBuilder only knows about those fields
+        you've told it about. So, let's assume that you're going to use a
+        special parameter called "mode" to control the mode of your
+        application so that you can call it like this:
+
+            myapp.cgi?mode=list&...
+            myapp.cgi?mode=edit&...
+            myapp.cgi?mode=remove&...
+
+        And so on. You need to do two things. First, you need the
+        "keepextras" option:
+
+            my $form = CGI::FormBuilder->new(..., keepextras => 1);
+
+        This will maintain the "mode" field as a hidden field across
+        requests automatically. Second, you need to realize that since the
+        "mode" is not a defined field, you have to get it via the
+        "cgi_param()" method:
+
+            my $mode = $form->cgi_param('mode');
+
+        This will allow you to build a large multiscreen application easily,
+        even integrating it with modules like "CGI::Application" or if you
+        want.
+
+        You can also do this by simply defining "mode" as a field in your
+        "fields" declaration. The reason this is discouraged is because when
+        iterating over your fields you'll get "mode", which you likely don't
+        want (since it's not "real" data).
 
   Why won't CGI::FormBuilder work with POST requests?
 
@@ -1357,6 +1469,16 @@ QUESTIONS AND TRAPS
         By turning off the "sticky" option, you will still be able to access
         the values but they won't show up in the form.
 
+  How do I override the value of a field?
+
+        Simple, just use:
+
+            $form->field(name => 'name_of_field', value => $value);
+
+        Note that until recently, this was totally broken. So if you're
+        having problems make sure you're running at least version 1.86
+        (which you should be if you're reading this).
+
   How can I change option XXX based on a conditional?
 
         Remember that "render()" can take any option that "new()" can. This
@@ -1382,6 +1504,20 @@ QUESTIONS AND TRAPS
         "render()", you could have specified "fields" to "new()" above since
         they are the same for both conditions.
 
+  Can FormBuilder handle file uploads?
+
+        It sure can, and it's really easy too. Just change the "enctype" as
+        an option to "new()":
+
+            my $form = CGI::FormBuilder->new(enctype => 'multipart/form-data',
+                                             method  => 'POST', fields => [qw/file/]);
+
+        And then get your file with:
+
+            my $file = $form->field('file');
+
+        In fact, that's a whole file upload program right there.
+
 BUGS AND FEATURES
     This has been used pretty thoroughly in a production environment for a
     while now, so it's definitely stable, but I would be shocked if it's
@@ -1405,8 +1541,12 @@ NOTES
     as that module is much faster than "CGI.pm". It is recommended you get
     it and install it!
 
+ACKNOWLEDGEMENTS
+    Much thanks to Mark Belanger for lots of useful feedback and several
+    useful regex additions to the module.
+
 VERSION
-    $Id: FormBuilder.pm,v 1.84 2001/10/29 18:57:30 nwiger Exp $
+    $Id: FormBuilder.pm,v 1.89 2001/11/12 21:53:19 nwiger Exp $
 
 AUTHOR
     Copyright (c) 2001 Nathan Wiger <nate@wiger.org>. All Rights Reserved.

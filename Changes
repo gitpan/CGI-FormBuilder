@@ -1,15 +1,39 @@
 
 RCS file: /home/nwiger/perlmod/lib/CGI/RCS/FormBuilder.pm,v
 Working file: /home/nwiger/perlmod/lib/CGI/FormBuilder.pm
-head: 1.84
+head: 1.89
 branch:
 locks: strict
 access list:
 symbolic names:
 keyword substitution: kv
-total revisions: 84;	selected revisions: 84
+total revisions: 89;	selected revisions: 89
 description:
 CGI::FormBuilder for building form-based applications
+----------------------------
+revision 1.89
+date: 2001/11/12 21:53:19;  author: nwiger;  state: Exp;  lines: +34 -2
+added docs on multiscreen app
+----------------------------
+revision 1.88
+date: 2001/11/12 21:05:48;  author: nwiger;  state: Exp;  lines: +39 -3
+added fieldtype and fieldattr, very useful options
+----------------------------
+revision 1.87
+date: 2001/11/10 00:17:29;  author: nwiger;  state: Exp;  lines: +93 -13
+*interim checkin* many docs improvements, made _ismember case-insesitive
+NOTE: this release changed name of submit buttons from _submit to submit!
+----------------------------
+revision 1.86
+date: 2001/11/09 01:31:37;  author: nwiger;  state: Exp;  lines: +29 -7
+fixed several bugs, and added new regex patterns thanks to Mark Belanger
+----------------------------
+revision 1.85
+date: 2001/11/07 23:43:02;  author: nwiger;  state: Exp;  lines: +35 -40
+fixed a bug where field(value => $x) was not working for sticky values
+also fixed a problem where header => 0 was removing too much useful stuff
+also added a feature where single-option fields are checkboxes, otherwise
+you can't unselect them properly
 ----------------------------
 revision 1.84
 date: 2001/10/29 18:57:30;  author: nwiger;  state: Exp;  lines: +5 -5
