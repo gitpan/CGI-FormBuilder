@@ -4,8 +4,10 @@ use strict;
 use Test;
 
 # use a BEGIN block so we print our plan before CGI::FormBuilder is loaded
-BEGIN { plan tests => 1, todo => [1] }
+# XXX This test is currently broken on all platforms
+BEGIN { plan tests => 1, todo => [1]; }
 
+# Keep upload contents
 my $junkfile = '/tmp/fbtest.junk.file';
 
 # Fake a file uploading, which is tricky

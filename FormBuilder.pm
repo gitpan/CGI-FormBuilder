@@ -46,7 +46,7 @@ CGI::FormBuilder - Easily generate and process stateful forms
 use Carp;
 use strict;
 use vars qw($VERSION @ISA @EXPORT @EXPORT_OK);
-$VERSION = do { my @r=(q$Revision: 2.0 $=~/\d+/g); sprintf "%d."."%02d"x$#r,@r };
+$VERSION = do { my @r=(q$Revision: 2.2 $=~/\d+/g); sprintf "%d."."%02d"x$#r,@r };
 
 # use CGI for stickiness (prefer CGI::Minimal for _much_ better speed)
 # we try the faster one first, since they're compatible for our needs
@@ -104,7 +104,7 @@ my @OURATTR = qw(options attr sortopts title text body validate javascript field
                  selectnum checknum radionum table label labels comment nameopts
                  required header linebreaks sticky invalid template keepextras
                  smartness debug lalign submit reset params multiple values static
-                 fieldtype fieldattr font);
+                 fieldtype fieldattr font force value_orig);
 
 # trick for speedy lookup
 my %OURATTR = map { $_ => 1 } @OURATTR;
@@ -305,16 +305,23 @@ sub _initfields {
             debug 2, "CGI yielded $k = @v";
             $self->{fields}{$k}{value} = \@v;
             $self->{field_cgivals}{$k} = 1;
-        } elsif (keys %val) {
-            # we do not set the value to null if it's already
-            # been manually initialized, say through a field() call
-            $self->{fields}{$k}{value} = $val{lc($k)} unless $self->{field_inited}{$k};
-        } elsif (@val) {
-            # now accept an arrayref to 'values' as well; walk sequentially
-            $self->{fields}{$k}{value} = [_data shift @val] unless $self->{field_inited}{$k};
+        } elsif (! $self->{field_inited}{$k}) {
+            # we do not set the value here if it's already been 
+            # manually initialized, say through a field() call
+            if (keys %val) {
+                # 'values' hashref arg
+                $self->{fields}{$k}{value} = $val{lc($k)};
+            } elsif (@val) {
+                # now accept an arrayref to 'values' as well; walk sequentially
+                $self->{fields}{$k}{value} = [_data shift @val];
+            }
+            # first time around, save "original" value; this is used
+            # later to resolve conflicts between sticky => 0 and values => $ref 
+            $self->{fields}{$k}{value_orig} ||= $self->{fields}{$k}{value};
         }
         debug 2, "set value $k = " . join ', ', @{$self->{fields}{$k}{value}}
                     if $self->{fields}{$k}{value};
+
     }
 
     # Finally, if the user asked for "realsmart", then we try to automatically
@@ -512,6 +519,7 @@ sub field {
         local $^W = 0;   # length() triggers uninit, too slow to catch
         if ($CGI && length $CGI->param($args{name})) {
             debug 1, "sticky $args{name} from CGI = " . $CGI->param($args{name});
+            $self->{fields}{"$args{name}"}{value_orig} ||= $self->{fields}{"$args{name}"}{value};
             $self->{fields}{"$args{name}"}{value} = [ $CGI->param($args{name}) ];
             $self->{field_cgivals}{"$args{name}"} = 1;
         }
@@ -525,9 +533,10 @@ sub field {
         debug 2, "walking field() args: $k => $v";
         if ($k eq 'value') {
             # don't set value if CGI already has!
-            next if $self->{field_cgivals}{"$args{name}"};
+            next if $self->{field_cgivals}{"$args{name}"} && ! $args{force};
             debug 1, "manually forced field $args{name} value => $v";
             $self->{field_inited}{"$args{name}"} = 1;
+            $self->{fields}{"$args{name}"}{value_orig} ||= $self->{fields}{"$args{name}"}{value};
             $v = [_data $v];
         }
         $self->{fields}{"$args{name}"}{$k} = $v;
@@ -573,8 +582,26 @@ sub render {
         if $args{params};
 
     # These options default to 1
-    for my $def2one (qw/javascript sticky labels smartness/) {
+    for my $def2one (qw/sticky labels smartness/) {
         $args{$def2one} = 1 unless exists $args{$def2one};
+    }
+
+    # Per request of Peter Billam, auto-determine javascript setting
+    # based on user agent
+    if (! exists $args{javascript}) {
+        if (exists $ENV{HTTP_USER_AGENT}
+                && $ENV{HTTP_USER_AGENT} =~ /lynx|mosaic/i)
+        {
+            # Turn off for old/non-graphical browsers
+            $args{javascript} = 0;    
+        } else {
+            # Turn on for all other browsers by default.
+            # I suspect this process should be reversed, only
+            # showing JavaScript on those browsers we know accept
+            # it, but maintaining a full list will result in this
+            # module going out of date and having to be updated.
+            $args{javascript} = 1;
+        }
     }
 
     # Process any fields specified, if applicable
@@ -648,9 +675,10 @@ sub render {
 
     # For holding the JavaScript validation code
     my $jsfunc = '';
+    my $jsname = $args{name} ? "validate_$args{name}" : 'validate';
     if ($args{javascript} && $args{validate} || $args{required}) {
         $jsfunc .= "\n" . _tag('script', language => 'JavaScript1.2')
-                 . "<!-- hide from old browsers\nfunction validate (form) {\n";
+                 . "<!-- hide from old browsers\nfunction $jsname (form) {\n";
 
     }
 
@@ -679,12 +707,14 @@ sub render {
         # We setup the value separately, delete it, then reinstate later
         my $vattr = delete $attr->{value};
         my @value = defined $vattr ? @{$vattr} : ();
+        debug 2, "$field: retrieved value '@value' from \$attr->{value}";
 
         # Kill the value if we're not sticky (sticky => 0), but
         # only if we got the value from CGI (manual values aren't affected)
-        @value = () if (! $args{sticky} && defined($self->{field_cgivals}{$field}));
-
-        debug 2, "$field: retrieved value '@value' from \$attr->{value}";
+        if (! $args{sticky} && defined($self->{field_cgivals}{$field})) {
+            @value = _data $attr->{value_orig};
+            debug 2, "$field: reset value to '@value' as src was CGI and sticky => 0";
+        }
 
         # override the type if we're printing them out statically
         $attr->{type} = 'hidden' if $args{static};
@@ -1027,10 +1057,10 @@ EOF
         $jsfunc .= $args{jshead} if $args{jshead};  # user-defined javascript
         $jsfunc .= "//-->\n</script><noscript>"
                  . q(<font color="red"><b>Please enable JavaScript or use a newer browser</b>)
-                 . q(</font></noscript>);
+                 . q(</font></noscript><p>);
         # setup our form onSubmit
         # needs to be ||= so user can overrride w/ own tag
-        $args{onSubmit} ||= 'return validate(this);'; 
+        $args{onSubmit} ||= "return $jsname(this);"; 
     }
 
     # handle the submit/reset buttons
@@ -1306,7 +1336,7 @@ sub submitted {
     return unless $CGI;
     my $self = shift;
     my $smtag = shift || ('_submitted' . ($self->{opt}{name} ? "_$self->{opt}{name}" : ''));
-    if ($CGI->param($smtag) || $CGI->param('submit')) {
+    if ($CGI->param($smtag)) {
         # If we've been submitted, then we return the value of
         # the submit tag (which allows multiple submission buttons).
         # Must use an "|| 0E0" or else hitting "Enter" won't cause
@@ -1971,6 +2001,13 @@ This names the form. It is optional, but if you specify it you must
 do so in C<new()> since the name is then used to alter how variables
 are created and looked up.
 
+This option has an important side effect. When used, it renames several
+key variables and functions according to the name of the form. This
+allows you to (a) use multiple forms in a sequential application and
+(b) display multiple forms inline in one document. If you're trying
+to build a complex multi-form app and are having problems, try naming
+your forms.
+
 =item params => $object
 
 This option can B<only> be specified to C<new()> but not to C<render()>.
@@ -2406,6 +2443,12 @@ You would use the following:
 The C<comment> can actually be anything you want (even another
 form field). But don't tell anyone I said that.
 
+=item force => 1 | 0
+
+This is used in conjunction with the C<value> option to forcibly
+override a field's value. See below under the C<value> option for
+more details.
+
 =item jsclick => $jscode
 
 This is a simple abstraction over directly specifying the JavaScript
@@ -2586,6 +2629,16 @@ result in the field automatically becoming a multiple select list
 or checkbox group, depending on the number of options specified
 above.
 
+Just like the 'values' to C<new()>, this can be overridden by
+CGI values. To forcibly change a value, you need to specify the
+C<force> option described above, for example:
+
+    $form->field(name => 'credit_card', value => 'not shown',
+                 force => 1);
+
+This would make the C<credit_card> field into "not shown",
+useful for hiding stuff if you're going to use C<mailresults()>.
+
 =item validate => '/regex/'
 
 Similar to the C<validate> option used in C<new()>, this affects
@@ -2683,6 +2736,11 @@ It's best to call C<validate()> in conjunction with this to make
 sure the form validation works. To make sure you're getting accurate
 info, it's recommended that you name your forms with the C<name>
 option described above.
+
+If you're writing a multiple-form app, you should name your forms
+with the 'name' option to ensure that you are getting an accurate
+return value from this sub. See the 'name' option above, under
+C<render()>.
 
 You can also specify the name of an optional field which you want to
 "watch" instead of the default C<_submitted> hidden field. This is useful
@@ -3564,7 +3622,7 @@ L<HTML::Template>, L<Template>, L<CGI::Minimal>, L<CGI>, L<CGI::Application>
 
 =head1 VERSION
 
-$Id: FormBuilder.pm,v 2.0 2001/12/22 02:25:22 nwiger Exp $
+$Id: FormBuilder.pm,v 2.2 2002/02/14 22:38:37 nwiger Exp $
 
 =head1 AUTHOR
 

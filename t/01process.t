@@ -12,8 +12,11 @@ $ENV{QUERY_STRING}   = 'user=pete&action=Unsubscribe&name=Pete+Peteson&email=pet
 
 use CGI::FormBuilder;
 
+# UNIX test
+my $NOT_UNIX = -d '/usr' ? 0 : 1;
+
 # Now manually try a whole bunch of things
-ok(do {
+skip($NOT_UNIX, do {
     my $form = CGI::FormBuilder->new(fields => [qw/user name email/]);
     if ($form->submitted) {
         1;
@@ -22,7 +25,7 @@ ok(do {
     }
 }, 1);
 
-ok(do {
+skip($NOT_UNIX, do {
     my $form = CGI::FormBuilder->new(fields   => [qw/user name email/],
                                      validate => { email => 'EMAIL' } );
     if ($form->submitted && $form->validate) {
@@ -32,7 +35,7 @@ ok(do {
     }
 }, 1);
 
-ok(do {
+skip($NOT_UNIX, do {
     # this should fail since we are saying our email should be a netmask
     my $form = CGI::FormBuilder->new(fields => [qw/user name email/],
                                      validate => { email => 'NETMASK' } );
@@ -43,7 +46,7 @@ ok(do {
     }
 }, 0);
 
-ok(do {
+skip($NOT_UNIX, do {
     # this should also fail since the submission key will be _submitted_magic,
     # and our query_string only has _submitted in it
     my $form = CGI::FormBuilder->new(fields => [qw/user name email/],
@@ -55,7 +58,7 @@ ok(do {
     }
 }, 0);
 
-ok(do {
+skip($NOT_UNIX, do {
     # CGI should override default values
     my $form = CGI::FormBuilder->new(fields => [qw/user name email/],
                                      values => { user => 'jim' } );
@@ -66,7 +69,7 @@ ok(do {
     }
 }, 1);
 
-ok(do {
+skip($NOT_UNIX, do {
     # test a similar thing, by with mixed-case values
     my $form = CGI::FormBuilder->new(fields => [qw/user name email Addr/],
                                      values => { User => 'jim', ADDR => 'Hello' } );
@@ -77,7 +80,7 @@ ok(do {
     }
 }, 1);
 
-ok(do {
+skip($NOT_UNIX, do {
     # test a similar thing, by with mixed-case values
     my $form = CGI::FormBuilder->new(fields => { User => 'jim', ADDR => 'Hello' } );
     if ($form->submitted && ! $form->field('Addr') && $form->field('ADDR') eq 'Hello') {
@@ -87,7 +90,7 @@ ok(do {
     }
 }, 1);
 
-ok(do {
+skip($NOT_UNIX, do {
     my $form = CGI::FormBuilder->new(fields => []);   # no fields!
     if ($form->submitted) {
         if ($form->field('name') || $form->field('extra')) {
@@ -104,7 +107,7 @@ ok(do {
     }
 }, 1);
 
-ok(do {
+skip($NOT_UNIX, do {
     # test if required does what v1.97 thinks it should (should fail)
     my $form = CGI::FormBuilder->new(fields => { user => 'nwiger', pass => '' },
                                      validate => { user => 'USER' },
@@ -116,7 +119,7 @@ ok(do {
     }
 }, 0);
 
-ok(do {
+skip($NOT_UNIX, do {
     # YARC (yet another 'required' check)
     my $form = CGI::FormBuilder->new(
                     fields => [qw/name email phone/],
@@ -130,7 +133,7 @@ ok(do {
     }
 }, 1);
 
-ok(do {
+skip($NOT_UNIX, do {
     # test of proper CGI precendence when manually setting values
     my $form = CGI::FormBuilder->new(
                     fields => [qw/name email action/],
@@ -146,7 +149,7 @@ ok(do {
     }
 }, 1);
 
-ok(do {
+skip($NOT_UNIX, do {
     # see if our checkboxes work how we want them to
     my $form = CGI::FormBuilder->new(
                     fields => [qw/name color/],
@@ -173,7 +176,7 @@ function validate (form) {
     return true;  // all checked ok
 }
 //-->
-</script><noscript><font color="red"><b>Please enable JavaScript or use a newer browser</b></font></noscript>Fields shown in <b>bold</b> are required.<form action="01process.t" method="GET" onSubmit="return validate(this);"><input name="_submitted" type="hidden" value="2"><input name="_sessionid" type="hidden" value=""><table>
+</script><noscript><font color="red"><b>Please enable JavaScript or use a newer browser</b></font></noscript><p>Fields shown in <b>bold</b> are required.<form action="01process.t" method="GET" onSubmit="return validate(this);"><input name="_submitted" type="hidden" value="2"><input name="_sessionid" type="hidden" value=""><table>
 <tr><td align="left"><b>Name</b></td><td><input name="name" type="text"></td></tr>
 <tr><td align="left">Favorite Color</td><td><input name="color" type="checkbox" value="red"> Red <input name="color" type="checkbox" value="green"> Green <input name="color" type="checkbox" value="blue"> Blue </td></tr>
 <tr><td colspan="2"><center><input name="reset" type="reset" value="Reset"><input name="submit" type="submit" value="Submit"></center></td></tr></table>

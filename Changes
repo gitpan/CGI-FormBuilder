@@ -1,15 +1,27 @@
 
 RCS file: /home/nwiger/perlmod/lib/CGI/RCS/FormBuilder.pm,v
 Working file: /home/nwiger/perlmod/lib/CGI/FormBuilder.pm
-head: 2.0
+head: 2.2
 branch:
 locks: strict
 access list:
 symbolic names:
 keyword substitution: kv
-total revisions: 100;	selected revisions: 100
+total revisions: 102;	selected revisions: 102
 description:
 CGI::FormBuilder for building form-based applications
+----------------------------
+revision 2.2
+date: 2002/02/14 22:38:37;  author: nwiger;  state: Exp;  lines: +60 -18
+fixed bug in sticky option that was overwriting default values
+removed check for 'submit' field in submitted() function
+added _name suffix to javascript validate() generation, allowing
+multiple javascript validation functions when forms are named
+----------------------------
+revision 2.1
+date: 2002/01/04 23:26:18;  author: nwiger;  state: Exp;  lines: +19 -3
+added new 'force' option to allow field() to win reliably
+fixed test suite so it works on Windoze correctly
 ----------------------------
 revision 2.0
 date: 2001/12/22 02:25:22;  author: nwiger;  state: Exp;  lines: +617 -266

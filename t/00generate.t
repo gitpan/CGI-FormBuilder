@@ -12,6 +12,9 @@ $ENV{QUERY_STRING}   = 'ticket=111&user=pete&replacement=TRUE';
 
 use CGI::FormBuilder;
 
+# UNIX test
+my $NOT_UNIX = -d '/usr' ? 0 : 1;
+
 #warn "# VERSION = $CGI::FormBuilder::VERSION\n";
 
 # What options we want to use, and what we expect to see
@@ -78,7 +81,7 @@ function validate (form) {
     return true;  // all checked ok
 }
 //-->
-</script><noscript><font color="red"><b>Please enable JavaScript or use a newer browser</b></font></noscript>Fields shown in <b>bold</b> are required.<form action="00generate.t" method="GET" onSubmit="return validate(this);"><input name="_submitted" type="hidden" value="1"><input name="_sessionid" type="hidden" value=""><table>
+</script><noscript><font color="red"><b>Please enable JavaScript or use a newer browser</b></font></noscript><p>Fields shown in <b>bold</b> are required.<form action="00generate.t" method="GET" onSubmit="return validate(this);"><input name="_submitted" type="hidden" value="1"><input name="_sessionid" type="hidden" value=""><table>
 <tr><td align="left">Email</td><td><input name="email" type="text" value="nate@wiger.org"> <font size="-1">(name@host.domain)</font></td></tr>
 <tr><td align="left"><b>First Name</b></td><td><input name="first_name" type="text" value="Nate"></td></tr>
 <tr><td colspan="2"><center><input name="reset" type="reset" value="Reset"><input name="submit" type="submit" value="Submit"></center></td></tr></table>
@@ -102,7 +105,7 @@ function validate (form) {
     return true;  // all checked ok
 }
 //-->
-</script><noscript><font color="red"><b>Please enable JavaScript or use a newer browser</b></font></noscript>Fields shown in <b>bold</b> are required.<form action="00generate.t" method="POST" onSubmit="return validate(this);"><input name="_submitted" type="hidden" value="1"><input name="_sessionid" type="hidden" value=""><input name="replacement" type="hidden" value="TRUE"><table>
+</script><noscript><font color="red"><b>Please enable JavaScript or use a newer browser</b></font></noscript><p>Fields shown in <b>bold</b> are required.<form action="00generate.t" method="POST" onSubmit="return validate(this);"><input name="_submitted" type="hidden" value="1"><input name="_sessionid" type="hidden" value=""><input name="replacement" type="hidden" value="TRUE"><table>
 <tr><td align="left"><b>Ticket</b></td><td><input name="ticket" type="text" value="111"></td></tr>
 <tr><td align="left">User</td><td><input name="user" type="text" value="pete"></td></tr>
 <tr><td align="left">Part Number</td><td><input name="part_number" type="text"></td></tr>
@@ -168,7 +171,7 @@ function validate (form) {
     return true;  // all checked ok
 }
 //-->
-</script><noscript><font color="red"><b>Please enable JavaScript or use a newer browser</b></font></noscript></head><body bgcolor="white"><h3>00generate</h3>Fields shown in <b>bold</b> are required.<form action="00generate.t" method="GET" onSubmit="return validate(this);"><input name="_submitted" type="hidden" value="1"><input name="_sessionid" type="hidden" value=""><input name="ticket" type="hidden" value="111"><input name="user" type="hidden" value="pete"><input name="replacement" type="hidden" value="TRUE"><table>
+</script><noscript><font color="red"><b>Please enable JavaScript or use a newer browser</b></font></noscript><p></head><body bgcolor="white"><h3>00generate</h3>Fields shown in <b>bold</b> are required.<form action="00generate.t" method="GET" onSubmit="return validate(this);"><input name="_submitted" type="hidden" value="1"><input name="_sessionid" type="hidden" value=""><input name="ticket" type="hidden" value="111"><input name="user" type="hidden" value="pete"><input name="replacement" type="hidden" value="TRUE"><table>
 <tr><td align="left"><b>Hostname</b></td><td><input name="hostname" type="text" value="localhost"></td></tr>
 <tr><td align="left"><b>Domain</b></td><td><input name="domain" type="text" value="localdomain"></td></tr>
 <tr><td colspan="2"><center><input name="reset" type="reset" value="Reset"><input name="submit" type="submit" value="Submit"></center></td></tr></table>
@@ -185,6 +188,7 @@ for (@test) {
         $o->{name} = $f;
         $form->field(%$o);
     }
-    ok($form->render, $_->{res});
+    # skip all tests on non-UNIX platforms because of fucking CRLF
+    skip($NOT_UNIX, $form->render, $_->{res});
 }
 
