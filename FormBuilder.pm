@@ -105,7 +105,7 @@ CGI::FormBuilder - Easily generate and process stateful forms
 use Carp;
 use strict;
 use vars qw($VERSION @ISA @EXPORT @EXPORT_OK);
-$VERSION = do { my @r=(q$Revision: 1.91 $=~/\d+/g); sprintf "%d."."%02d"x$#r,@r };
+$VERSION = do { my @r=(q$Revision: 1.92 $=~/\d+/g); sprintf "%d."."%02d"x$#r,@r };
 
 # use CGI for stickiness (prefer CGI::Minimal for _much_ better speed)
 # we try the faster one first, since they're compatible for our needs
@@ -140,7 +140,7 @@ my %VALID = (
     ZIPCODE=> '/^\d{5}$|^\d{5}\-\d{4}$/',
     STATE => ['/^[a-zA-Z]{2}$/', 'two-letter abbr'],
     IPV4  => '/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/',  # not strictly correct (allows 555.555)
-    NETMASK => '/^(\d{1,3}\.){0,3}\d{1,3}$/'.
+    NETMASK => '/^(\d{1,3}\.){0,3}\d{1,3}$/',
     FILE  => ['/^[\/\w\.\-]+$/', 'UNIX format'],
     WINFILE => ['/^[a-zA-Z]:\\[\\\w\s\.\-]+$/', 'Windows format'],
     MACFILE => ['/^[:\w\.\-]+$/', 'Mac format'],
@@ -3138,7 +3138,7 @@ L<HTML::Template>, L<Template>, L<CGI::Minimal>, L<CGI>
 
 =head1 VERSION
 
-$Id: FormBuilder.pm,v 1.91 2001/12/11 23:49:21 nwiger Exp $
+$Id: FormBuilder.pm,v 1.92 2001/12/12 22:00:43 nwiger Exp $
 
 =head1 AUTHOR
 

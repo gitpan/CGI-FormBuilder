@@ -1,15 +1,19 @@
 
 RCS file: /home/nwiger/perlmod/lib/CGI/RCS/FormBuilder.pm,v
 Working file: /home/nwiger/perlmod/lib/CGI/FormBuilder.pm
-head: 1.91
+head: 1.92
 branch:
 locks: strict
 access list:
 symbolic names:
 keyword substitution: kv
-total revisions: 91;	selected revisions: 91
+total revisions: 92;	selected revisions: 92
 description:
 CGI::FormBuilder for building form-based applications
+----------------------------
+revision 1.92
+date: 2001/12/12 22:00:43;  author: nwiger;  state: Exp;  lines: +3 -3
+fixed major bug w/ predefined regexps
 ----------------------------
 revision 1.91
 date: 2001/12/11 23:49:21;  author: nwiger;  state: Exp;  lines: +40 -33

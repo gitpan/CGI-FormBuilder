@@ -1740,7 +1740,7 @@ SEE ALSO
     manpage, the CGI manpage
 
 VERSION
-    $Id: FormBuilder.pm,v 1.91 2001/12/11 23:49:21 nwiger Exp $
+    $Id: FormBuilder.pm,v 1.92 2001/12/12 22:00:43 nwiger Exp $
 
 AUTHOR
     Copyright (c) 2001 Nathan Wiger <nate@wiger.org>. All Rights Reserved.
