@@ -1,4 +1,18 @@
 
+CHANGES SINCE 2.11
+    Many bugfixes were made, including:
+
+        - full XHTML compliance (thanks to Robert Kaes)
+        - a Template Toolkit issue with "field.invalid" (thanks to Stephan Springl)
+        - bad -x "sendmail -t" test and header problems (thanks to Adam Foxson)
+        - problem with $validate || $required leaving JS remnants (thanks to Ryan Tate)
+        - more sensible internal multiple => 1 handling
+        - addition of skip => /pat/ option to mail*
+        - problem w/ multiple-value validation being broken
+
+    The rest of this document is identical to the notes regarding 2.11
+
+
 IMPORTANT SECURITY FIX!
 
     Thanks to much help from Robert Mathews and Remi Turboult, two
@@ -48,3 +62,4 @@ Literal Javascript was not being properly included in "jsfunc"
 Many miscellaneous loose ends tied up
     Many thanks to Brad Bowman for sending me a plethora of patches
     fixing a bunch of annoyances.
+

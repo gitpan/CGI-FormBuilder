@@ -8,7 +8,7 @@ package CGI::FormBuilder;
 use Carp;
 use strict;
 use vars qw($VERSION $CGIMOD $CGI $AUTOLOAD);
-$VERSION = do { my @r=(q$Revision: 2.11 $=~/\d+/g); sprintf "%d."."%02d"x$#r,@r };
+$VERSION = do { my @r=(q$Revision: 2.12 $=~/\d+/g); sprintf "%d."."%02d"x$#r,@r };
 
 # We used to try to use CGI::Minimal for better speed, but
 # unfortunately its support for file uploads it unsuitable
@@ -35,7 +35,7 @@ my %VALID = (
     FLOAT => '/^-?\s*[0-9]+\.[0-9]+$/',
     PHONE => ['/^\d{3}\-\d{3}\-\d{4}$|^\(\d{3}\)\s+\d{3}\-\d{4}$/', '123-456-7890'],
     INTPHONE => ['/^\+\d+[\s\-][\d\-\s]+$/', '+prefix local-number'],
-    EMAIL => ['/^[\w\-\+\.]+\@[a-zA-Z0-9][-a-zA-Z0-9\.]*\.[a-zA-Z]+$/', 'name@host.domain'],
+    EMAIL => ['/^[\w\-\+\._]+\@[a-zA-Z0-9][-a-zA-Z0-9\.]*\.[a-zA-Z]+$/', 'name@host.domain'],
     CARD  => '/^\d{4}[\- ]?\d{4}[\- ]?\d{4}[\- ]?\d{4}$|^\d{4}[\- ]?\d{6}[\- ]?\d{5}$/',
     MMYY  => ['/^(0?[1-9]|1[0-2])\/?[0-9]{2}$/', 'MM/YY'],
     MMYYYY=> ['/^(0?[1-9]|1[0-2])\/?[0-9]{4}$/', 'MM/YYYY'],
@@ -47,10 +47,10 @@ my %VALID = (
     COUNTRY => ['/^[a-zA-Z]{2}$/', 'two-letter abbr'],
     IPV4  => ['/^([0-1]??\d{1,2}|2[0-4]\d|25[0-5])\.([0-1]??\d{1,2}|2[0-4]\d|25[0-5])\.([0-1]??\d{1,2}|2[0-4]\d|25[0-5])\.([0-1]??\d{1,2}|2[0-4]\d|25[0-5])$/', 'IP address'],
     NETMASK => ['/^([0-1]??\d{1,2}|2[0-4]\d|25[0-5])\.([0-1]??\d{1,2}|2[0-4]\d|25[0-5])\.([0-1]??\d{1,2}|2[0-4]\d|25[0-5])\.([0-1]??\d{1,2}|2[0-4]\d|25[0-5])$/', 'IP netmask'],
-    FILE  => ['/^[\/\w\.\-]+$/', 'UNIX format'],
+    FILE  => ['/^[\/\w\.\-_]+$/', 'UNIX format'],
     WINFILE => ['/^[a-zA-Z]:\\[\\\w\s\.\-]+$/', 'Windows format'],
-    MACFILE => ['/^[:\w\.\-]+$/', 'Mac format'],
-    USER  => ['/^[-a-zA-Z0-9]{4,8}$/', '4-8 characters'],  # require a 4-8 char username
+    MACFILE => ['/^[:\w\.\-_]+$/', 'Mac format'],
+    USER  => ['/^[-a-zA-Z0-9_]{4,8}$/', '4-8 characters'],  # require a 4-8 char username
     HOST  => ['/^[a-zA-Z0-9][-a-zA-Z0-9]*$/', 'valid hostname'],
     DOMAIN=> ['/^[a-zA-Z0-9][-a-zA-Z0-9\.]*\.[a-zA-Z]+$/', 'DNS domain'],   # mostly correct, but allows "dom.c-o.uk"
     ETHER => ['/^[\da-f]{1,2}[\.:]?[\da-f]{1,2}[\.:]?[\da-f]{1,2}[\.:]?[\da-f]{1,2}[\.:]?[\da-f]{1,2}[\.:]?[\da-f]{1,2}$/i', 'ethernet' ],
@@ -69,7 +69,7 @@ my %VALID = (
 my @OURATTR = qw(
     attr body checknum comment debug delete fieldattr fields fieldtype font
     force header invalid javascript keepextras label labels lalign
-    linebreaks multiple nameopts options override params radionum required
+    linebreaks nameopts options override params radionum required
     reset selectnum smartness sortopts static sticky submit table
     template title type_orig validate valign value_orig values messages 
     columns
@@ -389,7 +389,7 @@ sub _initfields () {
                 # the options are the names of the US states + DC (51)
                 $self->{fields}{$field}{options} ||= $OPTIONS{STATE};
                 debug 2, "via 'smartness' auto-determined options for '$field' field";
-            } elsif ($field =~ /^countr/i) {
+            } elsif ($field =~ /^countr/i) {    # "country" or "countries"
                 $self->{opt}{validate}{$field} ||= 'COUNTRY';
                 # the options are the currently-valid country codes, US first, of course :-)
                 $self->{fields}{$field}{options} ||= $OPTIONS{COUNTRY};
@@ -450,13 +450,16 @@ sub _tag ($;@) {
         # element, returning everything else (for an html tag)
         my $key = shift;
         # Eeek, I used "text" here and body takes a text attr!!
-        if ($OURATTR{$key} || ($key eq 'text' && $name ne 'body')) {
+        if ($OURATTR{$key} || ($key eq 'text' && $name ne 'body')
+                           || ($key eq 'multiple' && $name ne 'select')) {
             shift; next;
         }
         my $val = _escapehtml shift;    # minimalist HTML escaping
         push @tag, qq($key="$val");
     }
-    return '<' . join(' ', $name, sort @tag) . '>';
+    my $htag = join(' ', $name, sort @tag);
+    $htag .= ' /' if $name eq 'input';  # XHTML self-closing
+    return '<' . $htag . '>';
 }
 
 sub _expreqd ($$) {
@@ -498,8 +501,8 @@ sub new () {
     $args{method} ||= $method if $method;
 
     # Warning to try and catch user error
-    belch "You won't be able to get at any form values unless you specify 'fields' to new()"
-        unless $args{fields};
+    #belch "You won't be able to get at any form values unless you specify 'fields' to new()"
+        #unless $args{fields};
 
     $DEBUG = delete $args{debug} || 0;   # recall that delete returns the val deleted
 
@@ -637,7 +640,20 @@ sub field () {
             return;
         } elsif ($k eq 'validate') {
             # per-field validation; can clear with validate => undef
-            $self->{opt}{validate}{"$args{name}"} = $v;
+            $self->{opt}{$k}{"$args{name}"} = $v;
+        } elsif ($k eq 'required') {
+            # per-field validation; can clear with validate => undef
+            if (exists $self->{opt}{$k}) {
+                if (ref $self->{opt}{$k}) {
+                    push @{$self->{opt}{$k}}, $args{name};
+                } elsif ($self->{opt}{$k}) {
+                    belch "Cannot override required option in field() if set to 'ALL' or 'NONE'";
+                }
+            } elsif ($v) {
+                push @{$self->{opt}{$k}}, $args{name};
+            } else {
+                belch "Setting required => 0 in field() does not currently work right";
+            }
         }
         $self->{fields}{"$args{name}"}{$k} = $v;
         #debug 2, "\$self->{fields}{$args{name}}{$k} = $v";
@@ -772,7 +788,7 @@ sub render () {
 
     # How to handle line breaks - include <br> only if not a table
     my $br = $args{linebreaks}
-                ? ($args{table} ? "\n" : "<br>\n") : '';
+                ? ($args{table} ? "\n" : "<br />\n") : '';
 
     # For holding the JavaScript validation code
     my $jsfunc = '';
@@ -781,7 +797,7 @@ sub render () {
     # User-specified jsfunc options
     my $ajsf = delete $args{jsfunc} || '';
 
-    if ($args{javascript} && $args{validate} || $args{required}) {
+    if ($args{javascript} && ($args{validate} || $args{required})) {
         $jsfunc  = "function $jsname (form) {\n"
                  . "    var alertstr = '';\n"
                  . "    var invalid  = 0;\n\n";
@@ -799,11 +815,16 @@ sub render () {
         my $attr = $self->{fields}{$field} || {};
         debug 2, "$field: attr = $attr / attr->{value} = $attr->{value}";
 
+        # XHTML requires multiple="multiple". I just work here.
+        $attr->{multiple} &&= 'multiple';
+        delete $attr->{multiple} unless $attr->{multiple};
+        debug 1, "multiple = $attr->{multiple}" if $attr->{multiple};
+
         # print a label unless it's 0
         my $label = '';
         if ($args{labels} || ! exists $args{labels}) {
             $args{labels} = {} unless ref $args{labels} eq 'HASH';
-            $label = $attr->{label} || $args{labels}{$field} || _toname($field);
+            $label = _escapehtml($attr->{label} || $args{labels}{$field} || _toname($field));
             debug 1, "label for '$field' field set to '$label'";
         }
 
@@ -899,6 +920,7 @@ sub render () {
             $attr->{type} = 'hidden';
         }
 
+        $attr->{type} &&= lc $attr->{type};      # catch for type => 'TEXT'
         debug 1, "generating '$field' field as type '$attr->{type}' (@value)";
 
         # We now create the validation JavaScript, if it was requested
@@ -1015,9 +1037,9 @@ EOF
 
                 if ($pattern =~ m#^m?(\S)(.*)\1$#) {
                     # JavaScript regexp
-                    ($pattern = $2) =~ s/\\\//\//g;
-                    $pattern =~ s/\//\\\//g;
-                    $jsfunc .= qq($in    if ($nn (! $jsfield.match(/$pattern/)) ) {\n);
+                    (my $tpat = $2) =~ s/\\\//\//g;
+                    $tpat =~ s/\//\\\//g;
+                    $jsfunc .= qq($in    if ($nn (! $jsfield.match(/$tpat/)) ) {\n);
                 } elsif (ref $pattern eq 'ARRAY') {
                     # must be w/i this set of values
                     # can you figure out how this piece of Perl works? ha ha ha ha ....
@@ -1056,23 +1078,25 @@ EOF
 
             $attr->{onChange} = delete $attr->{jsclick} if $attr->{jsclick};
 
+            # handle multiples.
+            $attr->{multiple} = 'multiple' if @value > 1;   # auto-detect
+
             # "options" are the options for our select list
             @opt = _opt($attr->{options} ||= $vattr);
             @opt = _sort(@opt, $attr->{sortopts}) if $attr->{sortopts};
             unshift @opt, ['', $args{messages}{form_select_default}]
                 if $args{smartness} && ! $attr->{multiple};
 
-            # generate our select tag. handle multiples.
-            my $mult = $attr->{multiple} || (@value > 1) ? ' multiple' : '';
-            $tag = _tag("select$mult", name => $field, %{$attr});
+            # generate our select tag. 
+            $tag = _tag('select', name => $field, %{$attr});
             for my $opt (@opt) {
                 # Since our data structure is a series of ['',''] things,
                 # we get the name from that. If not, then it's a list
                 # of regular old data that we _toname if nameopts => 1 
                 my($o,$n) = (ref $opt eq 'ARRAY') ? (@{$opt}) : ($opt);
                 $n ||= $attr->{labels}{$o} || ($attr->{nameopts} ? _toname($o) : $o);
-                my $slct = _ismember($o, @value) ? ' selected' : '';
-                $tag .= _tag("option$slct", value => $o) . $n . '</option>';
+                my @slct = _ismember($o, @value) ? (selected => 'selected') : ();
+                $tag .= _tag('option', value => $o, @slct) . _escapehtml($n) . '</option>';
             }
             $tag .= '</select>';
 
@@ -1103,10 +1127,10 @@ EOF
                 # of regular old data that we _toname if nameopts => 1 
                 my($o,$n) = (ref $opt eq 'ARRAY') ? (@{$opt}) : ($opt);
                 $n ||= $attr->{labels}{$o} || ($attr->{nameopts} ? _toname($o) : $o);
-                my $slct = _ismember($o, @value) ? ' checked' : '';
-                $tag .= _tag("input$slct", name => $field, value => $o, %{$attr}) 
-                      . ' ' . $n . ' ';
-                $tag .= '<br>' if $attr->{linebreaks};
+                my @slct = _ismember($o, @value) ? (checked => 'checked') : ();
+                $tag .= _tag('input', name => $field, value => $o, %{$attr}, @slct) 
+                      . ' ' . _escapehtml($n) . ' ';
+                $tag .= '<br />' if $attr->{linebreaks};
                 $tag .= "</tr>\n" if $checkbox_table && $col_num++ % $attr->{columns} == 0;
             }
             $tag .= "</table>\n" if $checkbox_table;
@@ -1138,7 +1162,7 @@ EOF
                 # print the value out too when in a static context
                 my $tagcom = _escapehtml($value);
                 $tag .= $tagcom . ' ' if $attr->{type} eq 'hidden' && $static && $tagcom;
-                $tag .= '<br>' if $attr->{linebreaks};
+                $tag .= '<br />' if $attr->{linebreaks};
             }
 
             # special catch to make life easier
@@ -1159,15 +1183,17 @@ EOF
         $et = 'input' if $et eq 'text';
         my $error = '';
         if (exists $self->{fields}{$field}{invalid}) {
-            $error = $self->{fields}{$field}{invalid}
-                  || $args{messages}{"form_invalid_$et"}
-                  || $args{messages}{form_invalid_field};
+            $error = $self->{fields}{$field}{invalid};  # custom message
+            if ($error eq 1) {    # hackish but effective
+                $error = $args{messages}{"form_invalid_$et"}
+                      || $args{messages}{form_invalid_field};
+            }
         }
         debug 2, "got error string = $error for form_invalid_$et";
 
         # if we have a template, then we setup the tag to a tmpl_var of the
         # same name via param(). otherwise, we generate HTML rows and stuff
-      # Added support for Text::Template and assigned type Text.
+        # Added support for Text::Template and assigned type Text.
         if (ref $args{template} eq 'HASH' && 
            ( $args{template}{type} eq 'TT2' || $args{template}{type} eq 'Text' ) ) {
             # Template Toolkit can access complex data pretty much unaided
@@ -1216,7 +1242,7 @@ EOF
                 my($slct, $chk) = _ismember($o, @value) ? ('selected', 'checked') : ('','');
                 debug 2, "<tmpl_loop loop-$field> = adding { label => $n, value => $o }";
                 push @tmpl_loop, {
-                    label => $n,
+                    label => _escapehtml($n),
                     value => $o,
                     checked => $chk,
                     selected => $slct,
@@ -1315,11 +1341,11 @@ EOJS
             if (ref $args{submit} eq 'ARRAY') {
                 # multiple buttons + JavaScript - here we go!
                 for my $s (_data $args{submit}) {
-                    my $js = ($args{submit} && $args{javascript})
-                                ? qq( onClick="this.form._submit.value = this.value;")
-                                : '';
-                    $submit .= _tag("input$js", type => 'submit', name => '_submit',
-                                value => $s);
+                    my @oncl = ($args{submit} && $args{javascript})
+                                ? (onClick => 'this.form._submit.value = this.value;')
+                                : ();
+                    $submit .= _tag('input', type => 'submit', name => '_submit',
+                                value => $s, @oncl);
                 }
             } else {
                 # show the text on the button
@@ -1553,8 +1579,8 @@ sub mail () {
     my %args = _args(@_);
 
     # Where does the mailer live? Must be sendmail-compatible
-    my $mailer = '';
-    unless ($mailer = $args{mailer}) {
+    my $mailer = undef;
+    unless ($mailer = $args{mailer} && -x $mailer) {
         for my $sendmail (qw(/usr/lib/sendmail /usr/sbin/sendmail /usr/bin/sendmail)) {
             if (-x $sendmail) {
                 $mailer = "$sendmail -t";
@@ -1562,8 +1588,12 @@ sub mail () {
             }
         }
     }
-    unless ($mailer && -x $mailer) {
-        belch "Cannot find a sendmail-compatible mailer to use";
+    unless ($mailer) {
+        belch "Cannot find a sendmail-compatible mailer to use; mail aborting";
+        return;
+    }
+    unless ($args{to}) {
+        belch "Missing required 'to' argument; cannot continue without recipient";
         return;
     }
 
@@ -1571,15 +1601,13 @@ sub mail () {
     my $oldpath = $ENV{PATH};
     $ENV{PATH} = '/usr/bin:/usr/sbin';
 
-    open(MAIL, "|$mailer") || next;
-    print MAIL <<EOF;
-From: $args{from}
-To: $args{to}
-Cc: $args{cc}
-Subject: $args{subject}
+    open(MAIL, "|$mailer >/dev/null 2>&1") || next;
+    print MAIL "From: $args{from}\n";
+    print MAIL "To: $args{to}\n";
+    print MAIL "Cc: $args{cc}\n" if $args{cc};
+    print MAIL "Subject: $args{subject}\n\n";
+    print MAIL "$args{text}\n";
 
-$args{text}
-EOF
     # retaint
     $ENV{PATH} = $oldpath;
 
@@ -1624,8 +1652,18 @@ sub mailresults () {
     # subject default
     $args{subject} ||= "$self->{opt}{title} Submission Results";
 
+    if ($args{skip}) {
+        if ($args{skip} =~ m#^m?(\S)(.*)\1$#) {
+            ($args{skip} = $2) =~ s/\\\//\//g;
+            $args{skip} =~ s/\//\\\//g;
+        }
+    }
+
     my @form = ();
     for my $field ($self->fields) {
+        if ($args{skip} && $field =~ /$args{skip}/) {
+            next;
+        }
         my $v = join $join, $self->field($field);
         $field = _toname($field) if $args{labels};
         push @form, "$field$delim$v"; 
@@ -1739,32 +1777,32 @@ sub validate () {
 
             if ($pattern =~ m#^m?(\S)(.*)\1$#) {
                 # it be a regexp
-                ($pattern = $2) =~ s/\\\//\//g;
-                $pattern =~ s/\//\\\//g;
-                debug 1, "$field: does '$value' =~ /$pattern/ ?";
-                unless ($value =~ /$pattern/) {
-                    $self->{fields}{$field}{invalid} = undef;
+                (my $tpat = $2) =~ s/\\\//\//g;
+                $tpat =~ s/\//\\\//g;
+                debug 1, "$field: does '$value' =~ /$tpat/ ?";
+                unless ($value =~ /$tpat/) {
+                    $self->{fields}{$field}{invalid} = 1;
                     $thisfail = ++$bad;
                 }
             } elsif (ref $pattern eq 'ARRAY') {
                 # must be w/i this set of values
                 debug 1, "$field: is '$value' in (@{$pattern}) ?";
                 unless (_ismember($value, @{$pattern})) {
-                    $self->{fields}{$field}{invalid} = undef;
+                    $self->{fields}{$field}{invalid} = 1;
                     $thisfail = ++$bad;
                 }
             } elsif (ref $pattern eq 'CODE') {
                 # eval that mofo, which gives them $form
                 debug 1, "$field: does $pattern($value) ret true ?";
                 unless ( &{$pattern}($value) ) {
-                    $self->{fields}{$field}{invalid} = undef;
+                    $self->{fields}{$field}{invalid} = 1;
                     $thisfail = ++$bad;
                 }
             } elsif ($pattern eq 'VALUE') {
                 # Not null
                 debug 1, "$field: length '$value' > 0 ?";
                 unless (defined($value) && length($value)) {
-                    $self->{fields}{$field}{invalid} = undef;
+                    $self->{fields}{$field}{invalid} = 1;
                     $thisfail = ++$bad;
                 }
             } else {
@@ -1774,7 +1812,7 @@ sub validate () {
                 # must escape to prevent serious problem if $value = "'; system 'rm -f /'; '"
                 debug 1, "$field: '$value' $pattern ? 1 : 0";
                 unless (eval qq(\$value $pattern ? 1 : 0)) {
-                    $self->{fields}{$field}{invalid} = undef;
+                    $self->{fields}{$field}{invalid} = 1;
                     $thisfail = ++$bad;
                 }
                 belch "Literal code eval error in validate: $@" if $@;
@@ -1786,7 +1824,7 @@ sub validate () {
         }
         # If not $atleastone and they asked for validation, then we
         # know that we have an error since this means no values
-        unless ($atleastone) { $self->{fields}{$field}{invalid} = undef; $bad++; }
+        unless ($atleastone) { $self->{fields}{$field}{invalid} = 1; $bad++; }
     }
     debug 2, "validation done, failures (\$bad) = $bad";
     $self->{state}{invalid} = $bad;

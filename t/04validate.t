@@ -6,7 +6,7 @@ $TESTING = 1;
 use Test;
 
 # use a BEGIN block so we print our plan before CGI::FormBuilder is loaded
-BEGIN { plan tests => 6 }
+BEGIN { plan tests => 7 }
 
 # Need to fake a request or else we stall
 $ENV{REQUEST_METHOD} = 'GET';
@@ -38,6 +38,15 @@ my @test = (
                  options => { supply => [0..9], demand => [0..9] },
                  values  => { supply => [0..4], demand => [5..7] },
                  validate => { supply => [5..9], demand => [0..9] },
+               },
+        pass => 0,
+    },
+    {
+        # max it out, baby
+        opt => { fields => [qw/supply tag/],
+                 options => { supply => [0..9], },
+                 values  => { supply => [0..4], tag => ['Johan-Sebastian', 'Bach'] },
+                 validate => { supply => 'NUM', tag => 'NAME' },
                },
         pass => 0,
     },

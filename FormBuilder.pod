@@ -2686,15 +2686,17 @@ way to address it.
 This module has really taken off, thanks to very useful input, bug
 reports, and encouraging feedback from a number of people, including:
 
-    Andy Wardley
     Jakob Curdes
     Mark Belanger
     Peter Billam
     Brad Bowman
     Jonathan Buhacoff
     Godfrey Carnegie
+    Bob Egert
+    Adam Foxson
     Florian Helmberger
     Mark Houliston
+    Robert James Kaes
     Dimitry Kharitonov
     Randy Kobes
     William Large
@@ -2704,8 +2706,11 @@ reports, and encouraging feedback from a number of people, including:
     Koos Pol
     Shawn Poulson
     Dan Collis Puro
+    Stephan Springl
+    Ryan Tate
     John Theus
     Remi Turboult
+    Andy Wardley
 
 Thanks!
 
@@ -2716,7 +2721,7 @@ L<CGI>, L<CGI::Application>
 
 =head1 VERSION
 
-$Id: FormBuilder.pod,v 2.11 2003/07/11 18:08:12 nwiger Exp $
+$Id: FormBuilder.pod,v 2.12 2003/07/25 21:17:30 nwiger Exp nwiger $
 
 =head1 AUTHOR
 
