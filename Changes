@@ -1,15 +1,24 @@
 
 RCS file: /home/nwiger/perlmod/lib/CGI/RCS/FormBuilder.pm,v
 Working file: /home/nwiger/perlmod/lib/CGI/FormBuilder.pm
-head: 2.13
+head: 2.14
 branch:
 locks: strict
 access list:
 symbolic names:
 keyword substitution: kv
-total revisions: 113;	selected revisions: 113
+total revisions: 114;	selected revisions: 114
 description:
 CGI::FormBuilder for building form-based applications
+----------------------------
+revision 2.14
+date: 2005/01/24 18:58:04;  author: nwiger;  state: Exp;  lines: +47 -33
+- patches from Koos Pol fixing the columns option to field()
+- patches from Peter Eichman added id=name generation
+- another patch from Koos adding HTML::Entities support
+- removal of _escapehtml() around user-specified labels
+- changes to debug messages between levels 1 and 2
+- bugfix for blank fields being mis-tagged as required
 ----------------------------
 revision 2.13
 date: 2004/10/04 18:00:56;  author: nwiger;  state: Exp;  lines: +89 -46

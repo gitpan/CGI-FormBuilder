@@ -198,10 +198,10 @@ function validate (form) {
     return true;  // all checked ok
 }
 //-->
-</script><noscript><font color="red"><b>Please enable JavaScript or use a newer browser</b></font></noscript><p><p>Fields shown in <b>bold</b> are required.<form action="01process.t" method="GET" onSubmit="return validate(this);"><input name="_submitted" type="hidden" value="2" /><input name="_sessionid" type="hidden" value="" /><table>
-<tr valign="middle"><td align="left"><b>Name</b></td><td><input name="name" type="text" /></td></tr>
+</script><noscript><font color="red"><b>Please enable JavaScript or use a newer browser</b></font></noscript><p><p>Fields shown in <b>bold</b> are required.<form action="01process.t" method="GET" onSubmit="return validate(this);"><input id="_submitted" name="_submitted" type="hidden" value="2" /><input id="_sessionid" name="_sessionid" type="hidden" value="" /><table>
+<tr valign="middle"><td align="left"><b>Name</b></td><td><input id="name" name="name" type="text" /></td></tr>
 <tr valign="middle"><td align="left">Favorite Color</td><td><input id="color_red" name="color" type="checkbox" value="red" /> <label for="color_red">Red</label> <input id="color_green" name="color" type="checkbox" value="green" /> <label for="color_green">Green</label> <input id="color_blue" name="color" type="checkbox" value="blue" /> <label for="color_blue">Blue</label> </td></tr>
-<tr valign="middle"><td colspan="2"><center><input name="_reset" type="reset" value="Reset" /><input name="_submit" type="submit" value="Submit" /></center></td></tr></table>
+<tr valign="middle"><td colspan="2"><center><input id="_reset" name="_reset" type="reset" value="Reset" /><input id="_submit" name="_submit" type="submit" value="Submit" /></center></td></tr></table>
 </form>});
 
 #13
@@ -213,8 +213,8 @@ ok(do {
     # Just return the form rendering
     # This should really go in 00generate.t, but the framework is too tight
     $form->render;
-}, qq{<form action="01process.t" method="GET"><input name="_submitted" type="hidden" value="2" /><input name="_sessionid" type="hidden" value="" /><table>
-<tr valign="middle"><td align="left">Name</td><td><input name="name" type="hidden" value="Pete Peteson" />Pete Peteson </td></tr>
-<tr valign="middle"><td align="left">Color</td><td><input name="color" type="text" /></td></tr>
-<tr valign="middle"><td colspan="2"><center><input name="_reset" type="reset" value="Reset" /><input name="_submit" type="submit" value="Submit" /></center></td></tr></table>
+}, qq{<form action="01process.t" method="GET"><input id="_submitted" name="_submitted" type="hidden" value="2" /><input id="_sessionid" name="_sessionid" type="hidden" value="" /><table>
+<tr valign="middle"><td align="left">Name</td><td><input id="name" name="name" type="hidden" value="Pete Peteson" />Pete Peteson </td></tr>
+<tr valign="middle"><td align="left">Color</td><td><input id="color" name="color" type="text" /></td></tr>
+<tr valign="middle"><td colspan="2"><center><input id="_reset" name="_reset" type="reset" value="Reset" /><input id="_submit" name="_submit" type="submit" value="Submit" /></center></td></tr></table>
 </form>});

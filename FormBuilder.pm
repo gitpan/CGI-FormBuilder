@@ -8,7 +8,7 @@ package CGI::FormBuilder;
 use Carp;
 use strict;
 use vars qw($VERSION $CGIMOD $CGI $AUTOLOAD);
-$VERSION = do { my @r=(q$Revision: 2.13 $=~/\d+/g); sprintf "%d."."%02d"x$#r,@r };
+$VERSION = do { my @r=(q$Revision: 2.14 $=~/\d+/g); sprintf "%d."."%02d"x$#r,@r };
 
 # We used to try to use CGI::Minimal for better speed, but
 # unfortunately its support for file uploads it unsuitable
@@ -217,7 +217,7 @@ sub _sort (\@$) {
     my @opt  = @{ shift() };        # must deref to reorg
     my $sort = shift;
 
-    debug 1, "_sort($sort, @opt) called for field";
+    debug 2, "_sort($sort, @opt) called for field";
 
     # Currently we can only sort on the value, which sucks if the value
     # and label are substantially different. This is caused by the fact
@@ -433,19 +433,25 @@ sub _escapeurl ($) {
 
 sub _escapehtml ($) {
     my $toencode = shift;
-    # must do these in order or the browser won't decode right
-    $toencode =~ s!&!&amp;!g;
-    $toencode =~ s!<!&lt;!g;
-    $toencode =~ s!>!&gt;!g;
-    $toencode =~ s!"!&quot;!g;
-    return $toencode;
+    eval { require HTML::Entities };
+    if ($@) {
+        # not found; use very basic built-in HTML escaping
+        $toencode =~ s!&!&amp;!g;
+        $toencode =~ s!<!&lt;!g;
+        $toencode =~ s!>!&gt;!g;
+        $toencode =~ s!"!&quot;!g;
+        return $toencode;
+    } else {
+        # dispatch to HTML::Entities
+        return HTML::Entities::encode($toencode);
+    }
 }
 
 sub _tag ($;@) {
     # called as _tag('tagname', %attr)
     # creates an HTML tag on the fly, quick and dirty
     my $name = shift || return;
-    my @tag;
+    my %attrs; # attributes after filtering out %OURATTRS
     while (@_) {
         # this cleans out all the internal junk kept in each data
         # element, returning everything else (for an html tag)
@@ -456,9 +462,12 @@ sub _tag ($;@) {
             shift; next;
         }
         my $val = _escapehtml shift;    # minimalist HTML escaping
-        push @tag, qq($key="$val");
+        $attrs{$key} = $val;
     }
-    my $htag = join(' ', $name, sort @tag);
+    # "double-name" elements with an id for easier DOM scripting
+    # do not override explictly set id attributes
+    $attrs{id} = $attrs{name} if exists $attrs{name} and not exists $attrs{id};
+    my $htag = join(' ', $name, map { qq($_="$attrs{$_}") } sort keys %attrs);
     $htag .= ' /' if $name eq 'input';  # XHTML self-closing
     return '<' . $htag . '>';
 }
@@ -487,7 +496,9 @@ sub _expreqd ($$) {
         debug 1, "fields deemed as required: @$reqd";
         $need{$_} = 1 for @{$reqd};
     } else {
-        $need{$_} = 1 for keys %{$vald};
+        my @k = keys %{$vald};
+        debug 1, "fields deemed as required: @k";
+        $need{$_} = 1 for @k;
     }
     return wantarray ? %need : \%need;
 }
@@ -825,7 +836,7 @@ sub render () {
         my $label = '';
         if ($args{labels} || ! exists $args{labels}) {
             $args{labels} = {} unless ref $args{labels} eq 'HASH';
-            $label = _escapehtml($attr->{label} || $args{labels}{$field} || _toname($field));
+            $label = $attr->{label} || $args{labels}{$field} || _escapehtml(_toname($field));
             debug 1, "label for '$field' field set to '$label'";
         }
 
@@ -1108,10 +1119,10 @@ EOF
 
             # to allow checkboxes/radio buttons to wrap in columns
             my $checkbox_table = 0;  # toggle
-            my $col_num = 0;
+            my $checkbox_col = 0;
             if (defined($attr->{columns}) && $attr->{columns} > 0) {
                 $checkbox_table = 1;
-                $tag .= _tag('table', %{$args{table}});
+                $tag .= (ref $args{table} eq 'HASH') ? _tag('table', %{$args{table}}) : '<table>';
             }
 
             # for making an unordered list out of our options (for both checkbox and radio)
@@ -1120,11 +1131,10 @@ EOF
                 $checkbox_ulist = 1;
                 $tag .= '<ul>';
             }
-
             for my $opt (@opt) {
                 #  Divide up checkboxes in a user-controlled manner
                 if ($checkbox_table) {
-                    $tag .= '<tr>' if $col_num % $attr->{columns} == 0;
+                    $tag .= '<tr>' if $checkbox_col % $attr->{columns} == 0;
                     $tag .= '<td>' . $font;
                 }
                 $tag .= '<li>' if $checkbox_ulist;
@@ -1137,8 +1147,11 @@ EOF
                 $tag .= _tag('input', name => $field, value => $o, id => "${field}_$o", %{$attr}, @slct) 
                       . ' ' . _tag('label', for => "${field}_$o") . _escapehtml($n) . '</label> ';
                 $tag .= '<br />' if $attr->{linebreaks};
-                $tag .= '</td></tr>' if $checkbox_table && 
-                                     ($col_num++ % $attr->{columns} == 0 || $col_num == @opt);
+                if ($checkbox_table) {
+                    $checkbox_col++;
+                    $tag .= '</td>';
+                    $tag .= '</tr>' if ($checkbox_col) % $attr->{columns} == 0;
+                }
                 $tag .= "</li>\n" if $checkbox_ulist;
             }
             $tag .= '</table>' if $checkbox_table;
@@ -1197,7 +1210,7 @@ EOF
             }
         }
 
-        debug 2, "generation done, got opt = @opt; tag = $tag";
+        debug 2, "field done: opt = @opt, tag = $tag";
 
         # reset the value attr
         $attr->{value} = $vattr;
@@ -1212,8 +1225,8 @@ EOF
                 $error = $args{messages}{"form_invalid_$et"}
                       || $args{messages}{form_invalid_field};
             }
+            debug 2, "error mesg: '$error for \$form_invalid_$et'";
         }
-        debug 2, "got error string = $error for form_invalid_$et";
 
         # if we have a template, then we setup the tag to a tmpl_var of the
         # same name via param(). otherwise, we generate HTML rows and stuff
@@ -1770,7 +1783,7 @@ sub validate () {
     # It doesn't generate JavaScript; see render() for that...
 
     my $self = shift;
-    my $form = $self;   # XXX alias for examples (paint-by-numbers)
+    my $form = $self;   # alias for examples (paint-by-numbers)
     local $^W = 0;      # -w sucks
 
     debug 1, "called validate(@_)";
@@ -1787,7 +1800,7 @@ sub validate () {
     for my $field (@{$self->{field_names}}) {
 
         # Get validation pattern if exists
-        my $pattern = $valid{$field} || $valid{ALL} || 'VALUE';
+        my $pattern = $valid{$field} || $valid{ALL};
 
         # fatal error if they try to validate nonexistent field
         puke "Attempt to validate non-existent field '$field'"
@@ -1796,9 +1809,10 @@ sub validate () {
         # check for if $need{$field}; if not, next if blank
         if ($need{$field}) {
             debug 1, "$field: is required per 'required' param";
+            $pattern ||= 'VALUE';   # bounds check
         } else {
             debug 1, "$field: is optional per 'required' param";
-            next unless defined $self->field($field);
+            next unless defined $self->field($field) and defined $pattern;
             debug 1, "$field: ...but is defined, so still checking";
         }
 
@@ -1822,28 +1836,28 @@ sub validate () {
                 # it be a regexp
                 (my $tpat = $2) =~ s/\\\//\//g;
                 $tpat =~ s/\//\\\//g;
-                debug 1, "$field: does '$value' =~ /$tpat/ ?";
+                debug 2, "$field: does '$value' =~ /$tpat/ ?";
                 unless ($value =~ /$tpat/) {
                     $self->{fields}{$field}{invalid} = 1;
                     $thisfail = ++$bad;
                 }
             } elsif (ref $pattern eq 'ARRAY') {
                 # must be w/i this set of values
-                debug 1, "$field: is '$value' in (@{$pattern}) ?";
+                debug 2, "$field: is '$value' in (@{$pattern}) ?";
                 unless (_ismember($value, @{$pattern})) {
                     $self->{fields}{$field}{invalid} = 1;
                     $thisfail = ++$bad;
                 }
             } elsif (ref $pattern eq 'CODE') {
                 # eval that mofo, which gives them $form
-                debug 1, "$field: does $pattern($value) ret true ?";
+                debug 2, "$field: does $pattern($value) ret true ?";
                 unless ( &{$pattern}($value) ) {
                     $self->{fields}{$field}{invalid} = 1;
                     $thisfail = ++$bad;
                 }
             } elsif ($pattern eq 'VALUE') {
                 # Not null
-                debug 1, "$field: length '$value' > 0 ?";
+                debug 2, "$field: length '$value' > 0 ?";
                 unless (defined($value) && length($value)) {
                     $self->{fields}{$field}{invalid} = 1;
                     $thisfail = ++$bad;
@@ -1853,7 +1867,7 @@ sub validate () {
                 belch "Validation string '$pattern' may be a typo of a builtin pattern"
                     if ($pattern =~ /^[A-Z]+$/); 
                 # must escape to prevent serious problem if $value = "'; system 'rm -f /'; '"
-                debug 1, "$field: '$value' $pattern ? 1 : 0";
+                debug 2, "$field: '$value' $pattern ? 1 : 0";
                 unless (eval qq(\$value $pattern ? 1 : 0)) {
                     $self->{fields}{$field}{invalid} = 1;
                     $thisfail = ++$bad;
@@ -1862,8 +1876,8 @@ sub validate () {
             }
 
             # Just for debugging's sake
-            $thisfail ? debug 2, "$field: validation FAILED"
-                      : debug 2, "$field: validation passed";
+            $thisfail ? debug 1, "$field: validation FAILED"
+                      : debug 1, "$field: validation passed";
         }
         # If not $atleastone and they asked for validation, then we
         # know that we have an error since this means no values
@@ -1883,14 +1897,14 @@ sub AUTOLOAD () {
         if (@_) {
             my %args = @_;
             $args{name} = $name;
-            debug 1, "AUTOLOAD dispatch to \$form->field(name $name @_)";
+            debug 2, "AUTOLOAD dispatch to \$form->field(name $name @_)";
             return $self->field(%args);
         } else {
-            debug 1, "AUTOLOAD dispatch to \$form->field($name)";
+            debug 2, "AUTOLOAD dispatch to \$form->field($name)";
             return $self->field($name);
         }
     } elsif (! @_) {
-        debug 1, "AUTOLOAD dispatch to \$CGI->param($name)";
+        debug 2, "AUTOLOAD dispatch to \$CGI->param($name)";
         return $CGI->param($name);
     } else {
         puke "Attempt to address non-existent field '$name' by name"

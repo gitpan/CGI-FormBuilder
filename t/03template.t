@@ -57,8 +57,8 @@ my @test = (
 <title>User Info</title>
 Please update your info and hit "Submit".
 <p>
-<form action="03template.t" method="GET"><input name="_submitted" type="hidden" value="1" /><input name="_sessionid" type="hidden" value="" />
-Enter your name: <input name="name" type="text" />
+<form action="03template.t" method="GET"><input id="_submitted" name="_submitted" type="hidden" value="1" /><input id="_sessionid" name="_sessionid" type="hidden" value="" />
+Enter your name: <input id="name" name="name" type="text" />
 <select name="color" multiple>
     
     <option value="red" >Red</option>
@@ -69,7 +69,7 @@ Enter your name: <input name="name" type="text" />
     
 </select>
 FYI, your dress size is 42<br>
-<input name="_reset" type="reset" value="No esta una button del submito" /> 
+<input id="_reset" name="_reset" type="reset" value="No esta una button del submito" /> 
 </form>
 ),
 
@@ -89,8 +89,8 @@ FYI, your dress size is 42<br>
 <title>User Info</title>
 Please update your info and hit "Submit".
 <p>
-<form action="03template.t" method="GET"><input name="_submitted" type="hidden" value="1" /><input name="_sessionid" type="hidden" value="" />
-Enter your name: <input name="name" size="80" type="text" />
+<form action="03template.t" method="GET"><input id="_submitted" name="_submitted" type="hidden" value="1" /><input id="_sessionid" name="_sessionid" type="hidden" value="" />
+Enter your name: <input id="name" name="name" size="80" type="text" />
 <select name="color" multiple>
     
     <option value="white" >white</option>
@@ -101,7 +101,7 @@ Enter your name: <input name="name" size="80" type="text" />
     
 </select>
 FYI, your dress size is 8<br>
-<input name="_reset" type="reset" value="Start over, boob!" /> <input name="_submit" type="submit" value="Submit" />
+<input id="_reset" name="_reset" type="reset" value="Start over, boob!" /> <input id="_submit" name="_submit" type="submit" value="Submit" />
 </form>
 ),
     },
@@ -120,8 +120,8 @@ FYI, your dress size is 8<br>
 <title>User Info</title>
 Please update your info and hit "Submit".
 <p>
-<form action="03template.t" method="GET"><input name="_submitted" type="hidden" value="1" /><input name="_sessionid" type="hidden" value="" />
-Enter your name: <input name="name" type="text" />
+<form action="03template.t" method="GET"><input id="_submitted" name="_submitted" type="hidden" value="1" /><input id="_sessionid" name="_sessionid" type="hidden" value="" />
+Enter your name: <input id="name" name="name" type="text" />
 <select name="color" multiple>
     
     <option value="red" >red</option>
@@ -142,7 +142,7 @@ Enter your name: <input name="name" type="text" />
     
 </select>
 FYI, your dress size is (unknown)<br>
- <input name="_submit" onClick="this.form._submit.value = this.value;" type="submit" value="Update" /><input name="_submit" onClick="this.form._submit.value = this.value;" type="submit" value="Delete" />
+ <input id="_submit" name="_submit" onClick="this.form._submit.value = this.value;" type="submit" value="Update" /><input id="_submit" name="_submit" onClick="this.form._submit.value = this.value;" type="submit" value="Delete" />
 </form>
 ),
     },

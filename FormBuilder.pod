@@ -755,6 +755,18 @@ C<< <body> >> tag verbatim (for example, bgcolor, alink, etc).
 If you're thinking about using this, also check out the
 C<template> option above (and below).
 
+=item columns => NUM
+
+Used for checkboxes and radio buttons. If you have a field with many
+options, the checkboxes and/or radio buttons can easily clutter up your
+form. Use the columns argument to evenly spread them over just as many
+columns:
+
+    $form->field(name => 'alphabet',
+                 options => [ 'a'..'z' ],
+                 type => "checkbox",
+                 columns => 4);
+
 =item fieldtype => 'type'
 
 This can be used to set the default type for all fields. For example,
@@ -2721,7 +2733,7 @@ L<CGI>, L<CGI::Application>
 
 =head1 VERSION
 
-$Id: FormBuilder.pod,v 2.13 2004/08/11 21:15:46 nwiger Exp $
+$Id: FormBuilder.pod,v 2.13 2004/08/11 21:15:46 nwiger Exp nwiger $
 
 =head1 AUTHOR
 
