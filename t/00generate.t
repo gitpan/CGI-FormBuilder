@@ -7,7 +7,7 @@ $DEBUG = $ENV{DEBUG} || 0;
 use Test;
 
 # use a BEGIN block so we print our plan before CGI::FormBuilder is loaded
-BEGIN { plan tests => 18 }
+BEGIN { plan tests => 20 }
 
 # Need to fake a request or else we stall
 $ENV{REQUEST_METHOD} = 'GET';
@@ -185,11 +185,13 @@ Search <input id="search" name="search" type="text" /> <input id="_submit" name=
 
     #10
     {
-        opt => { fields => [qw/hostname domain/], header => 1, keepextras => 1,
+        opt => { fields => [qw/hostname domain/], header => 1,
+                 keepextras => [qw/user ticket/],   # will come out (ticket,user) b/c of QUERY_STRING
                  values => [qw/localhost localdomain/],
                  validate => {hostname => 'HOST', domain => 'DOMAIN'},
                 },
-        res => $h . q(<html><head><title>00generate</title><script language="JavaScript1.3" type="text/javascript"><!-- hide from old browsers
+        res => $h . q(<html><head><title>00generate</title>
+<script language="JavaScript1.3" type="text/javascript"><!-- hide from old browsers
 function validate (form) {
     var alertstr = '';
     var invalid  = 0;
@@ -218,7 +220,7 @@ function validate (form) {
 }
 //-->
 </script><noscript><p><font color="red"><b>Please enable JavaScript or use a newer browser.</b></font></p></noscript></head>
-<body bgcolor="white"><h3>00generate</h3><p>Fields that are <b>highlighted</b> are required.</p><form action="00generate.t" method="GET" onSubmit="return validate(this);"><input id="_submitted" name="_submitted" type="hidden" value="1" /><input id="_sessionid" name="_sessionid" type="hidden" value="" /><input id="ticket" name="ticket" type="hidden" value="111" /><input id="user" name="user" type="hidden" value="pete" /><input id="replacement" name="replacement" type="hidden" value="TRUE" /><input id="action" name="action" type="hidden" value="Unsubscribe" /><input id="name" name="name" type="hidden" value="Pete Peteson" /><input id="email" name="email" type="hidden" value="pete@peteson.com" /><input id="extra" name="extra" type="hidden" value="junk" /><table border="0">
+<body bgcolor="white"><h3>00generate</h3><p>Fields that are <b>highlighted</b> are required.</p><form action="00generate.t" method="GET" onSubmit="return validate(this);"><input id="_submitted" name="_submitted" type="hidden" value="1" /><input id="_sessionid" name="_sessionid" type="hidden" value="" /><input id="ticket" name="ticket" type="hidden" value="111" /><input id="user" name="user" type="hidden" value="pete" /><table border="0">
 <tr valign="middle"><td align="left"><b>Hostname</b></td><td align="left"><input id="hostname" name="hostname" type="text" value="localhost" /></td></tr>
 <tr valign="middle"><td align="left"><b>Domain</b></td><td align="left"><input id="domain" name="domain" type="text" value="localdomain" /></td></tr>
 <tr valign="middle"><td align="center" colspan="2"><input id="_reset" name="_reset" type="reset" value="Reset" /><input id="_submit" name="_submit" type="submit" value="Submit" /></td></tr>
@@ -300,7 +302,7 @@ function validate (form) {
                  javascript => 0,
                  jsfunc => '// missing',
                  labels => {plain => 'AAA', jane => 'BBB'},
-                 options => {mane => [qw/ratty nappy/]},
+                 options => {mane => [qw/ratty nappy mr_happy/]},
                  selectnum => 0,
                  title => 'Bobby',
                  header => 1, 
@@ -311,7 +313,7 @@ function validate (form) {
 <body ignore="me"><h3>Bobby</h3><form action="00generate.t" class="yo.form" method="GET"><input id="_submitted" name="_submitted" type="hidden" value="1" /><input id="_sessionid" name="_sessionid" type="hidden" value="" /><table border="0" class="yo.table">
 <tr class="yo.tr" valign="middle"><td align="left" class="yo.td">AAA</td><td align="left" class="yo.td"><input class="yo.text" id="plain" name="plain" type="text" /></td></tr>
 <tr class="yo.tr" valign="middle"><td align="left" class="yo.td">BBB</td><td align="left" class="yo.td"><input class="yo.text" id="jane" name="jane" type="text" /></td></tr>
-<tr class="yo.tr" valign="middle"><td align="left" class="yo.td">Mane</td><td align="left" class="yo.td"><select class="yo.select" id="mane" name="mane"><option value="">-select-</option><option value="ratty">Ratty</option><option value="nappy">Nappy</option></select></td></tr>
+<tr class="yo.tr" valign="middle"><td align="left" class="yo.td">Mane</td><td align="left" class="yo.td"><select class="yo.select" id="mane" name="mane"><option value="">-select-</option><option value="ratty">Ratty</option><option value="nappy">Nappy</option><option value="mr_happy">Mr Happy</option></select></td></tr>
 <tr class="yo.tr" valign="middle"><td align="center" class="yo.td" colspan="2"><input id="_reset" name="_reset" type="reset" value="Reset" /><input id="_submit" name="_submit" type="submit" value="Submit" /></td></tr>
 </table></form></body></html>
 ),
@@ -356,18 +358,189 @@ function validate (form) {
 </table></form>
 ),
     },
+
+    # 19 - table attr and field columns
+    {
+        opt => { fields => [qw/a b c/],
+                 table  => { border => 1 },
+                 td => { taco => 'beef', align => 'right' },
+                 tr => { valign => 'top' },
+                 th => { ignore => 'this' },
+                 selectnum => 10,
+                },
+        mod => { a => { options => [0..3], columns => 2, value => [1..2] },
+                 b => { options => [4..9], columns => 3, comment => "Please fill these in" },
+               },
+        res => q(<form action="00generate.t" method="GET"><input id="_submitted" name="_submitted" type="hidden" value="1" /><input id="_sessionid" name="_sessionid" type="hidden" value="" /><table border="1">
+<tr valign="top"><td align="right" taco="beef">A</td><td align="left" taco="beef"><table border="0"><tr>
+<td><input id="a_0" name="a" type="checkbox" value="0" /> <label for="a_0">0</label> </td><td><input checked="checked" id="a_1" name="a" type="checkbox" value="1" /> <label for="a_1">1</label> </td></tr><tr>
+<td><input checked="checked" id="a_2" name="a" type="checkbox" value="2" /> <label for="a_2">2</label> </td><td><input id="a_3" name="a" type="checkbox" value="3" /> <label for="a_3">3</label> </td></tr></table></td></tr>
+<tr valign="top"><td align="right" taco="beef">B</td><td align="left" taco="beef"><table border="0"><tr>
+<td><input id="b_4" name="b" type="radio" value="4" /> <label for="b_4">4</label> </td><td><input id="b_5" name="b" type="radio" value="5" /> <label for="b_5">5</label> </td><td><input id="b_6" name="b" type="radio" value="6" /> <label for="b_6">6</label> </td></tr><tr>
+<td><input id="b_7" name="b" type="radio" value="7" /> <label for="b_7">7</label> </td><td><input id="b_8" name="b" type="radio" value="8" /> <label for="b_8">8</label> </td><td><input id="b_9" name="b" type="radio" value="9" /> <label for="b_9">9</label> </td></tr></table> Please fill these in</td></tr>
+<tr valign="top"><td align="right" taco="beef">C</td><td align="left" taco="beef"><input id="c" name="c" type="text" /></td></tr>
+<tr valign="top"><td align="center" colspan="2" taco="beef"><input id="_reset" name="_reset" type="reset" value="Reset" /><input id="_submit" name="_submit" type="submit" value="Submit" /></td></tr>
+</table></form>
+),
+    },
+
+    # 20 - order.cgi from manpage (big)
+    {
+        opt => { method => 'POST',
+                 fields => [
+                   qw(first_name last_name
+                      email send_me_emails
+                      address state zipcode
+                      credit_card expiration)
+                 ],
+
+                 header => 1,
+                 title  => 'Finalize Your Order',
+                 submit => ['Place Order', 'Cancel'],
+                 reset  => 0,
+
+                 validate => {
+                     email   => 'EMAIL',
+                     zipcode => 'ZIPCODE',
+                     credit_card => 'CARD',
+                     expiration  => 'MMYY',
+                 },
+                 required => 'ALL',
+                 jsfunc => <<EOJS,
+    // skip validation if they clicked "Cancel"
+    if (this._submit.value == 'Cancel') return true;
+EOJS
+         },
+         mod => { state => {
+                     options => [qw(JS IW KS UW JS UR EE DJ HI YK NK TY)],
+                     sortopts=> 'NAME'
+                 },
+                 send_me_emails => {
+                     options => [[1 => 'Yes'], [0 => 'No']],
+                     value   => 0,   # "No"
+                 },
+             },
+         res => $h . q(<html><head><title>Finalize Your Order</title>
+<script language="JavaScript1.3" type="text/javascript"><!-- hide from old browsers
+function validate (form) {
+    var alertstr = '';
+    var invalid  = 0;
+
+    // skip validation if they clicked "Cancel"
+    if (this._submit.value == 'Cancel') return true;
+    // standard text, hidden, password, or textarea box
+    var first_name = form.elements['first_name'].value;
+    if ( ((! first_name && first_name != 0) || first_name === "")) {
+        alertstr += '- You must enter a valid value for the "First Name" field\n';
+        invalid++;
+    }
+    // standard text, hidden, password, or textarea box
+    var last_name = form.elements['last_name'].value;
+    if ( ((! last_name && last_name != 0) || last_name === "")) {
+        alertstr += '- You must enter a valid value for the "Last Name" field\n';
+        invalid++;
+    }
+    // standard text, hidden, password, or textarea box
+    var email = form.elements['email'].value;
+    if ( (! email.match(/^[\w\-\+\._]+\@[a-zA-Z0-9][-a-zA-Z0-9\.]*\.[a-zA-Z]+$/)) ) {
+        alertstr += '- You must enter a valid value for the "Email" field\n';
+        invalid++;
+    }
+    // radio group or checkboxes
+    var send_me_emails = '';
+    if (form.elements['send_me_emails'][0]) {
+        for (var loop = 0; loop < form.elements['send_me_emails'].length; loop++) {
+            if (form.elements['send_me_emails'][loop].checked) {
+                send_me_emails = form.elements['send_me_emails'][loop].value;
+            }
+        }
+    } else {
+        if (form.elements['send_me_emails'].checked) {
+            send_me_emails = form.elements['send_me_emails'].value;
+        }
+    }
+    if ( ((! send_me_emails && send_me_emails != 0) || send_me_emails === "")) {
+        alertstr += '- You must choose an option for the "Send Me Emails" field\n';
+        invalid++;
+    }
+    // standard text, hidden, password, or textarea box
+    var address = form.elements['address'].value;
+    if ( ((! address && address != 0) || address === "")) {
+        alertstr += '- You must enter a valid value for the "Address" field\n';
+        invalid++;
+    }
+    // select list: always assume it's multiple to get all values
+    var selected_state = 0;
+    for (var loop = 0; loop < form.elements['state'].options.length; loop++) {
+        if (form.elements['state'].options[loop].selected) {
+            var state = form.elements['state'].options[loop].value;
+            selected_state++;
+            if ( ((! state && state != 0) || state === "")) {
+                alertstr += '- You must choose an option for the "State" field\n';
+                invalid++;
+            }
+        }
+    } // close for loop;
+    if (! selected_state) {
+        alertstr += '- You must choose an option for the "State" field\n';
+        invalid++;
+    }
+
+    // standard text, hidden, password, or textarea box
+    var zipcode = form.elements['zipcode'].value;
+    if ( (! zipcode.match(/^\d{5}$|^\d{5}\-\d{4}$/)) ) {
+        alertstr += '- You must enter a valid value for the "Zipcode" field\n';
+        invalid++;
+    }
+    // standard text, hidden, password, or textarea box
+    var credit_card = form.elements['credit_card'].value;
+    if ( (! credit_card.match(/^\d{4}[\- ]?\d{4}[\- ]?\d{4}[\- ]?\d{4}$|^\d{4}[\- ]?\d{6}[\- ]?\d{5}$/)) ) {
+        alertstr += '- You must enter a valid value for the "Credit Card" field\n';
+        invalid++;
+    }
+    // standard text, hidden, password, or textarea box
+    var expiration = form.elements['expiration'].value;
+    if ( (! expiration.match(/^(0?[1-9]|1[0-2])\/?[0-9]{2}$/)) ) {
+        alertstr += '- You must enter a valid value for the "Expiration" field\n';
+        invalid++;
+    }
+    if (invalid > 0 || alertstr != '') {
+        if (! invalid) invalid = 'The following';   // catch for programmer error
+        alert(''+invalid+' error(s) were encountered with your submission:'+'\n\n'+alertstr+'\n'+'Please correct these fields and try again.');
+        // reset counters
+        alertstr = '';
+        invalid  = 0;
+        return false;
+    }
+    return true;  // all checked ok
+}
+//-->
+</script><noscript><p><font color="red"><b>Please enable JavaScript or use a newer browser.</b></font></p></noscript></head>
+<body bgcolor="white"><h3>Finalize Your Order</h3><p>Fields that are <b>highlighted</b> are required.</p><form action="00generate.t" method="POST" onSubmit="return validate(this);"><input id="_submitted" name="_submitted" type="hidden" value="1" /><input id="_sessionid" name="_sessionid" type="hidden" value="" /><table border="0">
+<tr valign="middle"><td align="left"><b>First Name</b></td><td align="left"><input id="first_name" name="first_name" type="text" /></td></tr>
+<tr valign="middle"><td align="left"><b>Last Name</b></td><td align="left"><input id="last_name" name="last_name" type="text" /></td></tr>
+<tr valign="middle"><td align="left"><b>Email</b></td><td align="left"><input id="email" name="email" type="text" value="pete@peteson.com" /></td></tr>
+<tr valign="middle"><td align="left"><b>Send Me Emails</b></td><td align="left"><input id="send_me_emails_1" name="send_me_emails" type="radio" value="1" /> <label for="send_me_emails_1">Yes</label> <input checked="checked" id="send_me_emails_0" name="send_me_emails" type="radio" value="0" /> <label for="send_me_emails_0">No</label> </td></tr>
+<tr valign="middle"><td align="left"><b>Address</b></td><td align="left"><input id="address" name="address" type="text" /></td></tr>
+<tr valign="middle"><td align="left"><b>State</b></td><td align="left"><select id="state" name="state"><option value="">-select-</option><option value="DJ">DJ</option><option value="EE">EE</option><option value="HI">HI</option><option value="IW">IW</option><option value="JS">JS</option><option value="JS">JS</option><option value="KS">KS</option><option value="NK">NK</option><option value="TY">TY</option><option value="UR">UR</option><option value="UW">UW</option><option value="YK">YK</option></select></td></tr>
+<tr valign="middle"><td align="left"><b>Zipcode</b></td><td align="left"><input id="zipcode" name="zipcode" type="text" /></td></tr>
+<tr valign="middle"><td align="left"><b>Credit Card</b></td><td align="left"><input id="credit_card" name="credit_card" type="text" /></td></tr>
+<tr valign="middle"><td align="left"><b>Expiration</b></td><td align="left"><input id="expiration" name="expiration" type="text" /></td></tr>
+<tr valign="middle"><td align="center" colspan="2"><input id="_submit" name="_submit" onClick="this.form._submit.value = this.value;" type="submit" value="Place Order" /><input id="_submit" name="_submit" onClick="this.form._submit.value = this.value;" type="submit" value="Cancel" /></td></tr>
+</table></form></body></html>
+),
+    },
 );
 
 sub refsort {
     $_[0] <=> $_[1]
 }
 
+# Perl is sick.
+@test = @test[$ARGV[0] - 1] if @ARGV;
+
 # Cycle thru and try it out
 for (@test) {
-    #use Data::Dumper;
-    #warn "test = ", Data::Dumper::Dumper($_);
-    #warn "DEFO = ", Data::Dumper::Dumper(\%CGI::FormBuilder::DEFOPTS);
-
     my $form = CGI::FormBuilder->new( %{ $_->{opt} }, debug => $DEBUG );
     while(my($f,$o) = each %{$_->{mod} || {}}) {
         $o->{name} = $f;

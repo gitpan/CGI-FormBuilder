@@ -298,7 +298,7 @@ ok(do{
                    );
 
     $form->field(name => 'blank', value => 'aoe', type => 'text'); 
-    $form->field(name => 'extra', value => '24', type => 'unspecified', force => 1);
+    $form->field(name => 'extra', value => '24', type => 'unspecified', override => 1);
     $form->field(name => 'two', value => 'one');
 
     my @v = $form->field('two');

@@ -21,12 +21,12 @@ use Carp;
 use strict;
 use vars qw($VERSION);
 
-$VERSION = '3.000';
+$VERSION = '3.01';
 
 use CGI::FormBuilder::Util;
 use Text::Template;
 
-# This sub taken helps us to support all of Text::Template's argument naming conventions
+# This sub helps us to support all of Text::Template's argument naming conventions
 sub tt_param_name {
     my ($arg, %h) = @_;
     my ($key) = grep { exists $h{$_} } ($arg, "\u$arg", "\U$arg", "-$arg", "-\u$arg", "-\U$arg");
@@ -43,7 +43,7 @@ sub render {
     for my $field ($form->field) {
 
         # Extract value since used often
-        my @value = $form->tag_value;
+        my @value = $field->tag_value;
 
         # Create a struct for each field
         $tmplvar{field}{"$field"} = {
@@ -125,7 +125,7 @@ L<CGI::FormBuilder>, L<CGI::FormBuilder::Template>, L<Text::Template>
 
 =head1 REVISION
 
-$Id: Text.pm,v 1.5 2005/02/04 22:53:59 nwiger Exp $
+$Id: Text.pm,v 1.7 2005/02/10 20:15:52 nwiger Exp $
 
 =head1 AUTHOR
 

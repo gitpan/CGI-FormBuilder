@@ -42,7 +42,7 @@ use Carp;
 use strict;
 use vars qw($VERSION @TAGATTR %VALIDATE $AUTOLOAD);
 
-$VERSION = '3.000';
+$VERSION = '3.01';
 
 use CGI::FormBuilder::Util;
 
@@ -119,11 +119,11 @@ sub field {
     return $self->value;    # needed for @v = $form->field('name')
 }
 
-*override = \&force;
+*override = \&force;    # CGI.pm
 sub force {
     my $self = shift;
     $self->{force} = shift if @_;
-    return $self->{force};
+    return $self->{force} || $self->{override};
 }
 
 sub cgi_value {
@@ -151,6 +151,10 @@ sub def_value {
     return wantarray ? @v : $v[0];
 }
 
+# CGI.pm happiness
+*default  = \&value;
+*defaults = \&value;
+*values   = \&value;
 sub value {
     my $self = shift;
     debug 2, "called \$field->value";
@@ -520,18 +524,18 @@ sub tag {
     # Setup class for stylesheets
     $attr{class} ||= $self->{_form}{styleclass} . $type if $self->{_form}{stylesheet};
 
-    my @tag   = ();
+    my $tag   = '';
     my @value = $self->tag_value;   # sticky is different in <tag>
 
     if ($type eq 'select') {
         # First the top-level select
         delete $attr{type};     # type="select" invalid
         $attr{multiple} = $self->multiple if $self->multiple;
-        push @tag, htmltag($type, %attr);
+        $tag .= htmltag($type, %attr);
 
         # Now all our options
         my @opt = $self->options;
-        debug 2, "my @opt = \$field->options";
+        debug 2, "my (" . @opt . ") = \$field->options";
         unshift @opt, ['', $self->{_form}->{messages}->form_select_default]
                 if $self->{_form}->smartness && ! $attr{multiple};  # set above
         
@@ -543,16 +547,16 @@ sub tag {
             $n ||= $attr{labels}{$o} || ($self->nameopts ? toname($o) : $o);
             my %slct = ismember($o, @value) ? (selected => 'selected') : ();
             $slct{value} = $o;
-            push @tag, htmltag('option', %slct) . escapehtml($n) . '</option>';
+            $tag .= htmltag('option', %slct) . escapehtml($n) . '</option>';
         }
-        push @tag, '</select>';
+        $tag .= '</select>';
     }
     elsif ($type eq 'radio' || $type eq 'checkbox') {
         my $checkbox_table = 0;  # toggle
         my $checkbox_col = 0;
-        if ($type eq 'checkbox' && $self->columns > 0) {
+        if ($self->columns > 0) {
             $checkbox_table = 1;
-            push @tag, htmltag('table', $self->{_form}->table);
+            $tag .= htmltag('table', { $self->{_form}->table, border => 0 });
         }
 
         # Get our options
@@ -562,8 +566,8 @@ sub tag {
         for my $opt (@opt) {
             #  Divide up checkboxes in a user-controlled manner
             if ($checkbox_table) {
-                push @tag, "<tr>\n" if $checkbox_col % $self->columns == 0;
-                push @tag, '<td>' . $self->{_form}->font;
+                $tag .= "<tr>\n" if $checkbox_col % $self->columns == 0;
+                $tag .= '<td>' . $self->{_form}->font;
             }
             # Since our data structure is a series of ['',''] things,
             # we get the name from that. If not, then it's a list
@@ -576,22 +580,22 @@ sub tag {
             $attr{value} = $o;
             $attr{id} = "$attr{name}_$o";
 
-            push @tag, htmltag('input', %attr, @slct) . ' ' . 
+            $tag .= htmltag('input', %attr, @slct) . ' ' . 
                        htmltag('label', for => $attr{id}) . escapehtml($n) . '</label> ';
-            push @tag, '<br />' if $self->linebreaks;
+            $tag .= '<br />' if $self->linebreaks;
 
             if ($checkbox_table) {
                 $checkbox_col++;
-                push @tag, '</td>';
-                push @tag, '</tr>' if $checkbox_col % $self->columns == 0;
+                $tag .= '</td>';
+                $tag .= '</tr>' if $checkbox_col % $self->columns == 0;
             }
         }
-        push @tag, "</table>\n" if $checkbox_table;
+        $tag .= '</table>' if $checkbox_table;
     }
     elsif ($type eq 'textarea') {
         my $text = join "\n", @value;
         delete $attr{value};
-        push @tag, htmltag('textarea', %attr), escapehtml($text), '</textarea>';
+        $tag .= htmltag('textarea', %attr) . escapehtml($text) . '</textarea>';
     }
     else {
         # We iterate over each value - this is the only reliable
@@ -604,14 +608,14 @@ sub tag {
             delete $attr{value} unless defined $value;
 
             # render the tag
-            push @tag, htmltag('input', %attr);
+            $tag .= htmltag('input', %attr);
 
             # print the value out too when in a static context, EXCEPT for
             # manually hidden fields (those that the user hid themselves)
             my $tagcom = escapehtml($value);
-            push @tag, $tagcom . ' ' if $self->static && $tagcom && $usertype ne 'hidden';
+            $tag .= $tagcom . ' ' if $self->static && $tagcom && $usertype ne 'hidden';
             debug 2, "if ", $self->static, " && $tagcom && $usertype ne 'hidden';";
-            push @tag, '<br />' if $self->linebreaks;
+            $tag .= '<br />' if $self->linebreaks;
         }
 
         # special catch to make life easier (too action-at-a-distance?)
@@ -621,8 +625,8 @@ sub tag {
             debug 2, "verified enctype => 'multipart/form-data' for 'file' field";
         }
     }
-    debug 2, "generation done, got tag = @tag";
-    return wantarray ? @tag : join '', @tag;
+    debug 2, "generation done, got tag = $tag";
+    return $tag;       # always return scalar tag
 }
 
 sub validate () {
@@ -729,6 +733,14 @@ sub invalid () {
     @_ ? $self->{invalid} = shift : $self->{invalid};
 }
 
+sub static () {
+    my $self = shift;
+    $self->{static} = shift if @_;
+    return $self->{static} if exists $self->{static};
+    # check parent for this as well
+    return $self->{_form}{static};
+}
+
 sub name () {
     my $self = shift;
     $self->{name} = shift if @_;
@@ -742,20 +754,13 @@ sub DESTROY { 1 }
 sub AUTOLOAD {
     # This allows direct addressing by name, for quicker usage
     my $self = shift;
-    (my $name = $AUTOLOAD) =~ s/.*:://;
+    my($name) = $AUTOLOAD =~ /.*::(.+)/;
 
-    my $esc = ($name =~ s/^esc(ape)?_?//) ? 1 : 0;
-    #debug 3, "-> dispatch to \$field->{$name} (@_)";
+    debug 3, "-> dispatch to \$field->{$name} = @_";
     croak "self not ref in AUTOLOAD" unless ref $self; # nta
 
-    # Try local instance first
-    # If it doesn't exist, fall back to _form for defaults
     $self->{$name} = shift if @_;
-    if (exists $self->{$name}) {
-        return $esc ? escapehtml($self->{$name}) : $self->{$name};
-    } else {
-        return $esc ? escapehtml($self->{_form}{$name}) : $self->{_form}{$name};
-    }
+    return $self->{$name};
 }
 
 # End of Perl code
@@ -823,27 +828,51 @@ Returns the appropriate JavaScript validation code (see above).
 This sets and returns the field's label. If unset, it will be generated
 from the name of the field.
 
-=head2 tag()
+=head2 tag($type)
 
-Returns an XHTML form input tag (see above).
+Returns an XHTML form input tag (see above). By default it renders the
+tag based on the type set from the top-level field method:
+
+    $form->field(name => 'poetry', type => 'textarea');
+
+However, if you are doing custom rendering you can override this temporarily
+by passing in the type explicitly. This is usually not useful unless you
+have a custom rendering module that forcibly overrides types for certain
+fields.
 
 =head2 type($type)
 
 This sets and returns the field's type. If unset, it will automatically 
 generate the appropriate field type, depending on the number of options and
-whether multiple values are allowed.
+whether multiple values are allowed:
+
+    Field options?
+        No = text (done)
+        Yes:
+            Less than 'selectnum' setting?
+                No = select (done)
+                Yes:
+                    Is the 'multiple' option set?
+                    Yes = checkbox (done)
+                    No:
+                        Have just one single option?
+                            Yes = checkbox (done)
+                            No = radio (done)
+
+For an example, view the inside guts of this module.
 
 =head2 validate($pattern)
 
-This returns 1 if the field passes the validation pattern(s) and required
+This returns 1 if the field passes the validation pattern(s) and C<required>
 status previously set via required() and (possibly) the top-level new()
 call in FormBuilder. Usually running per-field validate() calls is not
 what you want. Instead, you want to run the one on C<$form>, which in
 turn calls each individual field's and saves some temp state.
 
-The method C<invalid()> is also provided, which returns the opposite
-value that C<validate()> would return, with some extra magic that
-keeps state for form rendering purposes.
+=head2 invalid
+
+This returns the opposite value that C<validate()> would return, with
+some extra magic that keeps state for form rendering purposes.
 
 =head2 value($val)
 
@@ -887,7 +916,7 @@ L<CGI::FormBuilder>
 
 =head1 REVISION
 
-$Id: Field.pm,v 1.18 2005/02/07 19:16:28 nwiger Exp $
+$Id: Field.pm,v 1.22 2005/02/10 20:15:52 nwiger Exp $
 
 =head1 AUTHOR
 

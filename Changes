@@ -2,6 +2,8 @@ NAME
     Changes - Changes in FormBuilder 3.0, please also see the README
 
 COMPATIBILITY
+    For changes between 3.000 and 3.001, skip down to "REVISIONS".
+
     FormBuilder 3.0 should be completely compatible with FormBuilder 2.x,
     with the singular exception that you can no longer use the shortcut
     autoload style of getting to fields:
@@ -120,21 +122,30 @@ NEW FEATURES
 
     For more details, see "CGI::FormBuilder::Messages".
 
-  Bug fixes
-    There were several longstanding edge-case bugs that just could not be
-    fixed, because the 2.x internals were too nasty.
+  HTML::Entities encoding
+    HTML character encoding is now dispatched to "HTML::Entities", if
+    available. This can be downloaded as part of the "HTML::Parser" module
+    set on CPAN.
 
   Documentation
     Documentation has been updated and somewhat reorganized, which was long
     overdue.
 
-  Versioning
-    Versions are now maintained in full Perl internal format. This allows
-    you to say:
+BUGFIXES
+  3.001
+        - fixed major problems with keepextras, including a reversed ismember test
+        - added debug messages to keepextras and changed a few other debugs
+        - added patch from Peter Eichman to fix scalar $field->tag and $field->tag_value
+        - converted most all XHTML generation methods to only returning scalars
+        - fixed the columns option which was totally broken for radio buttons
+        - added a feature to plop in {border => 0} in columns as well
+        - added the 2.x 'override' alias for field() 'force' which was missing
+        - also added a 'defaults' alias for field() 'value' for CGI.pm happiness
+        - more tests since there were way too many bugs
+        - a ton of documentation cleanup, these docs used to suck
 
-        use CGI::FormBuilder v3.1
-
-    To ensure you get FormBuilder at least 3.001
+  3.000
+        - many edge-case 2.x bugs, such as field(value => '')
 
 AUTHOR
     Copyright (c) 2000-2005 Nathan Wiger, Sun Microsystems <nate@sun.com>.

@@ -28,7 +28,7 @@ CGI::FormBuilder::Template - template adapters for FormBuilder
 use strict;
 use vars qw($VERSION);
 
-$VERSION = '3.000';
+$VERSION = '3.01';
 
 =head1 DESCRIPTION
 
@@ -641,7 +641,7 @@ L<CGI::FormBuilder::Template::Text>, L<CGI::FormBuilder::Template::TT2>
 
 =head1 REVISION
 
-$Id: Template.pm,v 1.5 2005/02/04 22:53:59 nwiger Exp $
+$Id: Template.pm,v 1.7 2005/02/10 20:15:52 nwiger Exp $
 
 =head1 AUTHOR
 

@@ -21,7 +21,7 @@ use Carp;
 use strict;
 use vars qw($VERSION);
 
-$VERSION = '3.000';
+$VERSION = '3.01';
 
 use CGI::FormBuilder::Util;
 use Template;
@@ -36,7 +36,7 @@ sub render {
     for my $field ($form->field) {
 
         # Extract value since used often
-        my @value = $form->tag_value;
+        my @value = $field->tag_value;
 
         # Create a struct for each field
         $tmplvar{field}{"$field"} = {
@@ -97,7 +97,7 @@ L<CGI::FormBuilder>, L<CGI::FormBuilder::Template>, L<Template>
 
 =head1 REVISION
 
-$Id: TT2.pm,v 1.5 2005/02/04 22:53:59 nwiger Exp $
+$Id: TT2.pm,v 1.7 2005/02/10 20:15:52 nwiger Exp $
 
 =head1 AUTHOR
 

@@ -19,7 +19,7 @@ use Carp;
 use strict;
 use vars qw($VERSION %MESSAGES $AUTOLOAD);
 
-$VERSION = '3.000';
+$VERSION = '3.01';
 
 use CGI::FormBuilder::Util;
 
@@ -271,7 +271,7 @@ L<CGI::FormBuilder>
 
 =head1 REVISION
 
-$Id: Messages.pm,v 1.5 2005/02/07 19:16:28 nwiger Exp $
+$Id: Messages.pm,v 1.7 2005/02/10 20:15:52 nwiger Exp $
 
 =head1 AUTHOR
 

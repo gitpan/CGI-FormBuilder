@@ -21,7 +21,7 @@ use Carp;
 use strict;
 use vars qw($VERSION);
 
-$VERSION = '3.000';
+$VERSION = '3.01';
 
 use CGI::FormBuilder::Util;
 use HTML::Template;
@@ -129,7 +129,7 @@ L<CGI::FormBuilder>, L<CGI::FormBuilder::Template>, L<HTML::Template>
 
 =head1 REVISION
 
-$Id: HTML.pm,v 1.5 2005/02/04 22:53:59 nwiger Exp $
+$Id: HTML.pm,v 1.7 2005/02/10 20:15:52 nwiger Exp $
 
 =head1 AUTHOR
 

@@ -25,7 +25,7 @@ want to use one of these modules for templates. You can always install
 them later, FormBuilder will run without them.
 
 EOW
-        sleep 3;
+        sleep 2;
     }
     return {};      # hashref is expected by MakeMaker
 }

@@ -31,7 +31,7 @@ use Carp;
 use strict;
 use vars qw($VERSION @ISA @EXPORT $DEBUG @OURATTR %OURATTR);
 
-$VERSION = '3.000';
+$VERSION = '3.01';
 
 # Place functions you want to export by default in the
 # @EXPORT array. Any other functions can be requested
@@ -351,7 +351,7 @@ sub optsort ($@) {
     my $sort = shift;
     my @opt  = @_;
 
-    debug 1, "optsort($sort, @opt) called for field";
+    debug 2, "optsort($sort) called for field";
 
     # Currently we can only sort on the value, which sucks if the value
     # and label are substantially different. This is caused by the fact
@@ -394,7 +394,7 @@ L<CGI::FormBuilder>
 
 =head1 REVISION
 
-$Id: Util.pm,v 1.6 2005/02/07 19:16:28 nwiger Exp $
+$Id: Util.pm,v 1.9 2005/02/10 20:15:52 nwiger Exp $
 
 =head1 AUTHOR
 
