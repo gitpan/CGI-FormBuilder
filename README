@@ -9,7 +9,7 @@ SYNOPSIS
         # This is all you need for a simple form-based app!
         my $form = CGI::FormBuilder->new(fields => [qw/name job money/],
                                          title  => 'Your Occupation');
-        print $form->render;
+        print $form->render(header => 1);
 
         # Ex 1a
         # If we have default values, for example from a DBI query,
@@ -28,7 +28,7 @@ SYNOPSIS
         $form->field(name   => 'state', type => 'select',
                      options => \@states);
     
-        print $form->render;
+        print $form->render(header => 1);
 
         # Ex 2
         # Now we decide that we want to validate certain fields.
@@ -40,7 +40,7 @@ SYNOPSIS
                                          email => 'EMAIL'}
                          );
 
-        print $valid_form->render;
+        print $valid_form->render(header => 1);
 
         # Ex 3
         # Finally, we've decided that the builtin forms, while
@@ -53,9 +53,21 @@ SYNOPSIS
                             template => 'userinfo.html'
                         );
 
-        print $nice_form->render;
-
         # Ex 4
+        # Or, if we prefer to use the Template Toolkit (TT2),
+        # we can do it like this:
+
+        my $nice_form = CGI::FormBuilder->new(
+                            fields   => [qw/username password/],
+                            template => {
+                                  type => 'TT2',
+                                  template => 'userinfo.html',
+                            },
+                        );
+
+        print $nice_form->render(header => 1);
+
+        # Ex 5
         # Of course, we can even build a complete application
         # using this module, since all fields are sticky and
         # stateful across multiple submissions. And, though
@@ -120,8 +132,9 @@ DESCRIPTION
     And though it's smart, it allows you to customize it as well. For
     example, if you really want something to be a checkbox, you can make it
     a checkbox. And, if you really want something to be output a specific
-    way, you can even specify the name of an "HTML::Template" compatible
-    template which will be automatically filled in, statefully.
+    way, you can even specify the name of an "HTML::Template" or Template
+    Toolkit ("Template") compatible template which will be automatically
+    filled in, statefully.
 
   Walkthrough
 
@@ -194,9 +207,68 @@ DESCRIPTION
 
     And the rest of the code stays the same.
 
-    Now, let's assume that we want to validate our form on the server side,
-    which is common since the user may not be running JavaScript. All we
-    have to add is the statement:
+    You can also do a similar thing using the Template Toolkit
+    (http://template-toolkit.org/) to generate the form. This time, specify
+    the "template" option as a hashref which includes the "type" option set
+    to "TT2" and the "template" option to denote the name of the template
+    you want processed. You can also add "variable" as an option (among
+    others) to denote the variable name that you want the form data to be
+    referenced by.
+
+        my $form = CGI::FormBuilder->new( 
+            fields => \@fields, 
+            template => {
+                type => 'TT2',
+                template => 'userinfo.html',
+                variable => 'form',
+            }
+        );
+
+    The template might look something like this:
+
+        <html>
+        <head>
+          <title>User Information</title>
+          [% form.jshead %]
+        </head>
+        <body>
+          [% form.start %]
+          <table>
+            [% FOREACH field = form.fields %]
+            <tr valign="top">
+              <td>
+                [% field.required 
+                      ? "<b>$field.label</b>" 
+                      : field.label 
+                %]
+              </td>
+              <td>
+                [% IF field.invalid %]
+                Missing or invalid entry, please try again.
+            <br/>
+            [% END %]
+
+            [% field.field %]
+          </td>
+        </tr>
+            [% END %]
+            <tr>
+              <td colspan="2" align="center">
+                [% form.submit %]
+              </td>
+            </tr>
+          </table>
+          [% form.end %]
+        </body>
+        </html>
+
+    So, as you can see, there is plugin capability for FormBuilder to
+    basically "run" the two major templating engines, HTML::Template and
+    Template Toolkit.
+
+    Now, back to FormBuilder. Let's assume that we want to validate our form
+    on the server side, which is common since the user may not be running
+    JavaScript. All we have to add is the statement:
 
         $form->validate;
 
@@ -264,9 +336,12 @@ DESCRIPTION
 
         my @fields = qw(name email password confirm_password zipcode);
 
-        my $form = CGI::FormBuilder->new(fields => \@fields, 
-                                         validate => {email => 'EMAIL'},
-                                         template => 'userinfo.html');
+        my $form = CGI::FormBuilder->new(
+                        fields   => \@fields, 
+                        validate => {email => 'EMAIL'},
+                        template => 'userinfo.html',
+                        header   => 1
+                   );
 
         if ($form->submitted && $form->validate) {
             # form was good, let's update database ...
@@ -312,6 +387,11 @@ REFERENCES
         my $form = CGI::FormBuilder->new( ... validate => \%validate);
 
     Here, "\%validate" is a hash reference, or "hashref".
+
+    Basically, if you don't understand references and are having trouble
+    wrapping your brain around them, you can try this simple rule: Any time
+    you're passing an array or hash into a function, you must precede it
+    with a backslash. Usually that's true for CPAN modules.
 
     Finally, there are two more types of references: anonymous arrayrefs and
     anonymous hashrefs. These are created with "[]" and "{}", respectively.
@@ -380,7 +460,8 @@ FUNCTIONS
     body => \%hash
         This takes a hashref of attributes that will be stuck in the
         "<body>" tag verbatim (for example, bgcolor, alink, etc). If you're
-        thinking about using this, check out the "template" option above.
+        thinking about using this, check out the "template" option above
+        (and below).
 
     debug => 0 | 1 | 2
         If set to 1, the module spits copious debugging info to STDERR. If
@@ -412,17 +493,12 @@ FUNCTIONS
     font => $font
         The font to use for the form. This is output as a series of "<font>"
         tags for best browser compatibility. If you're thinking about using
-        this, check out the "template" option above.
+        this, check out the "template" option above (and below).
 
     header => 1 | 0
-        If set to 1, a valid "Content-type" header will be printed out. This
-        is actually the default, since FormBuilder assumes it is doing all
-        your HTML generation for you, which is true even when using a
-        template.
-
-        You can set to 0 to disable header generation altogether, for
-        example if you want to generate other HTML in addition to your form
-        (note that you can use the 'template' option for this, though...).
+        If set to 1, a valid "Content-type" header will be printed out. As
+        of version 1.69, this now defaults to 0, meaning no header will be
+        printed unless you specifically say "header => 1".
 
     javascript => 1 | 0
         If set to 1, JavaScript is generated in addition to HTML, the
@@ -466,7 +542,7 @@ FUNCTIONS
         Of course, very likely what you'll really want to do is point to a
         template to use, since you probably want careful control over your
         document if you're thinking about this option. See the "template"
-        option below.
+        option above (and below).
 
     lalign => 'left' | 'right' | 'center'
         This is how to align the field labels in the table layout. I really
@@ -524,8 +600,8 @@ FUNCTIONS
         functionality by using "$form->cgi_param").
 
     required => \@array
-        This is a list of those values that are just required to be filled
-        in. These two are functionally equivalent:
+        This is a list of those values that are required to be filled in.
+        These two are functionally equivalent:
 
             ->new(... required => [qw/name email/]);
 
@@ -673,6 +749,110 @@ FUNCTIONS
         templates. For more details on templates, see the documentation for
         "HTML::Template".
 
+    template => \%hash
+        You can also specify the "template" option as a reference to a hash,
+        allowing you to further customise the template processing options.
+        In particular, this allows you to use an alternate template
+        processing system like the Template Toolkit. A minimal configuration
+        would look like this:
+
+            my $form = CGI::FormBuilder->new(
+                fields => \@fields,
+                template => {
+                    type => 'TT2',
+                    template => 'form.html',
+                },
+            );
+
+        The "type" option specifies the name of the processor. Use "TT2" to
+        invoke the Template Toolkit or "HTML" (the default) to invoke
+        "HTML::Template" as shown above. The "template" option then gives
+        the name of the template to process.
+
+        By default, the Template Toolkit makes all the form and field
+        information accessible through simple variables.
+
+            [% jshead %]  -  JavaScript to stick in <head>
+            [% start  %]  -  Opening <form> tag w/ options
+            [% submit %]  -  The submit button(s)
+            [% reset  %]  -  The reset button
+            [% end    %]  -  Closing </form> tag
+            [% fields %]  -  List of fields
+            [% field  %]  -  Hash of fields (for lookup by name)
+
+        You can specify the "variable" option to have all these variables
+        accessible under a certain namespace. For example:
+
+            my $form = CGI::FormBuilder->new(
+                fields => \@fields,
+                template => {
+                     type => 'TT2',
+                     template => 'form.html',
+                     variable => 'form'
+                },
+            );
+
+        With "variable" set to "form" the variables are accessible as:
+
+            [% form.jshead %]
+            [% form.start  %]
+            etc.
+
+        You can access individual fields via the "field" variable.
+
+            For a field named...  The field data is in...
+            --------------------  -----------------------
+            job                   [% form.field.job   %]
+            size                  [% form.field.size  %]
+            email                 [% form.field.email %]
+
+        Each field contains various elements. For example:
+
+            [% myfield = form.field.email %]
+
+            [% myfield.label    %]  # text label
+            [% myfield.field    %]  # field input tag
+            [% myfield.value    %]  # first value
+            [% myfield.values   %]  # list of all values
+            [% myfield.required %]  # required flag
+            [% myfield.invalid  %]  # invalid flag
+
+        The "fields" variable contains a list of all the fields in the form.
+        To iterate through all the fields in order, you could do something
+        like this:
+
+            [% FOREACH field = form.fields %]
+            <tr>
+             <td>[% field.label %]</td> <td>[% field.field %]</td>
+            </tr>
+            [% END %]
+
+        If you want to customise any of the Template Toolkit options, you
+        can set the "engine" option to contain a reference to an existing
+        "Template" object or hash reference of options which are passed to
+        the "Template" constructor. You can also set the "data" item to
+        define any additional variables you want accesible when the template
+        is processed.
+
+            my $form = CGI::FormBuilder->new(
+                fields => \@fields,
+                template => {
+                     type => 'TT2',
+                     template => 'form.html',
+                     variable => 'form'
+                     engine   => {
+                          INCLUDE_PATH => '/usr/local/tt2/templates',
+                     },
+                     data => {
+                          version => 1.23,
+                          author  => 'Fred Smith',
+                     },
+                },
+            );
+
+        For further details on using the Template Toolkit, see the Template
+        manpage or http://template-toolkit.org/ .
+
     text => $text
         This is text that is included below the title but above the actual
         form. Useful if you want to say something simple like "Contact $adm
@@ -765,12 +945,14 @@ FUNCTIONS
             CCMM    -  strict checking for valid credit card 2-digit month ([0-9]|1[012])
             CCYY    -  valid credit card 2-digit year
             ZIPCODE -  US postal code in format 12345 or 12345-6789
-            STATE   -  valid two-letter state all in uppercase
-            IPV4    -  valid IPv4 address (sort of, see module)
+            STATE   -  valid two-letter state in all uppercase
+            IPV4    -  valid IPv4 address
+            NETMASK -  valid IPv4 netmask
             FILE    -  UNIX format filename (/usr/bin)
             WINFILE -  Windows format filename (C:\windows\system)
             MACFILE -  MacOS format filename (folder:subfolder:subfolder)
-            HOST    -  valid host or domain name
+            HOST    -  valid hostname (some-name)
+            DOMAIN  -  valid domainname (www.i-love-bacon.com)
             ETHER   -  valid ethernet address using either : or . as separators
 
         I know the above are US-centric, but then again that's where I live.
@@ -1542,11 +1724,23 @@ NOTES
     it and install it!
 
 ACKNOWLEDGEMENTS
-    Much thanks to Mark Belanger for lots of useful feedback and several
-    useful regex additions to the module.
+    This module has really taken off, thanks to very useful input and
+    encouraging feedback from a number of people, including:
+
+        Andy Wardley - huge patch enabling Template Toolkit (TT2)
+        Mark Belanger - lots of helpful regex additions and bugfinding
+        William Large - tons of debugging help and doc suggestions
+        Kevin Lubic - tons more debugging and encouragement
+
+    There have also been a bunch of people who have pointed out bugs and to
+    you I am appreciative as well.
+
+SEE ALSO
+    the HTML::Template manpage, the Template manpage, the CGI::Minimal
+    manpage, the CGI manpage
 
 VERSION
-    $Id: FormBuilder.pm,v 1.89 2001/11/12 21:53:19 nwiger Exp $
+    $Id: FormBuilder.pm,v 1.91 2001/12/11 23:49:21 nwiger Exp $
 
 AUTHOR
     Copyright (c) 2001 Nathan Wiger <nate@wiger.org>. All Rights Reserved.

@@ -17,7 +17,7 @@ CGI::FormBuilder - Easily generate and process stateful forms
     # This is all you need for a simple form-based app!
     my $form = CGI::FormBuilder->new(fields => [qw/name job money/],
                                      title  => 'Your Occupation');
-    print $form->render;
+    print $form->render(header => 1);
 
     # Ex 1a
     # If we have default values, for example from a DBI query,
@@ -36,7 +36,7 @@ CGI::FormBuilder - Easily generate and process stateful forms
     $form->field(name   => 'state', type => 'select',
                  options => \@states);
     
-    print $form->render;
+    print $form->render(header => 1);
 
     # Ex 2
     # Now we decide that we want to validate certain fields.
@@ -48,7 +48,7 @@ CGI::FormBuilder - Easily generate and process stateful forms
                                      email => 'EMAIL'}
                      );
 
-    print $valid_form->render;
+    print $valid_form->render(header => 1);
 
     # Ex 3
     # Finally, we've decided that the builtin forms, while
@@ -61,9 +61,21 @@ CGI::FormBuilder - Easily generate and process stateful forms
                         template => 'userinfo.html'
                     );
 
-    print $nice_form->render;
-
     # Ex 4
+    # Or, if we prefer to use the Template Toolkit (TT2),
+    # we can do it like this:
+
+    my $nice_form = CGI::FormBuilder->new(
+                        fields   => [qw/username password/],
+                        template => {
+                              type => 'TT2',
+                              template => 'userinfo.html',
+                        },
+                    );
+
+    print $nice_form->render(header => 1);
+
+    # Ex 5
     # Of course, we can even build a complete application
     # using this module, since all fields are sticky and
     # stateful across multiple submissions. And, though
@@ -93,7 +105,7 @@ CGI::FormBuilder - Easily generate and process stateful forms
 use Carp;
 use strict;
 use vars qw($VERSION @ISA @EXPORT @EXPORT_OK);
-$VERSION = do { my @r=(q$Revision: 1.89 $=~/\d+/g); sprintf "%d."."%02d"x$#r,@r };
+$VERSION = do { my @r=(q$Revision: 1.91 $=~/\d+/g); sprintf "%d."."%02d"x$#r,@r };
 
 # use CGI for stickiness (prefer CGI::Minimal for _much_ better speed)
 # we try the faster one first, since they're compatible for our needs
@@ -127,7 +139,8 @@ my %VALID = (
     #DATE  => '/^\d{1,2}\/\d{1,2}\/\d{4}$|^\d{1,2}\/\d{4}$|^\d{1,2}\/\d{2}$/',
     ZIPCODE=> '/^\d{5}$|^\d{5}\-\d{4}$/',
     STATE => ['/^[a-zA-Z]{2}$/', 'two-letter abbr'],
-    IPV4  => '/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}+$/',  # not strictly correct (allows 555.555)
+    IPV4  => '/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/',  # not strictly correct (allows 555.555)
+    NETMASK => '/^(\d{1,3}\.){0,3}\d{1,3}$/'.
     FILE  => ['/^[\/\w\.\-]+$/', 'UNIX format'],
     WINFILE => ['/^[a-zA-Z]:\\[\\\w\s\.\-]+$/', 'Windows format'],
     MACFILE => ['/^[:\w\.\-]+$/', 'Mac format'],
@@ -696,7 +709,7 @@ sub render {
 
         # Kill the value if we're not sticky (sticky => 0), but
         # only if we got the value from CGI (manual values aren't affected)
-        @value = () if (! $args{sticky} && $self->{field_cgivals}{$field});
+        @value = () if (! $args{sticky} && defined($self->{field_cgivals}{$field}));
 
         debug 2, "$field: retrieved value '@value' from \$attr->{value}";
 
@@ -945,7 +958,17 @@ EOF
         # if we have a template, then we setup the tag to a tmpl_var of the
         # same name via param(). otherwise, we generate HTML rows and stuff
         my $comment = ' ' . $attr->{comment};
-        if ($args{template}) {
+           if (ref $args{template} eq 'HASH' 
+               && $args{template}->{type} eq 'TT2') {
+                   # Template Toolkit can access complex data pretty much unaided
+                   $tmplvar{field}->{$field} = {
+                       %{ $self->{fields}{$field} },
+                       field  => $tag . $comment,
+                       values => \@value,
+                       label  => $label,
+                   };
+           }
+           elsif ($args{template}) {
             # in a template, instead of bold/red like below, we put
             # little text after the thingy
             my $req = $self->{fields}{$field}{required}
@@ -962,8 +985,8 @@ EOF
             # we do this even for single values just so that we can
             # provide a consistent interface
             $tmplvar{"loop-$field"} = [ map { { value => $_ } } @value ];
-            
-        } else {
+        } 
+           else {
             # bold it if so necessary
             $label = "<b>$label</b>" if $self->{fields}{$field}{required};
 
@@ -1075,35 +1098,84 @@ EOF
     # in %tmplvar (which is also accessible via $form->tmpl_param) and
     # then use $h->output to render the template. Otherwise, we "print"
     # the HTML we generated above verbatim by returning as a scalar.
+    # 
+    # NOTE: added code to handle Template Toolkit, abw November 2001
     my $header = $args{header} ? "Content-type: text/html\n\n" : '';
+
     if ($args{template}) {
-        my %tmplopt;
+        my (%tmplopt, $tmpltype) = ();
+
         if (ref $args{template} eq 'HASH') {
             %tmplopt = %{$args{template}};
+            $tmpltype = $tmplopt{type} || 'HTML';
         } else {
             %tmplopt = (filename => $args{template}, die_on_bad_params => 0);
-        } 
-        eval { require HTML::Template };
-        puke "Can't use templates because HTML::Template is not installed!" if $@; 
-        my $h = HTML::Template->new(%tmplopt);
-
-        # a couple special fields
-        $tmplvar{'form-start'}  = $formtag;
-        $tmplvar{'form-submit'} = $submit;
-        $tmplvar{'form-reset'}  = $reset;
-        $tmplvar{'form-end'}    = '</form>';
-        $tmplvar{'js-head'}     = $jsfunc;
-
-        while(my($param, $tag) = each %tmplvar) {
-            $h->param($param => $tag);
+            $tmpltype = 'HTML';
         }
 
+        if ($tmpltype eq 'HTML') {
+            eval { require HTML::Template };
+            puke "Can't use templates because HTML::Template is not installed!" if $@; 
+            my $h = HTML::Template->new(%tmplopt);
+
+            # a couple special fields
+            $tmplvar{'form-start'}  = $formtag;
+            $tmplvar{'form-submit'} = $submit;
+            $tmplvar{'form-reset'}  = $reset;
+            $tmplvar{'form-end'}    = '</form>';
+            $tmplvar{'js-head'}     = $jsfunc;
+
+            while(my($param, $tag) = each %tmplvar) {
+                $h->param($param => $tag);
+            }
+
+            $outhtml = $header . $h->output;
+
+        } elsif ($tmpltype eq 'TT2') {
+
+            eval { require Template };
+            puke "Can't use templates because the Template Toolkit is not installed!" if $@; 
+
+            my ($tt2engine, $tt2template, $tt2data, $tt2var, $tt2output);
+            $tt2engine = $tmplopt{engine} || { };
+            $tt2engine = Template->new($tt2engine) 
+                || puke $Template::ERROR unless UNIVERSAL::isa($tt2engine, 'Template');
+            $tt2template = $tmplopt{template}
+                || puke "tt2 template not specified";
+            $tt2data = $tmplopt{data} || { };
+            $tt2var = $tmplopt{variable};
+
+            # special fields
+            $tmplvar{'start'}  = $formtag;
+            $tmplvar{'submit'} = $submit;
+            $tmplvar{'reset'}  = $reset;
+            $tmplvar{'end'}    = '</form>';
+            $tmplvar{'jshead'} = $jsfunc;
+            $tmplvar{'invalid'} = $self->{state}{invalid};
+            $tmplvar{'fields'} = [ map $tmplvar{field}->{$_},
+                   @{ $self->{field_names} } ];
+            if ($tt2var) {
+                $tt2data->{$tt2var} = \%tmplvar;
+            } else {
+                $tt2data = { %$tt2data, %tmplvar };
+            }
         
-        $outhtml = $header . $h->output;
+            $tt2engine->process($tt2template, $tt2data, \$tt2output)
+                || puke $tt2engine->error();
+        
+            $outhtml = $header . $tt2output;
+
+        } else {
+            puke "Invalid template type '$tmpltype' specified - can be 'HTML' or 'TT2'";
+        }
+
     } else {
 
         my $body = _tag('body', %{$args{body}});
-        $header .= "<html><head><title>$args{title}</title>$body$font<h3>$args{title}</h3>" if $header;
+
+        # assemble header HTML-compliantly
+        $jsfunc = "<html><head><title>$args{title}</title>$jsfunc</head>"
+                . "$body$font<h3>$args{title}</h3>" if $header;
 
         # Insert any text we may have specified
         my $text = $args{text} || $args{text} || '';
@@ -1117,7 +1189,7 @@ EOF
             }
         }
                     
-        $outhtml = $jsfunc . $text . $outhtml;
+        $outhtml = $header . $jsfunc . $text . $outhtml;
     }
 
     # XXX finally, reset our fields and field_names
@@ -1369,11 +1441,11 @@ maintains state ("stickiness") across submissions, with hooks
 provided for you to plugin your own sessionid module such
 as C<Apache::Session>.
 
-And though it's smart, it allows you to customize it as well.
-For example, if you really want something to be a checkbox,
-you can make it a checkbox. And, if you really want something
-to be output a specific way, you can even specify the name of
-an C<HTML::Template> compatible template which will be 
+And though it's smart, it allows you to customize it as well.  For
+example, if you really want something to be a checkbox, you can make
+it a checkbox. And, if you really want something to be output a
+specific way, you can even specify the name of an C<HTML::Template> or
+Template Toolkit (C<Template>) compatible template which will be
 automatically filled in, statefully.
 
 =head2 Walkthrough
@@ -1457,9 +1529,68 @@ Then, all you need to do in your Perl is add the C<template> option:
 
 And the rest of the code stays the same.
 
-Now, let's assume that we want to validate our form on the server
-side, which is common since the user may not be running JavaScript.
-All we have to add is the statement:
+You can also do a similar thing using the Template Toolkit
+(http://template-toolkit.org/) to generate the form.  This time,
+specify the C<template> option as a hashref  which includes the
+C<type> option set to C<TT2> and the C<template> option to denote
+the name of the template you want processed.  You can also add
+C<variable> as an option (among others) to denote the variable
+name that you want the form data to be referenced by.
+
+    my $form = CGI::FormBuilder->new( 
+        fields => \@fields, 
+        template => {
+            type => 'TT2',
+            template => 'userinfo.html',
+            variable => 'form',
+        }
+    );
+
+The template might look something like this:
+
+    <html>
+    <head>
+      <title>User Information</title>
+      [% form.jshead %]
+    </head>
+    <body>
+      [% form.start %]
+      <table>
+        [% FOREACH field = form.fields %]
+        <tr valign="top">
+          <td>
+            [% field.required 
+                  ? "<b>$field.label</b>" 
+                  : field.label 
+            %]
+          </td>
+          <td>
+            [% IF field.invalid %]
+            Missing or invalid entry, please try again.
+        <br/>
+        [% END %]
+
+        [% field.field %]
+      </td>
+    </tr>
+        [% END %]
+        <tr>
+          <td colspan="2" align="center">
+            [% form.submit %]
+          </td>
+        </tr>
+      </table>
+      [% form.end %]
+    </body>
+    </html>
+
+So, as you can see, there is plugin capability for B<FormBuilder>
+to basically "run" the two major templating engines, B<HTML::Template>
+and B<Template Toolkit>.
+
+Now, back to B<FormBuilder>. Let's assume that we want to validate our
+form on the server side, which is common since the user may not be running
+JavaScript.  All we have to add is the statement:
 
     $form->validate;
 
@@ -1528,9 +1659,12 @@ So, our complete code thus far looks like this:
 
     my @fields = qw(name email password confirm_password zipcode);
 
-    my $form = CGI::FormBuilder->new(fields => \@fields, 
-                                     validate => {email => 'EMAIL'},
-                                     template => 'userinfo.html');
+    my $form = CGI::FormBuilder->new(
+                    fields   => \@fields, 
+                    validate => {email => 'EMAIL'},
+                    template => 'userinfo.html',
+                    header   => 1
+               );
 
     if ($form->submitted && $form->validate) {
         # form was good, let's update database ...
@@ -1578,6 +1712,11 @@ Similarly, we can do the same thing with hashes:
     my $form = CGI::FormBuilder->new( ... validate => \%validate);
 
 Here, C<\%validate> is a hash reference, or "hashref".
+
+Basically, if you don't understand references and are having trouble
+wrapping your brain around them, you can try this simple rule: Any time
+you're passing an array or hash into a function, you must precede it
+with a backslash. Usually that's true for CPAN modules.
 
 Finally, there are two more types of references: anonymous arrayrefs
 and anonymous hashrefs. These are created with C<[]> and C<{}>,
@@ -1653,7 +1792,7 @@ the recommended setting.
 This takes a hashref of attributes that will be stuck in the
 C<< <body> >> tag verbatim (for example, bgcolor, alink, etc).
 If you're thinking about using this, check out the
-C<template> option above.
+C<template> option above (and below).
 
 =item debug => 0 | 1 | 2
 
@@ -1691,18 +1830,13 @@ part of their HTML tag.
 The font to use for the form. This is output as a series of
 C<< <font> >> tags for best browser compatibility. If you're 
 thinking about using this, check out the C<template> option
-above.
+above (and below).
 
 =item header => 1 | 0
 
 If set to 1, a valid C<Content-type> header will be printed out.
-This is actually the default, since B<FormBuilder> assumes it
-is doing all your HTML generation for you, which is true even
-when using a template. 
-
-You can set to 0 to disable header generation altogether, for
-example if you want to generate other HTML in addition to your
-form (note that you can use the 'template' option for this, though...).
+As of version 1.69, this now defaults to 0, meaning no header
+will be printed unless you specifically say C<< header => 1 >>.
 
 =item javascript => 1 | 0
 
@@ -1752,7 +1886,7 @@ to explicitly name your fields, use this option.
 Of course, very likely what you'll really want to do is point to
 a template to use, since you probably want careful control over
 your document if you're thinking about this option. See the
-C<template> option below.
+C<template> option above (and below).
 
 =item lalign => 'left' | 'right' | 'center'
 
@@ -1816,7 +1950,7 @@ get the same functionality by using C<< $form->cgi_param >>).
 
 =item required => \@array
 
-This is a list of those values that are just required to be filled
+This is a list of those values that are required to be filled
 in. These two are functionally equivalent:
 
     ->new(... required => [qw/name email/]);
@@ -1974,6 +2108,111 @@ These C<< <tmpl_var> >> variables would follow the normal rules for
 templates. For more details on templates, see the documentation for
 C<HTML::Template>.
 
+=item template => \%hash
+
+You can also specify the C<template> option as a reference to a hash,
+allowing you to further customise the template processing options.
+In particular, this allows you to use an alternate template
+processing system like the Template Toolkit.  A minimal configuration
+would look like this:
+
+    my $form = CGI::FormBuilder->new(
+        fields => \@fields,
+        template => {
+            type => 'TT2',
+            template => 'form.html',
+        },
+    );
+
+The C<type> option specifies the name of the processor.  Use 
+C<TT2> to invoke the Template Toolkit or C<HTML> (the default)
+to invoke C<HTML::Template> as shown above.  The C<template> option
+then gives the name of the template to process.
+
+By default, the Template Toolkit makes all the form and field 
+information accessible through simple variables.
+
+    [% jshead %]  -  JavaScript to stick in <head>
+    [% start  %]  -  Opening <form> tag w/ options
+    [% submit %]  -  The submit button(s)
+    [% reset  %]  -  The reset button
+    [% end    %]  -  Closing </form> tag
+    [% fields %]  -  List of fields
+    [% field  %]  -  Hash of fields (for lookup by name)
+
+You can specify the C<variable> option to have all these variables 
+accessible under a certain namespace.  For example:
+
+    my $form = CGI::FormBuilder->new(
+        fields => \@fields,
+        template => {
+             type => 'TT2',
+             template => 'form.html',
+             variable => 'form'
+        },
+    );
+
+With C<variable> set to C<form> the variables are accessible as:
+
+    [% form.jshead %]
+    [% form.start  %]
+    etc.
+
+You can access individual fields via the C<field> variable.
+
+    For a field named...  The field data is in...
+    --------------------  -----------------------
+    job                   [% form.field.job   %]
+    size                  [% form.field.size  %]
+    email                 [% form.field.email %]
+
+Each field contains various elements.  For example:
+
+    [% myfield = form.field.email %]
+
+    [% myfield.label    %]  # text label
+    [% myfield.field    %]  # field input tag
+    [% myfield.value    %]  # first value
+    [% myfield.values   %]  # list of all values
+    [% myfield.required %]  # required flag
+    [% myfield.invalid  %]  # invalid flag
+
+The C<fields> variable contains a list of all the fields in the form.
+To iterate through all the fields in order, you could do something like
+this:
+
+    [% FOREACH field = form.fields %]
+    <tr>
+     <td>[% field.label %]</td> <td>[% field.field %]</td>
+    </tr>
+    [% END %]
+
+If you want to customise any of the Template Toolkit options, you can
+set the C<engine> option to contain a reference to an existing
+C<Template> object or hash reference of options which are passed to
+the C<Template> constructor.  You can also set the C<data> item to
+define any additional variables you want accesible when the template
+is processed.
+
+    my $form = CGI::FormBuilder->new(
+        fields => \@fields,
+        template => {
+             type => 'TT2',
+             template => 'form.html',
+             variable => 'form'
+             engine   => {
+                  INCLUDE_PATH => '/usr/local/tt2/templates',
+             },
+             data => {
+                  version => 1.23,
+                  author  => 'Fred Smith',
+             },
+        },
+    );
+
+For further details on using the Template Toolkit, see L<Template> or
+http://template-toolkit.org/ .
+
 =item text => $text
 
 This is text that is included below the title but above the
@@ -2070,12 +2309,14 @@ prove helpful:
     CCMM    -  strict checking for valid credit card 2-digit month ([0-9]|1[012])
     CCYY    -  valid credit card 2-digit year
     ZIPCODE -  US postal code in format 12345 or 12345-6789
-    STATE   -  valid two-letter state all in uppercase
-    IPV4    -  valid IPv4 address (sort of, see module)
+    STATE   -  valid two-letter state in all uppercase
+    IPV4    -  valid IPv4 address
+    NETMASK -  valid IPv4 netmask
     FILE    -  UNIX format filename (/usr/bin)
     WINFILE -  Windows format filename (C:\windows\system)
     MACFILE -  MacOS format filename (folder:subfolder:subfolder)
-    HOST    -  valid host or domain name
+    HOST    -  valid hostname (some-name)
+    DOMAIN  -  valid domainname (www.i-love-bacon.com)
     ETHER   -  valid ethernet address using either : or . as separators
 
 I know the above are US-centric, but then again that's where I
@@ -2857,7 +3098,7 @@ In fact, that's a whole file upload program right there.
 
 This has been used pretty thoroughly in a production environment
 for a while now, so it's definitely stable, but I would be shocked
-if it's bug-free. Bug reports and especially patches to fix such
+if it's bug-free. Bug reports and B<especially patches> to fix such
 bugs are welcomed.
 
 I'm always open to entertaining "new feature" requests, but before
@@ -2880,12 +3121,24 @@ is recommended you get it and install it!
 
 =head1 ACKNOWLEDGEMENTS
 
-Much thanks to Mark Belanger for lots of useful feedback and several
-useful regex additions to the module.
+This module has really taken off, thanks to very useful input and
+encouraging feedback from a number of people, including:
+
+    Andy Wardley - huge patch enabling Template Toolkit (TT2)
+    Mark Belanger - lots of helpful regex additions and bugfinding
+    William Large - tons of debugging help and doc suggestions
+    Kevin Lubic - tons more debugging and encouragement
+
+There have also been a bunch of people who have pointed out bugs
+and to you I am appreciative as well.
+
+=head1 SEE ALSO
+
+L<HTML::Template>, L<Template>, L<CGI::Minimal>, L<CGI>
 
 =head1 VERSION
 
-$Id: FormBuilder.pm,v 1.89 2001/11/12 21:53:19 nwiger Exp $
+$Id: FormBuilder.pm,v 1.91 2001/12/11 23:49:21 nwiger Exp $
 
 =head1 AUTHOR
 
