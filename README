@@ -347,22 +347,95 @@ FUNCTIONS
 
     This is the constructor, and must be called very first. It returns a
     "$form" object, which you can then modify and print out to create the
-    form.
+    form. Options will be described shortly.
 
-    Options are a'plenty:
+  render(opt => $val, opt => $val)
+
+    This function renders the form into HTML, and returns a string
+    containing the form. The most common use is simply:
+
+        print $form->render;
+
+    However, "render()" accepts the exact same options as "new()" Why?
+    Because this allows you to set certain options at different points in
+    your code, which is often useful. For example, you can change the fields
+    depending on some conditional:
+
+        my $form = CGI::FormBuilder->new(method => 'POST');
+        if ($form->submitted) {
+            # second form
+            print $form->render(fields => [qw/email address/]);
+        } else {
+            # first form
+            print $form->render(fields => [qw/name phone/]);
+        }
+
+    The following are all the options accepted by both "new()" and
+    "render()":
+
+    action => $script
+        What script to point the form to. Defaults to itself, which is the
+        recommended setting.
+
+    body => \%hash
+        This takes a hashref of attributes that will be stuck in the
+        "<body>" tag verbatim (for example, bgcolor, alink, etc). If you're
+        thinking about using this, check out the "template" option above.
+
+    debug => 0 | 1 | 2
+        If set to 1, the module spits copious debugging info to STDERR. If
+        set to 2, it spits out even more gunk. Defaults to 0.
 
     fields => \@array
         The "fields" option takes an arrayref of fields to use in the form.
         The fields will be printed out in the same order they are specified.
 
-    values => \%hash
-        The "values" option takes a hashref of key/value pairs specifying
-        the default values for the fields. These values will be overridden
-        by the values entered by the user across the CGI.
+    font => $font
+        The font to use for the form. This is output as a series of "<font>"
+        tags for best browser compatibility. If you're thinking about using
+        this, check out the "template" option above.
 
-        This option is useful for selecting a record from a database or
-        hardwiring some sensible defaults, and then including them in the
-        form so that the user can change them if they wish.
+    header => 1 | 0
+        If set to 1, a valid "Content-type" header will be printed out. This
+        is actually the default, since FormBuilder assumes it is doing all
+        your HTML generation for you, which is true even when using a
+        template.
+
+        You can set to 0 to disable header generation altogether, for
+        example if you want to generate other HTML in addition to your form
+        (note that you can use the 'template' option for this, though...).
+
+    javascript => 1 | 0
+        If set to 1, JavaScript is generated in addition to HTML, the
+        default setting.
+
+    jshead => JSCODE
+        If using JavaScript, you can also specify some JavaScript code that
+        will be included verbatim in the <head> section of the document.
+
+    jsfunc => JSCODE
+        Just like "jshead", only this is stuff that will go into the
+        "validate" JavaScript function. As such, you can use it to add extra
+        JavaScript validate code verbatim. Just return false if something
+        doesn't work. For example:
+
+            my $jsfunc = <<EOF;
+        if (form.password.value == 'password') {
+            alert("What are you, a moron? You used 'password' for your password?!");
+            return false;
+        }
+        EOF
+            ->new(... jsfunc => $jsfunc);
+
+        This is another option I don't like. Should you be using a template?
+
+    keepextras => 1 | 0
+        If set to 1, then extra parameters not set in your fields
+        declaration will be kept as hidden fields in the form. However, you
+        will need to use "cgi_param()", not "field()", to get to the values.
+        This is useful if you want to keep some extra parameters like
+        referrer or company available but not have them be valid form
+        fields. See below under "/"param"" for more details.
 
     labels => \%hash
         Like "values", this is a list of key/value pairs where the keys are
@@ -375,6 +448,227 @@ FUNCTIONS
         template to use, since you probably want careful control over your
         document if you're thinking about this option. See the "template"
         option below.
+
+    lalign => 'left' | 'right' | 'center'
+        This is how to align the field labels in the table layout. I really
+        don't like this option being here, but it does turn out to be pretty
+        damn useful. You should probably be using a template.
+
+    linebreaks => 1 | 0
+        If set to 1, line breaks will be inserted after each input field. By
+        default this is figured out for you, so usually not needed.
+
+    method => 'POST' | 'GET'
+        Either "POST" or "GET", the type of CGI method to use. Defaults to
+        "GET" if nothing is specified.
+
+    name => $string
+        This option can only be specified to "new()" but not to "render()".
+
+        This names the form. It is optional, but if you specify it you must
+        do so in "new()" since the name is then used to alter how variables
+        are created and looked up.
+
+    params => $object
+        This option can only be specified to "new()" but not to "render()".
+
+        This specifies an object from which the parameters should be
+        derived. The object must have a "param()" method which will return
+        values for each parameter by name. By default a CGI object will be
+        automatically created and used.
+
+        However, you will want to specify this if you're using "mod_perl":
+
+            use Apache::Request;
+            use CGI::FormBuilder;
+
+            sub handler {
+                my $r = Apache::Request->new(shift);
+                my $form = CGI::FormBuilder->new(... params => $r);
+                # ...
+                print $form->render;
+            }
+
+        Or, if you need to initialize a "CGI.pm" object separately and are
+        using a "POST" form method:
+
+            use CGI;
+            use CGI::FormBuilder;
+
+            my $q = new CGI;
+            my $mode = $q->param('mode');
+            # do stuff based on mode ...
+            my $form = CGI::FormBuilder->new(... params => $q);
+
+        The above example would allow you to access CGI parameters directly
+        via "$q->param" (however, note that you could get the same
+        functionality by using "$form->cgi_param").
+
+    required => \@array
+        This is a list of those values that are just required to be filled
+        in. These two are functionally equivalent:
+
+            ->new(... required => [qw/name email/]);
+
+            ->new(... validate => {name => 'VALUE', email => 'VALUE'});
+
+        So, if you just need a bunch of fields to be filled in with
+        anything, use this. Usually "validate" is what you want.
+
+    reset => 0 | TEXT
+        If set to 0, then the "Reset" button is not printed. If set to text,
+        then that will be printed out as the reset button. Defaults to
+        printing out a button that says "Reset".
+
+    selectnum => $threshold
+        These affect the "intelligence" of the module. If a given field has
+        any options, then it will be a radio group by default. However, if
+        more than "selectnum" options are present, then it will become a
+        select list. The default is 5 or more options. For example:
+
+            # This will be a radio group
+            my @opt = qw(Yes No);
+            $form->field(name => 'answer', options => \@opt);
+
+            # However, this will be a select list
+            my @states = qw(AK CA FL NY TX);
+            $form->field(name => 'state', options => \@states);
+
+        There is no threshold for checkboxes since these are basically a
+        type of multiple radio select group. As such, a radio group becomes
+        a checkbox group if there are multiple values (not options, but
+        actual values) for a given field, or if you specify "multiple => 1"
+        to the "field()" method. Got it?
+
+    smartness => 0 | 1 | 2
+        By default CGI::FormBuilder tries to be pretty smart for you, like
+        figuring out the types of fields based on their names and number of
+        options. If you don't want this behavior at all, set "smartness" to
+        "0". If you want it to be really smart, like figuring out what type
+        of validation routines to use for you, set it to "2". It defaults to
+        "1".
+
+    static => 1 | 0
+        If set to 1, then the form will be output with static hidden fields.
+        Defaults to 0.
+
+    sticky => 1 | 0
+        Determines whether or not form values should be sticky across
+        submissions. Defaults to 1.
+
+    submit => 0 | $string | \@array
+        If set to 0, then the "Submit" button is not printed. It defaults to
+        creating a button that says "Submit" verbatim. If given an argument,
+        then that argument becomes the text to show. For example:
+
+            print $form->render(submit => 'Do Lookup');
+
+        Would make it so the submit button says "Do Lookup" on it.
+
+        If you pass an arrayref of multiple values, you get a key benefit.
+        This will create multiple submit buttons, each with a different
+        value. In addition, though, when submitted only the one that was
+        clicked will be sent across CGI via some JavaScript tricks. So this:
+
+            print $form->render(submit => ['Add A Gift', 'No Thank You']);
+
+        Would create two submit buttons. Clicking on either would submit the
+        form, but you would be able to see which one was submitted via the
+        "submitted()" function:
+
+            my $clicked = $form->submitted;
+
+        So if the user clicked "Add A Gift" then that is what would end up
+        in the variable "$clicked" above. This allows nice conditionality:
+
+            if ($form->submitted eq 'Add A Gift') {
+                # show the gift selection screen
+            } elsif ($form->submitted eq 'No Thank You')
+                # just process the form
+            }
+
+        See the the section on "EXAMPLES" section for more details.
+
+    table => 1 | 0
+        If set to 1, the form will be neatly wrapped in a table. By default
+        the module decides based on how many fields there are.
+
+    template => $filename
+        This points to a filename that contains an "HTML::Template"
+        compatible template to use to layout the HTML. Each of the form
+        fields will correspond directly to a "<tmpl_var>" of the same name
+        prefixed with "field-" in the template. So, if you defined a field
+        called "email", then you would setup a variable called "<tmpl_var
+        field-email>" in your template.
+
+        In addition, there are a couple special fields:
+
+            <tmpl_var js-head>     -  JavaScript to stick in <head>
+            <tmpl_var form-start>  -  Opening <form> tag w/ options
+            <tmpl_var form-submit> -  The submit button(s)
+            <tmpl_var form-reset>  -  The reset button
+            <tmpl_var form-end  >  -  Closing </form> tag
+
+        However, you may want even more control. That is, maybe you want to
+        specify every nitty-gritty detail of your input fields, and just
+        want this module to take care of the statefulness of the values.
+        This is no problem, since this module also provides a "<tmpl_var>"
+        with the prefix "value-" for the template. This will *only* contain
+        the field's value. To clarify:
+
+            For a field named...  The <input> tag is in  Just the value is in
+            --------------------  ---------------------  --------------------
+            job                   <tmpl_var field-job>   <tmpl_var value-job>
+            size                  <tmpl_var field-size>  <tmpl_var value-size>
+            email                 <tmpl_var field-email> <tmpl_var value-email>
+
+        Note, though, that this will only get the *first* value in the case
+        of a multi-value parameter (for example, a multi-select list). To
+        remedy this, if there are multiple values you will also get a
+        "<tmpl_var>" prefixed with "loop-". So, if you had:
+
+            myapp.cgi?color=gray&color=red&color=blue
+
+        This would give the "color" field three values. To create a select
+        list, you would do this in your template:
+
+            <select name="color" multiple>
+            <tmpl_loop loop-color>
+                <option value="<tmpl_var value>"><tmpl_var value></option>
+            </tmpl_loop>
+            </select>
+
+        In this case, each iteration the "<tmpl_var value>" tag would have
+        one of the values of the "color" field. The HTML would look
+        something like this:
+
+            <select name="color" multiple>
+                <option value="gray">gray</option>
+                <option value="red">red</option>
+                <option value="blue">blue</option>
+            </select>
+
+        These "<tmpl_var>" variables would follow the normal rules for
+        templates. For more details on templates, see the documentation for
+        "HTML::Template".
+
+    text => $text
+        This is text that is included below the title but above the actual
+        form. Useful if you want to say something simple like "Contact $adm
+        for more help", but if you want lots of text check out the
+        "template" option above.
+
+    title => $title
+        This takes a string to use as the title of the form.
+
+    values => \%hash
+        The "values" option takes a hashref of key/value pairs specifying
+        the default values for the fields. These values will be overridden
+        by the values entered by the user across the CGI.
+
+        This option is useful for selecting a record from a database or
+        hardwiring some sensible defaults, and then including them in the
+        form so that the user can change them if they wish.
 
     validate => \%hash
         This option takes a hashref of key/value pairs, where each key is
@@ -459,220 +753,6 @@ FUNCTIONS
         expression and pass it in. If there's something really useful let me
         know and maybe I'll add it.
 
-    required => \@array
-        This is a list of those values that are just required to be filled
-        in. These two are functionally equivalent:
-
-            ->new(... required => [qw/name email/]);
-
-            ->new(... validate => {name => 'VALUE', email => 'VALUE'});
-
-        So, if you just need a bunch of fields to be filled in with
-        anything, use this. Usually "validate" is what you want.
-
-    template => $filename
-        This points to a filename that contains an "HTML::Template"
-        compatible template to use to layout the HTML. Each of the form
-        fields will correspond directly to a "<tmpl_var>" of the same name
-        prefixed with "field-" in the template. So, if you defined a field
-        called "email", then you would setup a variable called "<tmpl_var
-        field-email>" in your template.
-
-        In addition, there are a couple special fields:
-
-            <tmpl_var js-head>     -  JavaScript to stick in <head>
-            <tmpl_var form-start>  -  Opening <form> tag w/ options
-            <tmpl_var form-submit> -  The submit button(s)
-            <tmpl_var form-reset>  -  The reset button
-            <tmpl_var form-end  >  -  Closing </form> tag
-
-        However, you may want even more control. That is, maybe you want to
-        specify every nitty-gritty detail of your input fields, and just
-        want this module to take care of the statefulness of the values.
-        This is no problem, since this module also provides a "<tmpl_var>"
-        with the prefix "value-" for the template. This will *only* contain
-        the field's value. To clarify:
-
-            For a field named...  The <input> tag is in  Just the value is in
-            --------------------  ---------------------  --------------------
-            job                   <tmpl_var field-job>   <tmpl_var value-job>
-            size                  <tmpl_var field-size>  <tmpl_var value-size>
-            email                 <tmpl_var field-email> <tmpl_var value-email>
-
-        Note, though, that this will only get the *first* value in the case
-        of a multi-value parameter (for example, a multi-select list). To
-        remedy this, if there are multiple values you will also get a
-        "<tmpl_var>" prefixed with "loop-". So, if you had:
-
-            myapp.cgi?color=gray&color=red&color=blue
-
-        This would give the "color" field three values. To create a select
-        list, you would do this in your template:
-
-            <select name="color" multiple>
-            <tmpl_loop loop-color>
-                <option value="<tmpl_var value>"><tmpl_var value></option>
-            </tmpl_loop>
-            </select>
-
-        In this case, each iteration the "<tmpl_var value>" tag would have
-        one of the values of the "color" field. The HTML would look
-        something like this:
-
-            <select name="color" multiple>
-                <option value="gray">gray</option>
-                <option value="red">red</option>
-                <option value="blue">blue</option>
-            </select>
-
-        These "<tmpl_var>" variables would follow the normal rules for
-        templates. For more details on templates, see the documentation for
-        "HTML::Template".
-
-    params => $object
-        Specify an object from which the parameters should be derived. The
-        object must have a "param()" method which will return values for
-        each parameter by name. By default a CGI object will be
-        automatically created and used.
-
-        However, you may want to specify this if you're using "mod_perl" or
-        are using a "POST" method:
-
-            use Apache::Request;
-            use CGI::FormBuilder;
-
-            sub handler {
-                my $r = Apache::Request->new(shift);
-                my $form = CGI::FormBuilder->new(... params => $r);
-                # ...
-                print $form->render;
-            }
-
-        Or, if you need to initialize a "CGI.pm" object separately:
-
-            use CGI;
-            use CGI::FormBuilder;
-
-            my $q = new CGI;
-            my $mode = $q->param('mode');
-            # do stuff based on mode ...
-            my $form = CGI::FormBuilder->new(... params => $q);
-
-        The above example would allow you to access CGI parameters directly
-        via "$q->param" (however, note that you could get the same
-        functionality by using "$form->cgi_param").
-
-    action => $script
-        What script to point the form to. Defaults to itself, which is the
-        recommended setting.
-
-    method => 'POST' | 'GET'
-        Either "POST" or "GET", the type of CGI method to use. Defaults to
-        "GET" if nothing is specified.
-
-    header => 1 | 0
-        If set to 1, a valid "Content-type" header will be printed out. This
-        is actually the default, since FormBuilder assumes it is doing all
-        your HTML generation for you, which is true even when using a
-        template.
-
-        You can set to 0 to disable header generation altogether, for
-        example if you want to generate other HTML in addition to your form
-        (note that you can use the 'template' option for this, though...).
-
-    table => 1 | 0
-        If set to 1, the form will be neatly wrapped in a table. By default
-        the module decides based on how many fields there are.
-
-    linebreaks => 1 | 0
-        If set to 1, line breaks will be inserted after each input field. By
-        default this is figured out for you, so usually not needed.
-
-    sticky => 1 | 0
-        Determines whether or not form values should be sticky across
-        submissions. Defaults to 1.
-
-    keepextras => 1 | 0
-        If set to 1, then extra parameters not set in your fields
-        declaration will be kept as hidden fields in the form. However, you
-        will need to use "cgi_param()", not "field()", to get to the values.
-        This is useful if you want to keep some extra parameters like
-        referrer or company available but not have them be valid form
-        fields. See below under "/"param"" for more details.
-
-    title => $title
-        This takes a string to use as the title of the form.
-
-    text => $text
-        This is text that is included below the title but above the actual
-        form. Useful if you want to say something simple like "Contact $adm
-        for more help", but if you want lots of text check out the
-        "template" option above.
-
-    font => $font
-        The font to use for the form. This is output as a series of "<font>"
-        tags for best browser compatibility. If you're thinking about using
-        this, check out the "template" option above.
-
-    body => \%hash
-        This takes a hashref of attributes that will be stuck in the
-        "<body>" tag verbatim (for example, bgcolor, alink, etc). If you're
-        thinking about using this, check out the "template" option above.
-
-    lalign => 'left' | 'right' | 'center'
-        This is how to align the field labels in the table layout. I really
-        don't like this option being here, but it does turn out to be pretty
-        damn useful. You should probably be using a template.
-
-    radionum => $threshold
-    selectnum => $threshold
-        These affect the "intelligence" of the module. The threshold is a
-        number of options over which the item converts to the specified
-        type. Huh? Well, the defaults are 2 and 4, respectively. That is, if
-        a field has more than 2 options, it will become a radio box, but if
-        it has more than 4 options, it will become a select list.
-
-        There is no threshold for checkboxes since these are basically a
-        type of multiple radio select group. As such, a radio group becomes
-        a checkbox group if there are multiple values (not options, but
-        actual values) for a given field. Got it?
-
-    javascript => 1 | 0
-        If set to 1, JavaScript is generated in addition to HTML, the
-        default setting.
-
-    jshead => JSCODE
-        If using JavaScript, you can also specify some JavaScript code that
-        will be included verbatim in the <head> section of the document.
-
-    jsfunc => JSCODE
-        Just like "jshead", only this is stuff that will go into the
-        "validate" JavaScript function. As such, you can use it to add extra
-        JavaScript validate code verbatim. Just return false if something
-        doesn't work. For example:
-
-            my $jsfunc = <<EOF;
-        if (form.password.value == 'password') {
-            alert("What are you, a moron? You used 'password' for your password?!");
-            return false;
-        }
-        EOF
-            ->new(... jsfunc => $jsfunc);
-
-        This is another option I don't like. Should you be using a template?
-
-    smartness => 0 | 1 | 2
-        By default CGI::FormBuilder tries to be pretty smart for you, like
-        figuring out the types of fields based on their names and number of
-        options. If you don't want this behavior at all, set "smartness" to
-        "0". If you want it to be really smart, like figuring out what type
-        of validation routines to use for you, set it to "2". It defaults to
-        "1".
-
-    debug => 0 | 1 | 2
-        If set to 1, the module spits copious debugging info to STDERR. If
-        set to 2, it spits out even more gunk. Defaults to 0.
-
     Note that any other options specified are passed to the "<form>" tag
     verbatim. For example, you could specify "name" and "onSubmit" to add
     the respective attributes.
@@ -726,22 +806,82 @@ FUNCTIONS
     Note that the data structure returned will has all values as arrayrefs.
     As such, you must access singular elements as shown above.
 
-    The "field()" function takes several parameters:
+    The "field()" function takes several parameters, the first of which is
+    mandatory. The rest are listed in alphabetical order:
 
     name => $name
-        The name of the field to manipulate. The "name =>" key is optional
-        if there's only one argument.
+        The name of the field to manipulate. The "name =>" part is optional
+        if there's only one argument. For example:
 
-    type => $type
-        Type of input box to make it. Default is "text", and valid values
-        include anything allowed by the HTML specs, including "password",
-        "select", "radio", "checkbox", "textarea", "hidden", and so on.
+            my $email = $form->field(name => 'email');
+            my $email = $form->field('email');  # same thing
 
-    value => $value | \@values
-        The "value" option can take either a single value or an arrayref of
-        multiple values. In the case of multiple values, this will result in
-        the field automatically becoming a multiple select list or checkbox
-        group, depending on the number of options specified above.
+    comment => $string
+        This prints out the given comment *after* the field to fill in,
+        vebatim. For example, if you wanted a field to look like this:
+
+            Joke [____________] (keep it clean, please!)
+
+        You would use the following:
+
+            $form->field(name => 'joke', comment => '(keep it clean, please!)');
+
+        The "comment" can actually be anything you want (even another form
+        field). But don't tell anyone I said that.
+
+    jsclick => $jscode
+        This is a simple abstraction over directly specifying the JavaScript
+        action type. It is useful since if a multiple-option list changes
+        from "select" to "radio" (depending on the number of options), then
+        the action changes from "onChange" to "onClick". Why?!?!
+
+        Example:
+
+            $form->field(name => 'credit_card', jsclick => 'recalc_total();',
+                         options => \@cards)
+
+        This would generate the following code, depending on the number of
+        "@cards":
+
+            <select name="credit_card" onChange="recalc_total();"> ...
+
+            <radio name="credit_card" onClick="recalc_total();"> ...
+
+        You get the idea.
+
+    label => $string
+        This will be the label printed out next to the field. By default it
+        will be generated automatically from the field name.
+
+    multiple => 1 | 0
+        If set to 1, then the user is allowed to choose multiple values from
+        the options provided. This turns radio groups into checkboxes and
+        selects into multi-selects. Defaults to automatically being figured
+        out based on number of values.
+
+    nameopts => 1 | 0
+        If set to 1, then options for select lists will be automatically
+        named as well. So, if you specified a list like:
+
+            $form->field(name => 'department', 
+                         options => qw[/molecular_biology philosophy psychology
+                                        particle_physics social_anthropology/],
+                         nameopts => 1);
+
+        This would create a list like:
+
+            <select name="department">
+                <option value="molecular_biology">Molecular Biology</option>
+                <option value="philosophy">Philosophy</option>
+                <option value="psychology">Psychology</option>
+                <option value="particle_physics">Particle Physics</option>
+                <option value="social_anthropology">Social Anthropology</option>
+            </select>
+
+        Basically, you get names for the options that are determined in the
+        same way as the names for the fields. This is designed as a simpler
+        alternative to using custom "options" data structures if your data
+        is regular enough to support it.
 
     options => \@options | \%options
         This takes an arrayref of options. It also automatically results in
@@ -799,45 +939,13 @@ FUNCTIONS
         possible when constructing your data structures, and this module
         figures it out correctly.
 
-        For a simpler alternative, see the "nameopts" option below.
-
-    label => $string
-        This will be the label printed out next to the field. By default it
-        will be generated automatically from the field name.
-
-    validate => '/regex/'
-        Similar to the "validate" option used in "new", this affects the
-        validation just of that single field. As such, rather than a
-        hashref, you would just specify the regex to match against.
-
-        This regex should be specified as a single-quoted string, and NOT as
-        a "qr()" deal. The reason is that this needs to be easily usable by
-        JavaScript routines as well.
-
-    comment => $string
-        This prints out the given comment *after* the field to fill in,
-        vebatim. For example, if you wanted a field to look like this:
-
-            Joke [____________] (keep it clean, please!)
-
-        You would use the following:
-
-            $form->field(name => 'joke', comment => '(keep it clean, please!)');
-
-        The "comment" can actually be anything you want (even another form
-        field). But don't tell anyone I said that.
+        For a simpler alternative, see the "nameopts" option above
 
     required => 1 | 0
         If set to 1, the field must be filled in. These two are the same:
 
             $form->field(name => 'email', required => 1);
             $form->field(name => 'email', validate => 'VALUE');
-
-    multiple => 1 | 0
-        If set to 1, then the user is allowed to choose multiple values from
-        the options provided. This turns radio groups into checkboxes and
-        selects into multi-selects. Defaults to automatically being figured
-        out based on number of values.
 
     sortopts => alpha | numeric
         If set, and there are options, then the options will be sorted in
@@ -848,31 +956,27 @@ FUNCTIONS
 
         Would sort the "@cats" options in alpha order.
 
-    nameopts => 1 | 0
-        If set to 1, then options for select lists will be automatically
-        named as well. So, if you specified a list like:
+    type => $type
+        Type of input box to make it. Default is "text", and valid values
+        include anything allowed by the HTML specs, including "password",
+        "select", "radio", "checkbox", "textarea", "hidden", and so on.
 
-            $form->field(name => 'department', 
-                         options => qw[/molecular_biology philosophy psychology
-                                        particle_physics social_anthropology/],
-                         nameopts => 1);
+    value => $value | \@values
+        The "value" option can take either a single value or an arrayref of
+        multiple values. In the case of multiple values, this will result in
+        the field automatically becoming a multiple select list or checkbox
+        group, depending on the number of options specified above.
 
-        This would create a list like:
+    validate => '/regex/'
+        Similar to the "validate" option used in "new", this affects the
+        validation just of that single field. As such, rather than a
+        hashref, you would just specify the regex to match against.
 
-            <select name="department">
-                <option value="molecular_biology">Molecular Biology</option>
-                <option value="philosophy">Philosophy</option>
-                <option value="psychology">Psychology</option>
-                <option value="particle_physics">Particle Physics</option>
-                <option value="social_anthropology">Social Anthropology</option>
-            </select>
+        This regex should be specified as a single-quoted string, and NOT as
+        a "qr()" deal. The reason is that this needs to be easily usable by
+        JavaScript routines as well.
 
-        Basically, you get names for the options that are determined in the
-        same way as the names for the fields. This is designed as a simpler
-        alternative to using custom "options" data structures if your data
-        is regular enough to support it.
-
-    htmlattr => $value, htmlattr => $value
+    [htmlattr] => $value, [htmlattr] => $value
         In addition to the above tags, the "field()" function can take any
         other valid HTML attribute, which will be placed in the tag
         verbatim. For example, if you wanted to alter the class of the field
@@ -923,81 +1027,6 @@ FUNCTIONS
     setup your field parameters for you; see the the section on "template"
     option for more details.
 
-  render(opt => $val, opt => $val)
-
-    This function renders the form into HTML, and returns a string
-    containing the form. The most common use is simply:
-
-        print $form->render;
-
-    However, since "render()" takes options of its own - most noticeably
-    "fields" and "values" - you can actually change the form to output
-    depending on some conditional:
-
-        my $formhtml = '';
-        if ($some_conditional) {
-            $formhtml = $form->render(fields => [qw/name email/]);
-        } else {
-            $formhtml = $form->render(fields => [qw/name phone/]);
-        }
-        print $formhtml;
-
-    On to the options...
-
-    fields => \@array
-    values => \%hash
-    labels => \%hash
-    validate => \%hash
-    template => $filename
-        These work the same as in "new()", but they are only in effect
-        during that iteration of the form's "render()"'ing.
-
-    static => 1 | 0
-        If set to 1, then the form will be output with static hidden fields.
-        Defaults to 0.
-
-    text => $string
-        This contains text to be printed out at the top of the form. It
-        overrides any "text" option set via "new()".
-
-    submit => 0 | $string | \@array
-        If set to 0, then the "Submit" button is not printed. It defaults to
-        creating a button that says "Submit" verbatim. If given an argument,
-        then that argument becomes the text to show. For example:
-
-            print $form->render(submit => 'Do Lookup');
-
-        Would make it so the submit button says "Do Lookup" on it.
-
-        If you pass an arrayref of multiple values, you get a key benefit.
-        This will create multiple submit buttons, each with a different
-        value. In addition, though, when submitted only the one that was
-        clicked will be sent across CGI via some JavaScript tricks. So this:
-
-            print $form->render(submit => ['Add A Gift', 'No Thank You']);
-
-        Would create two submit buttons. Clicking on either would submit the
-        form, but you would be able to see which one was submitted via the
-        "submitted()" function:
-
-            my $clicked = $form->submitted;
-
-        So if the user clicked "Add A Gift" then that is what would end up
-        in the variable "$clicked" above. This allows nice conditionality:
-
-            if ($form->submitted eq 'Add A Gift') {
-                # show the gift selection screen
-            } elsif ($form->submitted eq 'No Thank You')
-                # just process the form
-            }
-
-        See the the section on "EXAMPLES" section for more details.
-
-    reset => 0 | TEXT
-        If set to 0, then the "Reset" button is not printed. If set to text,
-        then that will be printed out as the reset button. Defaults to
-        printing out a button that says "Reset".
-
   confirm()
 
     The purpose of this function is to print out a static confirmation
@@ -1007,10 +1036,25 @@ FUNCTIONS
 
   submitted()
 
-    This returns true if the form has been submitted, false otherwise. It's
-    best to call "validate()" in conjunction with this to make sure it's ok.
-    It keys off the submit button (stored as the param "_submit") to figure
-    out if it's been submitted yet.
+    This returns the value of the "Submit" button if the form has been
+    submitted, undef otherwise. This allows you to either test it in a
+    boolean context:
+
+        if ($form->submitted) { ... }
+
+    Or to retrieve the button that was actually clicked on in the case of
+    multiple submit buttons:
+
+        if ($form->submitted eq 'Update') {
+            ...
+        } elsif ($form->submitted eq 'Delete') {
+            ...
+        }
+
+    It's best to call "validate()" in conjunction with this to make sure the
+    form validation works. To make sure you're getting accurate info, it's
+    recommended that you name your forms with the "name" option described
+    above.
 
   validate(field => '/regex/', field => '/regex/')
 
@@ -1241,7 +1285,7 @@ EXAMPLES
         use DBI;
         use DBD::Oracle
 
-        my $dbh = DBI->connect('dbi:Oracle', 'db', 'user', 'pass');
+        my $dbh = DBI->connect('dbi:Oracle:db', 'user', 'pass');
 
         # We create a new form. Note we've specified very little,
         # since we're getting all our values from our database.
@@ -1259,6 +1303,84 @@ EXAMPLES
         # Render our form with the defaults we got in our hashref
         print $form->render(values => $default_hashref,
                             title => "User information for '$user'");
+
+QUESTIONS AND TRAPS
+    There are a couple questions and subtle traps that seem to poke people
+    on a regular basis. Here are some hints.
+
+  Why won't CGI::FormBuilder work with POST requests?
+
+        It will, but chances are you're probably doing something like this:
+
+            use CGI qw/:standard/;
+            use CGI::FormBuilder;
+
+            # Our "mode" parameter determines what we do
+            my $mode = param('mode');
+
+            # Changed our form based on our mode
+            if ($mode eq 'view') {
+                my $form = CGI::FormBuilder->new(...);
+            } elsif ($mode eq 'edit') {
+                my $form = CGI::FormBuilder->new(...);
+            }
+
+        The problem is this: Once you read a "POST" request, it's gone
+        forever. In the above code, what you're doing is having "CGI.pm"
+        read the "POST" request (on the first call of "param()").
+
+        Luckily, there is an easy solution. First, you need to modify your
+        code to use the OO form of "CGI.pm". Then, simply specify the "CGI"
+        object you create to the "params" option of FormBuilder:
+
+            use CGI;
+            use CGI::FormBuilder;
+
+            my $cgi = CGI->new;
+
+            # Our "mode" parameter determines what we do
+            my $mode = $cgi->param('mode');
+
+            # Changed our form based on our mode
+            if ($mode eq 'view') {
+                my $form = CGI::FormBuilder->new(params => $cgi, ...);
+            } elsif ($mode eq 'edit') {
+                my $form = CGI::FormBuilder->new(params => $cgi, ...);
+            }
+
+  How do I make it so that the values aren't shown in the form?
+
+        Easy.
+
+            my $form = CGI::FormBuilder->new(sticky => 0, ...);
+
+        By turning off the "sticky" option, you will still be able to access
+        the values but they won't show up in the form.
+
+  How can I change option XXX based on a conditional?
+
+        Remember that "render()" can take any option that "new()" can. This
+        means that you can set some features on your form sooner and others
+        later:
+
+            my $form = CGI::FormBuilder->new(method => 'POST');
+
+            my $mode = $form->cgi_param('mode');
+
+            if ($mode eq 'add') {
+                print $form->render(fields => [qw/name email phone/],
+                                    title  => 'Add a new entry');
+            } elsif ($mode eq 'edit') {
+                # do something to select existing values
+                my %values = select_values();
+                print $form->render(fields => [qw/name email phone/],
+                                    title  => 'Edit existing entry',
+                                    values => \%values);
+            }
+
+        In fact, since any of the options can be used in either "new()" or
+        "render()", you could have specified "fields" to "new()" above since
+        they are the same for both conditions.
 
 BUGS AND FEATURES
     This has been used pretty thoroughly in a production environment for a
@@ -1284,7 +1406,7 @@ NOTES
     it and install it!
 
 VERSION
-    $Id: FormBuilder.pm,v 1.65 2001/09/19 18:26:08 nwiger Exp $
+    $Id: FormBuilder.pm,v 1.83 2001/10/16 00:18:12 nwiger Exp $
 
 AUTHOR
     Copyright (c) 2001 Nathan Wiger <nate@wiger.org>. All Rights Reserved.

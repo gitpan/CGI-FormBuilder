@@ -1,15 +1,90 @@
 
 RCS file: /home/nwiger/perlmod/lib/CGI/RCS/FormBuilder.pm,v
 Working file: /home/nwiger/perlmod/lib/CGI/FormBuilder.pm
-head: 1.65
+head: 1.83
 branch:
 locks: strict
 access list:
 symbolic names:
 keyword substitution: kv
-total revisions: 65;	selected revisions: 65
+total revisions: 83;	selected revisions: 83
 description:
 CGI::FormBuilder for building form-based applications
+----------------------------
+revision 1.83
+date: 2001/10/16 00:18:12;  author: nwiger;  state: Exp;  lines: +34 -6
+added new jsclick option
+----------------------------
+revision 1.82
+date: 2001/10/15 23:53:19;  author: nwiger;  state: Exp;  lines: +4 -3
+I should really test these more thoroughly before checking them in
+----------------------------
+revision 1.81
+date: 2001/10/15 23:52:15;  author: nwiger;  state: Exp;  lines: +23 -15
+fixed bug with single-value radio boxes, removing radionum opt
+----------------------------
+revision 1.80
+date: 2001/10/15 23:42:41;  author: nwiger;  state: Exp;  lines: +3 -3
+fixed typo - eek!
+----------------------------
+revision 1.79
+date: 2001/10/15 23:41:37;  author: nwiger;  state: Exp;  lines: +8 -7
+fixed bug with _sessionid introduced in last revision, fixed
+spurious 'numeric ge' warnings lines 351 and 153
+----------------------------
+revision 1.78
+date: 2001/10/15 20:40:01;  author: nwiger;  state: Exp;  lines: +3 -3
+POD fubar
+----------------------------
+revision 1.77
+date: 2001/10/15 20:39:08;  author: nwiger;  state: Exp;  lines: +3 -3
+added ! /^_/ catch to keepextras option and fixed syntax error
+----------------------------
+revision 1.76
+date: 2001/10/15 18:21:28;  author: nwiger;  state: Exp;  lines: +51 -20
+fixed bug in _special_fields being re-passed, added name opt
+to the _submitted key so that $form->submitted is more accurate
+----------------------------
+revision 1.75
+date: 2001/10/10 21:56:21;  author: nwiger;  state: Exp;  lines: +5 -4
+added better sticky catch
+----------------------------
+revision 1.74
+date: 2001/10/10 20:25:03;  author: nwiger;  state: Exp;  lines: +58 -50
+ok, *this* time I think all the bugs have been worked out
+with taking both sets of options to new() and render()
+----------------------------
+revision 1.73
+date: 2001/10/10 20:13:35;  author: nwiger;  state: Exp;  lines: +26 -19
+had to move params option to new() - only
+----------------------------
+revision 1.72
+date: 2001/10/10 20:00:23;  author: nwiger;  state: Exp;  lines: +5 -2
+finally fixed sticky attr (maybe...)
+----------------------------
+revision 1.71
+date: 2001/10/09 23:53:48;  author: nwiger;  state: Exp;  lines: +9 -7
+additions to @OURATTR, fixed extra opts problem with <form>
+----------------------------
+revision 1.70
+date: 2001/10/09 23:27:50;  author: nwiger;  state: Exp;  lines: +34 -9
+updated and corrected docs
+----------------------------
+revision 1.69
+date: 2001/10/09 20:33:48;  author: nwiger;  state: Exp;  lines: +7 -6
+fixed bad $method, added safety for {labels}, header now defaults to 0!
+----------------------------
+revision 1.68
+date: 2001/10/09 18:58:46;  author: nwiger;  state: Exp;  lines: +532 -492
+massive option revamp (all live in render() now) and doc reordering
+----------------------------
+revision 1.67
+date: 2001/10/02 23:15:54;  author: nwiger;  state: Exp;  lines: +3 -7
+fixed bug with new implementation of $hashref = $form->field;
+----------------------------
+revision 1.66
+date: 2001/10/02 22:54:50;  author: nwiger;  state: Exp;  lines: +13 -3
+changed form->field in scalar context
 ----------------------------
 revision 1.65
 date: 2001/09/19 18:26:08;  author: nwiger;  state: Exp;  lines: +57 -33
