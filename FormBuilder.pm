@@ -105,7 +105,7 @@ CGI::FormBuilder - Easily generate and process stateful forms
 use Carp;
 use strict;
 use vars qw($VERSION @ISA @EXPORT @EXPORT_OK);
-$VERSION = do { my @r=(q$Revision: 1.93 $=~/\d+/g); sprintf "%d."."%02d"x$#r,@r };
+$VERSION = do { my @r=(q$Revision: 1.94 $=~/\d+/g); sprintf "%d."."%02d"x$#r,@r };
 
 # use CGI for stickiness (prefer CGI::Minimal for _much_ better speed)
 # we try the faster one first, since they're compatible for our needs
@@ -230,7 +230,7 @@ sub _indent (;$) {
 
 sub _toname ($) {
     # creates a name from a var/file name (like file2name)
-    my $name = shift || return;
+    my $name = shift;
     $name =~ s![^a-zA-Z0-9.-/]+! !g;
     $name =~ s!\b(\w)!\u$1!g;
     return $name;
@@ -417,13 +417,13 @@ sub _initfields {
 
 sub _escapeurl ($) {
     # minimalist, not 100% correct, URL escaping
-    my $toencode = shift || return undef;
+    my $toencode = shift;
     $toencode =~ s!([^a-zA-Z0-9_,.-/])!sprintf("%%%02x",ord($1))!eg;
     return $toencode;
 }
 
 sub _escapehtml ($) {
-    my $toencode = shift || return undef;
+    my $toencode = shift;
     # must do these in order or the browser won't decode right
     $toencode =~ s!&!&amp;!g;
     $toencode =~ s!<!&lt;!g;
@@ -3155,7 +3155,7 @@ L<HTML::Template>, L<Template>, L<CGI::Minimal>, L<CGI>
 
 =head1 VERSION
 
-$Id: FormBuilder.pm,v 1.93 2001/12/12 23:32:47 nwiger Exp $
+$Id: FormBuilder.pm,v 1.94 2001/12/13 22:36:00 nwiger Exp $
 
 =head1 AUTHOR
 
