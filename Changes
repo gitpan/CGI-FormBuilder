@@ -1,15 +1,42 @@
 
 RCS file: /home/nwiger/perlmod/lib/CGI/RCS/FormBuilder.pm,v
 Working file: /home/nwiger/perlmod/lib/CGI/FormBuilder.pm
-head: 1.96
+head: 2.0
 branch:
 locks: strict
 access list:
 symbolic names:
 keyword substitution: kv
-total revisions: 96;	selected revisions: 96
+total revisions: 100;	selected revisions: 100
 description:
 CGI::FormBuilder for building form-based applications
+----------------------------
+revision 2.0
+date: 2001/12/22 02:25:22;  author: nwiger;  state: Exp;  lines: +617 -266
+v2.0 normalized with many bug fixes, docs, features
+----------------------------
+revision 1.99
+date: 2001/12/19 00:45:09;  author: nwiger;  state: Exp;  lines: +9 -10
+major bug introduced when removed "@v" test; had to redo
+getting CGI params via $CGI object, now should work reliably
+----------------------------
+revision 1.98
+date: 2001/12/18 00:41:04;  author: nwiger;  state: Exp;  lines: +11 -18
+- interim checking with several docs updates
+- most likely next CPAN version will be 2.0
+----------------------------
+revision 1.97
+date: 2001/12/18 00:16:28;  author: nwiger;  state: Exp;  lines: +246 -201
+- new semantics of 'required' option, read the docs!
+- fixed many documentation errors and omissions
+- redid SYNOPSIS so is more concise and readable
+- added separate README since docs are now so huge
+- more debugging messages
+- fixed YA0B (Yet Another 0 Bug)
+- updated JavaScript generation so field names like 'db:host' safe
+- more new tests for new features
+- instead of stringification, now use length to test if val exists;
+  if this introduces any bugs please let me know
 ----------------------------
 revision 1.96
 date: 2001/12/14 22:21:18;  author: nwiger;  state: Exp;  lines: +6 -5

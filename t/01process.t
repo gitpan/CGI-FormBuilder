@@ -4,11 +4,11 @@ use strict;
 use Test;
 
 # use a BEGIN block so we print our plan before CGI::FormBuilder is loaded
-BEGIN { plan tests => 10 }
+BEGIN { plan tests => 12 }
 
 # Fake a submission request
 $ENV{REQUEST_METHOD} = 'GET';
-$ENV{QUERY_STRING}   = 'user=pete&name=Pete+Peteson&email=pete%40peteson.com&extra=junk&_submitted=1';
+$ENV{QUERY_STRING}   = 'user=pete&action=Unsubscribe&name=Pete+Peteson&email=pete%40peteson.com&extra=junk&_submitted=1';
 
 use CGI::FormBuilder;
 
@@ -88,7 +88,7 @@ ok(do {
 }, 1);
 
 ok(do {
-    my $form = CGI::FormBuilder->new;   # no fields!
+    my $form = CGI::FormBuilder->new(fields => []);   # no fields!
     if ($form->submitted) {
         if ($form->field('name') || $form->field('extra')) {
             # if we get here, this means that the restrictive field
@@ -105,9 +105,25 @@ ok(do {
 }, 1);
 
 ok(do {
-    # test a similar thing, by with mixed-case values
-    my $form = CGI::FormBuilder->new(fields => { User => 'jim', ADDR => 'Hello' } );
-    if ($form->submitted && ! $form->field('Addr') && $form->field('ADDR') eq 'Hello') {
+    # test if required does what v1.97 thinks it should (should fail)
+    my $form = CGI::FormBuilder->new(fields => { user => 'nwiger', pass => '' },
+                                     validate => { user => 'USER' },
+                                     required => [qw/pass/]);
+    if ($form->submitted && $form->validate) {
+        1;
+    } else {
+        0;
+    }
+}, 0);
+
+ok(do {
+    # YARC (yet another 'required' check)
+    my $form = CGI::FormBuilder->new(
+                    fields => [qw/name email phone/],
+                    validate => {email => 'EMAIL', phone => 'PHONE'},
+                    required => [qw/name email/],
+               );
+    if ($form->submitted && $form->validate) {
         1;
     } else {
         0;
@@ -115,12 +131,50 @@ ok(do {
 }, 1);
 
 ok(do {
-    # test a similar thing, by with mixed-case values
-    my $form = CGI::FormBuilder->new(fields => { User => 'jim', ADDR => 'Hello' } );
-    if ($form->submitted && ! $form->field('Addr') && $form->field('ADDR') eq 'Hello') {
+    # test of proper CGI precendence when manually setting values
+    my $form = CGI::FormBuilder->new(
+                    fields => [qw/name email action/],
+                    validate => {email => 'EMAIL'},
+                    required => [qw/name email/],
+               );
+    $form->field(name => 'action', options => [qw/Subscribe Unsubscribe/],
+                 value => 'Subscribe');
+    if ($form->submitted && $form->validate && $form->field('action') eq 'Unsubscribe') {
         1;
     } else {
         0;
     }
 }, 1);
 
+ok(do {
+    # see if our checkboxes work how we want them to
+    my $form = CGI::FormBuilder->new(
+                    fields => [qw/name color/],
+                    labels => {color => 'Favorite Color'},
+                    validate => {email => 'EMAIL'},
+                    required => [qw/name/],
+                    sticky => 0,
+               );
+    $form->field(name => 'color', options => [qw/red green blue/],
+                 nameopts => 1, multiple => 1);
+
+    # Just return the form rendering
+    # This should really go in 00generate.t, but the framework is too tight
+    $form->render;
+}, qq{
+<script language="JavaScript1.2"><!-- hide from old browsers
+function validate (form) {
+    // standard text, hidden, password, or textarea box
+    var name = form.elements['name'].value;
+    if ( ! (name )) {
+        alert('Error: You did not enter a valid value for the "Name" field');
+        return false;
+    }
+    return true;  // all checked ok
+}
+//-->
+</script><noscript><font color="red"><b>Please enable JavaScript or use a newer browser</b></font></noscript>Fields shown in <b>bold</b> are required.<form action="01process.t" method="GET" onSubmit="return validate(this);"><input name="_submitted" type="hidden" value="2"><input name="_sessionid" type="hidden" value=""><table>
+<tr><td align="left"><b>Name</b></td><td><input name="name" type="text"></td></tr>
+<tr><td align="left">Favorite Color</td><td><input name="color" type="checkbox" value="red"> Red <input name="color" type="checkbox" value="green"> Green <input name="color" type="checkbox" value="blue"> Blue </td></tr>
+<tr><td colspan="2"><center><input name="reset" type="reset" value="Reset"><input name="submit" type="submit" value="Submit"></center></td></tr></table>
+</form>});
