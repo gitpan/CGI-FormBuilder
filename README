@@ -1406,7 +1406,7 @@ NOTES
     it and install it!
 
 VERSION
-    $Id: FormBuilder.pm,v 1.83 2001/10/16 00:18:12 nwiger Exp $
+    $Id: FormBuilder.pm,v 1.84 2001/10/29 18:57:30 nwiger Exp $
 
 AUTHOR
     Copyright (c) 2001 Nathan Wiger <nate@wiger.org>. All Rights Reserved.

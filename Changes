@@ -1,15 +1,20 @@
 
 RCS file: /home/nwiger/perlmod/lib/CGI/RCS/FormBuilder.pm,v
 Working file: /home/nwiger/perlmod/lib/CGI/FormBuilder.pm
-head: 1.83
+head: 1.84
 branch:
 locks: strict
 access list:
 symbolic names:
 keyword substitution: kv
-total revisions: 83;	selected revisions: 83
+total revisions: 84;	selected revisions: 84
 description:
 CGI::FormBuilder for building form-based applications
+----------------------------
+revision 1.84
+date: 2001/10/29 18:57:30;  author: nwiger;  state: Exp;  lines: +5 -5
+Mark Belanger pointed out that the STATE validation list was somehow
+missing Illinois (IL). Ooops.
 ----------------------------
 revision 1.83
 date: 2001/10/16 00:18:12;  author: nwiger;  state: Exp;  lines: +34 -6

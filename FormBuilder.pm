@@ -93,7 +93,7 @@ CGI::FormBuilder - Easily generate and process stateful forms
 use Carp;
 use strict;
 use vars qw($VERSION @ISA @EXPORT @EXPORT_OK);
-$VERSION = do { my @r=(q$Revision: 1.83 $=~/\d+/g); sprintf "%d."."%02d"x$#r,@r };
+$VERSION = do { my @r=(q$Revision: 1.84 $=~/\d+/g); sprintf "%d."."%02d"x$#r,@r };
 
 # use CGI for stickiness (prefer CGI::Minimal for _much_ better speed)
 # we try the faster one first, since they're compatible for our needs
@@ -365,9 +365,9 @@ sub _initfields {
                 $self->{opt}{validate}{$field} = 'STATE';
                 # the options are the names of the US states
                 $self->{fields}{$field}{options} =
-                    [qw(AL AK AZ AR CA CO CT DE DC FL GA HI ID IN IA KS
-                        KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY
-                        NC ND OH OK OR PA RI SC SD TN TX UT VT WA WV WI WY)];
+                    [qw(AL AK AZ AR CA CO CT DE DC FL GA HI ID IL IN IA KS
+                        KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY NC
+                        ND OH OK OR PA RI SC SD TN TX UT VT WA WV WI WY)];
                 debug 2, "via 'smartness' auto-determined options for '$field' field";
             } elsif ($field =~ /^file/i) {
                 # guess based on the OS we're running!
@@ -2720,7 +2720,7 @@ is recommended you get it and install it!
 
 =head1 VERSION
 
-$Id: FormBuilder.pm,v 1.83 2001/10/16 00:18:12 nwiger Exp $
+$Id: FormBuilder.pm,v 1.84 2001/10/29 18:57:30 nwiger Exp $
 
 =head1 AUTHOR
 
