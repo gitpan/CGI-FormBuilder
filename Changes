@@ -1,15 +1,19 @@
 
 RCS file: /home/nwiger/perlmod/lib/CGI/RCS/FormBuilder.pm,v
 Working file: /home/nwiger/perlmod/lib/CGI/FormBuilder.pm
-head: 2.5
+head: 2.6
 branch:
 locks: strict
 access list:
 symbolic names:
 keyword substitution: kv
-total revisions: 105;	selected revisions: 105
+total revisions: 106;	selected revisions: 106
 description:
 CGI::FormBuilder for building form-based applications
+----------------------------
+revision 2.6
+date: 2002/02/28 00:42:05;  author: nwiger;  state: Exp;  lines: +68 -59
+applied patch from Randy Kobes fixing test failures on Win32
 ----------------------------
 revision 2.5
 date: 2002/02/21 23:26:54;  author: nwiger;  state: Exp;  lines: +12 -12

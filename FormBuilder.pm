@@ -1,5 +1,5 @@
 
-# Copyright (c) 2001 Nathan Wiger <nate@wiger.org>
+# Copyright (c) 2001-2002 Nathan Wiger <nate@wiger.org>
 # Use "perldoc FormBuilder.pm" for documentation
 
 package CGI::FormBuilder;
@@ -46,7 +46,7 @@ CGI::FormBuilder - Easily generate and process stateful forms
 use Carp;
 use strict;
 use vars qw($VERSION @ISA @EXPORT @EXPORT_OK);
-$VERSION = do { my @r=(q$Revision: 2.5 $=~/\d+/g); sprintf "%d."."%02d"x$#r,@r };
+$VERSION = do { my @r=(q$Revision: 2.6 $=~/\d+/g); sprintf "%d."."%02d"x$#r,@r };
 
 # use CGI for stickiness (prefer CGI::Minimal for _much_ better speed)
 # we try the faster one first, since they're compatible for our needs
@@ -99,7 +99,8 @@ my %VALID = (
 # To clean up the HTML, instead of just allowing the HTML tags that
 # we interpret are "valid", instead we yank out all the options and
 # stuff that we use internally. This allows arbitrary tags to be
-# specified in the generation of HTML tags. 
+# specified in the generation of HTML tags, and also means that this
+# module doesn't go out of date when the HTML spec changes.
 my @OURATTR = qw(
     attr body checknum comment debug fieldattr fields fieldtype font
     force header invalid javascript keepextras label labels lalign
@@ -199,8 +200,6 @@ sub _opt ($) {
         # this code should not be reached, but is here for safety
         @opt = ($opt);
     }
-    # iterate for debug
-    #warn "[C::F] opt: $_ = @{$_}" for @opt;
 
     return @opt;
 }
@@ -573,9 +572,14 @@ sub render {
     # global options, followed by those from our local sub call
     my %args = ( %{$self->{opt}}, _args(@_) );
 
+    # Thanks to Randy Kobes for this patch fixing $0 on Win32
+    my($basename) = ($^O =~ /Win32/i)
+                         ? ($0 =~ m!.*\\(.*)\??!)
+                         : ($0 =~ m!.*/(.*)\??!);
+
     # We manually set these to the "defaults" because browers suck
     unless ($args{action} ||= $ENV{SCRIPT_NAME}) {
-         ($args{action}) = $0 =~ m!.*/(.*)\??!;
+        $args{action} = $basename;
     }
     delete $args{action} unless $args{action};
     $args{method} ||= 'GET';
@@ -590,7 +594,7 @@ sub render {
 
     # Per request of Peter Billam, auto-determine javascript setting
     # based on user agent
-    if (! exists $args{javascript}) {
+    if (! exists $args{javascript} || $args{javascript} eq 'auto') {
         if (exists $ENV{HTTP_USER_AGENT}
                 && $ENV{HTTP_USER_AGENT} =~ /lynx|mosaic/i)
         {
@@ -615,18 +619,16 @@ sub render {
         $self->_initfields(values => $values);
     }
 
-    # Defaults
+    # Defaults for native HTML
     unless($args{title}) {
-        # here we get the name based on the executable! nifty!
-        (my $n = $0) =~ s!.*/!!;
-        $args{title} = _toname($n);
-        debug 1, "auto-created title as '$args{title}' from script name";
+        # Here we generate the title based on the executable! nifty!
+        $args{title} = _toname($basename);
+        debug 1, "auto-created title as '$args{title}' from script name ($basename)";
     }
     $args{text}  ||= '';  # shut up "uninit in concat" in heredoc
     $args{body}  ||= { bgcolor => 'white' };
 
     # Thresholds for radio, checkboxes, and selects (in # of items)
-    #$args{radionum}  ||= $args{checknum} || 2;
     carp "Warning: 'radionum' option is deprecated and will be ignored"
         if $args{radionum};
     $args{selectnum} ||= 5;
@@ -1263,9 +1265,9 @@ sub mail {
     # Where does the mailer live? Must be sendmail-compatible
     my $mailer = '';
     unless ($mailer = $args{mailer}) {
-        for my $sendmail (qw(/usr/lib/sendmail /usr/sbin/sendmail)) {
+        for my $sendmail (qw(/usr/lib/sendmail /usr/sbin/sendmail /usr/bin/sendmail)) {
             if (-x $sendmail) {
-                $mailer = $sendmail;
+                $mailer = "$sendmail -t";
                 last;
             }
         }
@@ -1275,7 +1277,7 @@ sub mail {
         return;
     }
 
-    open(MAIL, "|$mailer $args{to}") || next;
+    open(MAIL, "|$mailer") || next;
     print MAIL <<EOF;
 From: $args{from}
 To: $args{to}
@@ -1610,13 +1612,13 @@ C<variable> as an option (among others) to denote the variable
 name that you want the form data to be referenced by.
 
     my $form = CGI::FormBuilder->new( 
-        fields => \@fields, 
-        template => {
-            type => 'TT2',
-            template => 'userinfo.tmpl',
-            variable => 'form',
-        }
-    );
+                    fields => \@fields, 
+                    template => {
+                        type => 'TT2',
+                        template => 'userinfo.tmpl',
+                        variable => 'form',
+                    }
+               );
 
 The template might look something like this:
 
@@ -1705,15 +1707,17 @@ some more stuff for you. A lot of times, we want to send a simple
 confirmation email to the user (and maybe ourselves) saying that
 the form has been submitted. Just use C<mailconfirm()>:
 
-    $form->mailconfirm(to => $email, from => $adm);
+    $form->mailconfirm(to   => $form->field('email'),
+                       from => 'auto-reply');
 
-Now, any values you specify are automatically overridden by whatever 
-the user enters into the form and submits. These can then be gotten
-to by the C<field()> method:
+With B<FormBuilder>, any default values you specify are automatically
+overridden by whatever the user enters into the form and submits. 
+These can then be gotten to by using the C<field()> method:
 
     my $email = $form->field(name => 'email');
 
-Of course, like C<CGI.pm's param()> you can just specify the name:
+Of course, like C<CGI.pm's param()> you can just specify the name
+of the field when getting a value back:
 
     my $email = $form->field('email');
 
@@ -1743,11 +1747,12 @@ So, our complete code thus far looks like this:
         my $fields = $form->field;      # get all fields as hashref
         do_data_update($fields); 
 
-        # and send them email about their submission
-        $form->mailconfirm(to => $form->field('email'), from => $adm);
-
-        # and show a confirmation message
+        # show a confirmation message
         print $form->confirm;
+
+        # and send them email about their submission
+        $form->mailconfirm(to   => $form->field('email'),
+                           from => 'auto-reply');
     } else {
         # print the form for them to fill out
         print $form->render;
@@ -1916,13 +1921,13 @@ The font to use for the form. This is output as a series of
 C<< <font> >> tags for best browser compatibility. If you're 
 thinking about using this, check out the C<template> option.
 
-=item header => 1 | 0
+=item header => 0 | 1
 
 If set to 1, a valid C<Content-type> header will be printed out.
 This defaults to 0, since usually people end up using templates
 or embedding forms in other HTML.
 
-=item javascript => 1 | 0
+=item javascript => 0 | 1
 
 If set to 1, JavaScript is generated in addition to HTML, the
 default setting.
@@ -1931,7 +1936,8 @@ default setting.
 
 If using JavaScript, you can also specify some JavaScript code
 that will be included verbatim in the <head> section of the
-document.
+document. I'm not very fond of this one, what you probably
+want is the next option.
 
 =item jsfunc => JSCODE
 
@@ -1948,9 +1954,10 @@ if (form.password.value == 'password') {
 EOF
     ->new(... jsfunc => $jsfunc);
 
-This is another option I don't like. Should you be using a template?
+Then, this code will be automatically called when form validation
+is invoked. This option can actually be quite useful.
 
-=item keepextras => 1 | 0
+=item keepextras => 0 | 1
 
 If set to 1, then extra parameters not set in your fields declaration
 will be kept as hidden fields in the form. However, you will need
@@ -1986,7 +1993,7 @@ This is how to align the field labels in the table layout. I really
 don't like this option being here, but it does turn out to be
 pretty damn useful. You should probably be using a template.
 
-=item linebreaks => 1 | 0
+=item linebreaks => 0 | 1
 
 If set to 1, line breaks will be inserted after each input field.
 By default this is figured out for you, so usually not needed.
@@ -2125,12 +2132,12 @@ to C<0>. If you want it to be B<really> smart, like figuring
 out what type of validation routines to use for you, set it to
 C<2>. It defaults to C<1>.
 
-=item static => 1 | 0
+=item static => 0 | 1
 
 If set to 1, then the form will be output with static hidden
 fields. Defaults to 0.
 
-=item sticky => 1 | 0
+=item sticky => 0 | 1
 
 Determines whether or not form values should be sticky across
 submissions. This does I<not> affect the value you get back from
@@ -2176,7 +2183,7 @@ in the variable C<$clicked> above. This allows nice conditionality:
 
 See the L</"EXAMPLES"> section for more details.
 
-=item table => 1 | 0
+=item table => 0 | 1
 
 By default B<FormBuilder> decides how to layout the form based on
 the number of fields, values, etc. You can force it into a table
@@ -2451,7 +2458,7 @@ You would use the following:
 The C<comment> can actually be anything you want (even another
 form field). But don't tell anyone I said that.
 
-=item force => 1 | 0
+=item force => 0 | 1
 
 This is used in conjunction with the C<value> option to forcibly
 override a field's value. See below under the C<value> option for
@@ -2507,14 +2514,14 @@ You can also get the same effect by passing complex data
 structures directly to the C<options> argument (see below).
 If you have predictable data, check out the C<nameopts> option.
 
-=item multiple => 1 | 0
+=item multiple => 0 | 1
 
 If set to 1, then the user is allowed to choose multiple
 values from the options provided. This turns radio groups
 into checkboxes and selects into multi-selects. Defaults
 to automatically being figured out based on number of values.
 
-=item nameopts => 1 | 0
+=item nameopts => 0 | 1
 
 If set to 1, then options for select lists will be automatically
 named just like the fields. So, if you specified a list like:
@@ -2605,13 +2612,14 @@ hash, you cannot control the order of the options.
 If you're just looking for simple naming, see the C<nameopts>
 option above.
 
-=item required => 1 | 0
+=item required => 0 | 1
 
-If set to 1, the field must be filled in. These two are the
-same:
+If set to 1, the field must be filled in:
 
     $form->field(name => 'email', required => 1);
-    $form->field(name => 'email', validate => 'VALUE');
+
+This is rarely useful - what you probably want is the C<validate>
+option to C<new()>.
 
 =item sortopts => alpha | numeric
 
@@ -2750,8 +2758,8 @@ info, it's recommended that you name your forms with the C<name>
 option described above.
 
 If you're writing a multiple-form app, you should name your forms
-with the 'name' option to ensure that you are getting an accurate
-return value from this sub. See the 'name' option above, under
+with the C<name> option to ensure that you are getting an accurate
+return value from this sub. See the C<name> option above, under
 C<render()>.
 
 You can also specify the name of an optional field which you want to
@@ -3521,17 +3529,15 @@ Easy.
     my $form = CGI::FormBuilder->new(sticky => 0, ...);
 
 By turning off the C<sticky> option, you will still be able to access
-the values but they won't show up in the form.
+the values, but they won't show up in the form.
 
-=head2 How do I override the value of a field?
+=head2 How do I manually override the value of a field?
 
-Simple, just use:
+You must specify the C<force> option:
 
-    $form->field(name => 'name_of_field', value => $value);
+    $form->field(name => 'name_of_field', value => $value, force => 1);
 
-Note that until recently, this was totally broken. So if you're having
-problems make sure you're running at least version 1.86 (which you should
-be if you're reading this).
+If you don't specify C<force>, then any CGI value will always win.
 
 =head2 How can I change option XXX based on a conditional?
 
@@ -3619,10 +3625,13 @@ reports, and encouraging feedback from a number of people, including:
 
     Andy Wardley
     Mark Belanger
+    Peter Billam
     Jakob Curdes
     Mark Houliston
+    Randy Kobes
     William Large
     Kevin Lubic
+    Koos Pol
     Shawn Poulson
     John Theus
 
@@ -3634,11 +3643,11 @@ L<HTML::Template>, L<Template>, L<CGI::Minimal>, L<CGI>, L<CGI::Application>
 
 =head1 VERSION
 
-$Id: FormBuilder.pm,v 2.5 2002/02/21 23:26:54 nwiger Exp $
+$Id: FormBuilder.pm,v 2.6 2002/02/28 00:42:05 nwiger Exp $
 
 =head1 AUTHOR
 
-Copyright (c) 2001 Nathan Wiger <nate@wiger.org>. All Rights 
+Copyright (c) 2001-2002 Nathan Wiger <nate@wiger.org>. All Rights 
 Reserved.
 
 This module is free software; you may copy this under the terms of

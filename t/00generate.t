@@ -15,7 +15,8 @@ $ENV{QUERY_STRING}   = 'ticket=111&user=pete&replacement=TRUE';
 use CGI::FormBuilder;
 
 # UNIX test
-my $NOT_UNIX = -d '/usr' ? 0 : 1;
+#my $NOT_UNIX = -d '/usr' ? 0 : 1;
+my $NOT_UNIX = 0;
 
 #warn "# VERSION = $CGI::FormBuilder::VERSION\n";
 

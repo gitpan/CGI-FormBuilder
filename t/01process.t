@@ -15,7 +15,8 @@ $ENV{QUERY_STRING}   = 'user=pete&action=Unsubscribe&name=Pete+Peteson&email=pet
 use CGI::FormBuilder;
 
 # UNIX test
-my $NOT_UNIX = -d '/usr' ? 0 : 1;
+#my $NOT_UNIX = -d '/usr' ? 0 : 1;
+my $NOT_UNIX = 0;
 
 # Now manually try a whole bunch of things
 skip($NOT_UNIX, do {
