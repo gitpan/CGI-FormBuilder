@@ -8,7 +8,7 @@ package CGI::FormBuilder;
 use Carp;
 use strict;
 use vars qw($VERSION $CGIMOD $CGI $AUTOLOAD);
-$VERSION = do { my @r=(q$Revision: 2.10 $=~/\d+/g); sprintf "%d."."%02d"x$#r,@r };
+$VERSION = do { my @r=(q$Revision: 2.11 $=~/\d+/g); sprintf "%d."."%02d"x$#r,@r };
 
 # We used to try to use CGI::Minimal for better speed, but
 # unfortunately its support for file uploads it unsuitable
@@ -45,8 +45,8 @@ my %VALID = (
     ZIPCODE=> '/^\d{5}$|^\d{5}\-\d{4}$/',
     STATE => ['/^[a-zA-Z]{2}$/', 'two-letter abbr'],
     COUNTRY => ['/^[a-zA-Z]{2}$/', 'two-letter abbr'],
-    IPV4  => ['/^([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-5][0-5])\.([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-5][0-5])\.([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-5][0-5])\.([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-5][0-5])$/', 'IP address'],
-    NETMASK => ['/^([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-5][0-5])\.([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-5][0-5])\.([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-5][0-5])\.([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-5][0-5])$/', 'IP netmask'],
+    IPV4  => ['/^([0-1]??\d{1,2}|2[0-4]\d|25[0-5])\.([0-1]??\d{1,2}|2[0-4]\d|25[0-5])\.([0-1]??\d{1,2}|2[0-4]\d|25[0-5])\.([0-1]??\d{1,2}|2[0-4]\d|25[0-5])$/', 'IP address'],
+    NETMASK => ['/^([0-1]??\d{1,2}|2[0-4]\d|25[0-5])\.([0-1]??\d{1,2}|2[0-4]\d|25[0-5])\.([0-1]??\d{1,2}|2[0-4]\d|25[0-5])\.([0-1]??\d{1,2}|2[0-4]\d|25[0-5])$/', 'IP netmask'],
     FILE  => ['/^[\/\w\.\-]+$/', 'UNIX format'],
     WINFILE => ['/^[a-zA-Z]:\\[\\\w\s\.\-]+$/', 'Windows format'],
     MACFILE => ['/^[:\w\.\-]+$/', 'Mac format'],
@@ -1690,6 +1690,7 @@ sub validate () {
 
     my $self = shift;
     my $form = $self;   # XXX alias for examples (paint-by-numbers)
+    local $^W = 0;      # -w sucks
 
     debug 1, "called validate(@_)";
 
@@ -1770,12 +1771,9 @@ sub validate () {
                 # literal string is a literal comparison, but warn of typos...
                 belch "Validation string '$pattern' may be a typo of a builtin pattern"
                     if ($pattern =~ /^[A-Z]+$/); 
-                # must cleanup to prevent serious problem if $value = "'; system 'rm -f /'; '"
-                #(my $tval = $value) =~ s/(\W)/\\$1/g;
-                (my $tval = $value) =~ s/\'/\\\'/g;
-                $tval =~ /(.+)/; $tval = $1;    # untaint
-                debug 1, "$field: '$tval' $pattern ? 1 : 0";
-                unless (eval qq('$tval' $pattern ? 1 : 0)) {
+                # must escape to prevent serious problem if $value = "'; system 'rm -f /'; '"
+                debug 1, "$field: '$value' $pattern ? 1 : 0";
+                unless (eval qq(\$value $pattern ? 1 : 0)) {
                     $self->{fields}{$field}{invalid} = undef;
                     $thisfail = ++$bad;
                 }

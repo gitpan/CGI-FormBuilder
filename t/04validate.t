@@ -6,7 +6,7 @@ $TESTING = 1;
 use Test;
 
 # use a BEGIN block so we print our plan before CGI::FormBuilder is loaded
-BEGIN { plan tests => 5 }
+BEGIN { plan tests => 6 }
 
 # Need to fake a request or else we stall
 $ENV{REQUEST_METHOD} = 'GET';
@@ -53,6 +53,13 @@ my @test = (
         opt => { fields => [qw/security_test/],
                  validate => { security_test => 'ne 42' },
                  values => { security_test => "'; print join ':', \@INC; return; '" },
+               },
+        pass => 1,
+    },
+    {
+        opt => { fields => [qw/security_test2/],
+                 validate => { security_test2 => 'ne 42' },
+                 values => { security_test => 'foo\';`cat /etc/passwd`;\'foo' },
                },
         pass => 1,
     },

@@ -2690,8 +2690,8 @@ reports, and encouraging feedback from a number of people, including:
     Jakob Curdes
     Mark Belanger
     Peter Billam
-    Jonathan Buhacoff
     Brad Bowman
+    Jonathan Buhacoff
     Godfrey Carnegie
     Florian Helmberger
     Mark Houliston
@@ -2705,6 +2705,7 @@ reports, and encouraging feedback from a number of people, including:
     Shawn Poulson
     Dan Collis Puro
     John Theus
+    Remi Turboult
 
 Thanks!
 
@@ -2715,7 +2716,7 @@ L<CGI>, L<CGI::Application>
 
 =head1 VERSION
 
-$Id: FormBuilder.pod,v 2.10 2003/07/09 20:27:55 nwiger Exp $
+$Id: FormBuilder.pod,v 2.11 2003/07/11 18:08:12 nwiger Exp $
 
 =head1 AUTHOR
 

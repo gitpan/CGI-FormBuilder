@@ -1,11 +1,11 @@
 
 IMPORTANT SECURITY FIX!
 
-    Thanks to much help from Robert Mathews, two security holes have
-    been plugged. These holes could allow a malicious user to execute
-    arbitrary code on the server if a certain combination of options
-    is used. *ALL* users are advised to upgrade to this release 
-    immediately.
+    Thanks to much help from Robert Mathews and Remi Turboult, two
+    security holes have been plugged. These holes could allow a
+    malicious user to execute arbitrary code on the server if a
+    certain combination of options is used. *ALL* users are advised
+    to upgrade to this release immediately.
 
 
 NEW FEATURES
@@ -48,4 +48,3 @@ Literal Javascript was not being properly included in "jsfunc"
 Many miscellaneous loose ends tied up
     Many thanks to Brad Bowman for sending me a plethora of patches
     fixing a bunch of annoyances.
-
