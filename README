@@ -60,7 +60,7 @@ SYNOPSIS
         # using this module, since all fields are sticky and
         # stateful across multiple submissions. And, though
         # we're using anonymous arrayrefs []'s and hashrefs {}'s
-        # above there's no reason we can't use names ones:
+        # above there's no reason we can't use named ones:
 
         my $loopback_form = CGI::FormBuilder->new(
                                 title    => $title,
@@ -529,6 +529,39 @@ FUNCTIONS
         templates. For more details on templates, see the documentation for
         "HTML::Template".
 
+    params => $object
+        Specify an object from which the parameters should be derived. The
+        object must have a "param()" method which will return values for
+        each parameter by name. By default a CGI object will be
+        automatically created and used.
+
+        However, you may want to specify this if you're using "mod_perl" or
+        are using a "POST" method:
+
+            use Apache::Request;
+            use CGI::FormBuilder;
+
+            sub handler {
+                my $r = Apache::Request->new(shift);
+                my $form = CGI::FormBuilder->new(... params => $r);
+                # ...
+                print $form->render;
+            }
+
+        Or, if you need to initialize a "CGI.pm" object separately:
+
+            use CGI;
+            use CGI::FormBuilder;
+
+            my $q = new CGI;
+            my $mode = $q->param('mode');
+            # do stuff based on mode ...
+            my $form = CGI::FormBuilder->new(... params => $q);
+
+        The above example would allow you to access CGI parameters directly
+        via "$q->param" (however, note that you could get the same
+        functionality by using "$form->cgi_param").
+
     action => $script
         What script to point the form to. Defaults to itself, which is the
         recommended setting.
@@ -586,13 +619,18 @@ FUNCTIONS
         "<body>" tag verbatim (for example, bgcolor, alink, etc). If you're
         thinking about using this, check out the "template" option above.
 
+    lalign => 'left' | 'right' | 'center'
+        This is how to align the field labels in the table layout. I really
+        don't like this option being here, but it does turn out to be pretty
+        damn useful. You should probably be using a template.
+
     radionum => $threshold
     selectnum => $threshold
         These affect the "intelligence" of the module. The threshold is a
         number of options over which the item converts to the specified
-        type. Huh? Well, the defaults are 2, 2, and 4, respectively. That
-        is, if a field has more than 2 options, it will become a radio box,
-        but if it has more than 4 options, it will become a select list.
+        type. Huh? Well, the defaults are 2 and 4, respectively. That is, if
+        a field has more than 2 options, it will become a radio box, but if
+        it has more than 4 options, it will become a select list.
 
         There is no threshold for checkboxes since these are basically a
         type of multiple radio select group. As such, a radio group becomes
@@ -607,21 +645,33 @@ FUNCTIONS
         If using JavaScript, you can also specify some JavaScript code that
         will be included verbatim in the <head> section of the document.
 
-    realsmart => 1 | 0
-        If set to 1, then FormBuilder will try to be *really* smart and
-        guess a lot of stuff based on the names of your fields, especially
-        the validation routines to use. For example, if you create a field
-        called "host" it will automatically be validated against the "HOST"
-        builtin pattern. If you create a field called "state", not only will
-        it be validated against the "STATE" pattern but will also be given a
-        list of options corresponding to the US states. It does something
-        comparable for a field named "country".
+    jsfunc => JSCODE
+        Just like "jshead", only this is stuff that will go into the
+        "validate" JavaScript function. As such, you can use it to add extra
+        JavaScript validate code verbatim. Just return false if something
+        doesn't work. For example:
 
-        This option is useful, but still quite experimental. Defaults to 0.
+            my $jsfunc = <<EOF;
+        if (form.password.value == 'password') {
+            alert("What are you, a moron? You used 'password' for your password?!");
+            return false;
+        }
+        EOF
+            ->new(... jsfunc => $jsfunc);
 
-    debug => 1 | 0
-        If set to 1, the module spits copious debugging info to STDERR.
-        Defaults to 0.
+        This is another option I don't like. Should you be using a template?
+
+    smartness => 0 | 1 | 2
+        By default CGI::FormBuilder tries to be pretty smart for you, like
+        figuring out the types of fields based on their names and number of
+        options. If you don't want this behavior at all, set "smartness" to
+        "0". If you want it to be really smart, like figuring out what type
+        of validation routines to use for you, set it to "2". It defaults to
+        "1".
+
+    debug => 0 | 1 | 2
+        If set to 1, the module spits copious debugging info to STDERR. If
+        set to 2, it spits out even more gunk. Defaults to 0.
 
     Note that any other options specified are passed to the "<form>" tag
     verbatim. For example, you could specify "name" and "onSubmit" to add
@@ -668,7 +718,15 @@ FUNCTIONS
 
         my @fields = $form->field;
 
-    The "field()" function takes several parameters to manipulate stuff:
+    And to get a hashref of field/value pairs, call it as:
+
+        my $fields = $form->field;
+        my $name = $fields->{name}[0];
+
+    Note that the data structure returned will has all values as arrayrefs.
+    As such, you must access singular elements as shown above.
+
+    The "field()" function takes several parameters:
 
     name => $name
         The name of the field to manipulate. The "name =>" key is optional
@@ -685,7 +743,7 @@ FUNCTIONS
         the field automatically becoming a multiple select list or checkbox
         group, depending on the number of options specified above.
 
-    options => \@options
+    options => \@options | \%options
         This takes an arrayref of options. It also automatically results in
         the field becoming a radio (if <= 4) or select list (if > 4), unless
         you explicitly set the type with the "type" parameter.
@@ -700,9 +758,9 @@ FUNCTIONS
             <option value="so">so</option>
             </select>
 
-        However, if a given item is an ARRAYREF, then the first element will
-        be taken as the value and the second as the label. So something like
-        this:
+        However, if a given item is either an arrayref or hashref, then the
+        first element will be taken as the value and the second as the
+        label. So something like this:
 
             push @opt, ['yes', 'You betcha!'];
             push @opt, ['no', 'No way Jose'];
@@ -719,13 +777,35 @@ FUNCTIONS
             <option value="so">So</option>
             </select>
 
-        You get the idea.
+        And this code would have the same net effect:
+
+            push @opt, {yes => 'You betcha!'};
+            push @opt, {no  => 'No way Jose'};
+            push @opt, {maybe => 'Perchance...'};
+            push @opt, {so  => 'So'};
+            $form->field(name => 'opinion', options => \@opt);
+
+        As would, in fact, this code:
+
+            my %opt = (
+                yes => 'You betcha!',
+                no  => 'No way Jose',
+                maybe => 'Perchance...',
+                so  => 'So'
+            );
+            $form->field(name => 'opinion', options => \%opt);
+
+        You get the idea. The goal is to give you as much flexibility as
+        possible when constructing your data structures, and this module
+        figures it out correctly.
+
+        For a simpler alternative, see the "nameopts" option below.
 
     label => $string
         This will be the label printed out next to the field. By default it
         will be generated automatically from the field name.
 
-    validate => REGEX
+    validate => '/regex/'
         Similar to the "validate" option used in "new", this affects the
         validation just of that single field. As such, rather than a
         hashref, you would just specify the regex to match against.
@@ -733,6 +813,19 @@ FUNCTIONS
         This regex should be specified as a single-quoted string, and NOT as
         a "qr()" deal. The reason is that this needs to be easily usable by
         JavaScript routines as well.
+
+    comment => $string
+        This prints out the given comment *after* the field to fill in,
+        vebatim. For example, if you wanted a field to look like this:
+
+            Joke [____________] (keep it clean, please!)
+
+        You would use the following:
+
+            $form->field(name => 'joke', comment => '(keep it clean, please!)');
+
+        The "comment" can actually be anything you want (even another form
+        field). But don't tell anyone I said that.
 
     required => 1 | 0
         If set to 1, the field must be filled in. These two are the same:
@@ -746,9 +839,38 @@ FUNCTIONS
         selects into multi-selects. Defaults to automatically being figured
         out based on number of values.
 
-    sort => alpha | numeric
+    sortopts => alpha | numeric
         If set, and there are options, then the options will be sorted in
-        the specified order.
+        the specified order. For example:
+
+            $form->field(name => 'category', options => \@cats,
+                         sortopts => 'alpha');
+
+        Would sort the "@cats" options in alpha order.
+
+    nameopts => 1 | 0
+        If set to 1, then options for select lists will be automatically
+        named as well. So, if you specified a list like:
+
+            $form->field(name => 'department', 
+                         options => qw[/molecular_biology philosophy psychology
+                                        particle_physics social_anthropology/],
+                         nameopts => 1);
+
+        This would create a list like:
+
+            <select name="department">
+                <option value="molecular_biology">Molecular Biology</option>
+                <option value="philosophy">Philosophy</option>
+                <option value="psychology">Psychology</option>
+                <option value="particle_physics">Particle Physics</option>
+                <option value="social_anthropology">Social Anthropology</option>
+            </select>
+
+        Basically, you get names for the options that are determined in the
+        same way as the names for the fields. This is designed as a simpler
+        alternative to using custom "options" data structures if your data
+        is regular enough to support it.
 
     htmlattr => $value, htmlattr => $value
         In addition to the above tags, the "field()" function can take any
@@ -890,7 +1012,7 @@ FUNCTIONS
     It keys off the submit button (stored as the param "_submit") to figure
     out if it's been submitted yet.
 
-  validate(field => REGEX, field => REGEX)
+  validate(field => '/regex/', field => '/regex/')
 
     This validates the form based on the validation criteria passed into
     "new()" via the "validate" option. In addition, you can specify
@@ -900,7 +1022,7 @@ FUNCTIONS
         if ($location eq 'US') {
             $form->validate(state => 'STATE', zipcode => 'ZIPCODE');
         } else {
-            $form->validate(state => '\w{2,3}');
+            $form->validate(state => '/^\w{2,3}$/');
         }
 
     Note that if you pass args to your "validate()" function like this, you
@@ -1016,7 +1138,7 @@ EXAMPLES
 
   Ex2: order_form.cgi
 
-    This is very similar to the above, only it uses the "realsmart" option
+    This is very similar to the above, only it uses the "smartness" option
     to fill in the "state" options automatically, as well as guess at the
     validation types we want. I recommend you use the "debug" option to see
     what's going on until you're sure it's doing what you want.
@@ -1028,7 +1150,7 @@ EXAMPLES
 
         my $form = CGI::FormBuilder->new(
                         header => 1, method => 'POST',
-                        realsmart => 1, debug => 1,
+                        smartness => 2, debug => 2,
                         fields => [qw/first_name last_name email address
                                       state zipcode credit_card/],
                    );
@@ -1162,7 +1284,7 @@ NOTES
     it and install it!
 
 VERSION
-    $Id: FormBuilder.pm,v 1.54 2001/09/04 22:42:40 nwiger Exp $
+    $Id: FormBuilder.pm,v 1.65 2001/09/19 18:26:08 nwiger Exp $
 
 AUTHOR
     Copyright (c) 2001 Nathan Wiger <nate@wiger.org>. All Rights Reserved.

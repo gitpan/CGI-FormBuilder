@@ -68,7 +68,7 @@ CGI::FormBuilder - Easily generate and process stateful forms
     # using this module, since all fields are sticky and
     # stateful across multiple submissions. And, though
     # we're using anonymous arrayrefs []'s and hashrefs {}'s
-    # above there's no reason we can't use names ones:
+    # above there's no reason we can't use named ones:
 
     my $loopback_form = CGI::FormBuilder->new(
                             title    => $title,
@@ -93,14 +93,14 @@ CGI::FormBuilder - Easily generate and process stateful forms
 use Carp;
 use strict;
 use vars qw($VERSION @ISA @EXPORT @EXPORT_OK);
-$VERSION = do { my @r=(q$Revision: 1.54 $=~/\d+/g); sprintf "%d."."%02d"x$#r,@r };
+$VERSION = do { my @r=(q$Revision: 1.65 $=~/\d+/g); sprintf "%d."."%02d"x$#r,@r };
 
 # use CGI for stickiness (prefer CGI::Minimal for _much_ better speed)
 # we try the faster one first, since they're compatible for our needs
 my $CGIMOD = 'CGI::Minimal';
 eval { require CGI::Minimal };
 if ($@) { require CGI; $CGIMOD = 'CGI'; }
-my $CGI = new $CGIMOD;
+my $CGI = '';
 
 # For debug()
 my $DEBUG = 0;
@@ -141,10 +141,13 @@ my %VALID = (
 # we interpret are "valid", instead we yank out all the options and
 # stuff that we use internally. This allows arbitrary tags to be
 # specified in the generation of HTML tags. 
-my @OURATTR = qw(options attr sort title text body validate javascript
-                 selectnum checknum radionum table smart labels required
-                 header linebreaks sticky invalid template keepextras
-                 realsmart debug);
+my @OURATTR = qw(options attr sortopts title text body validate javascript
+                 selectnum checknum radionum table label labels comment nameopts
+                 required header linebreaks sticky invalid template keepextras
+                 smartness debug lalign submit reset params multiple);
+
+# trick for speedy lookup
+my %OURATTR = map { $_ => 1 } @OURATTR;
 
 sub debug { 
     return unless $DEBUG >= $_[0];  # first arg is debug level
@@ -175,7 +178,7 @@ sub _args (;@) {
     return @args;
 }
 
-sub _data (;@) {
+sub _data ($) {
     # auto-derefs appropriately
     my $data = shift() || return;
     if (my $ref = ref $data) {
@@ -194,9 +197,15 @@ sub _data (;@) {
 sub _ismember ($@) {
     # returns 1 if is in set, undef otherwise
     my $test = shift;
-    #return 1 if $test eq $_ while shift;
-    while (my $try = shift) { return 1 if $test eq $try }
-    return undef;
+    for (@_) {
+        return 1 if $test eq $_;
+    }
+    return;
+}
+
+sub _indent (;$) {
+    # return proper spaces to indent x 4
+    return "    " x shift();
 }
 
 sub _toname ($) {
@@ -205,6 +214,48 @@ sub _toname ($) {
     $name =~ s![^a-zA-Z0-9.-/]+! !g;
     $name =~ s!\b(\w)!\u$1!g;
     return $name;
+}
+
+sub _opt ($) {
+    # This creates and returns the options needed based
+    # on an $opt array/hash shifted in
+    my $opt = shift;
+
+    # "options" are the options for our select list
+    my @opt = ();
+    if (my $ref = ref $opt) {
+        # we turn any data into ( ['key', 'val'], ['key', 'val'] )
+        # have to check sub-data too, hence why this gets a little nasty
+        @opt = ($ref eq 'HASH')
+                  ? map { [$_, $opt->{$_}] } keys %{$opt}
+                  : map { (ref $_ eq 'HASH')  ? [each %{$_}] : $_ } _data $opt;
+                  #: map { (ref $_ eq 'HASH')  ? [each %{$_}] : $_
+                        #: ( (ref $_ eq 'ARRAY') ? $_ : [$_, $_] ) } _data $opt;
+    } else {
+        # this code should not be reached, but is here for safety
+        @opt = ($opt);
+    }
+    # iterate for debug
+    #warn "[C::F] opt: $_ = @{$_}" for @opt;
+ 
+    return @opt;
+}
+
+sub _sort (\@$) {
+    # pass in the sort and ref to opts
+    my @opt  = @{ shift() };
+    my $sort = shift;
+
+    if ($sort eq 'alpha') {
+        @opt = sort { (_data($a))[0] cmp (_data($b))[0] } @opt;   # currently type is ignored
+    } elsif ($sort eq 'numeric') {
+        @opt = sort { (_data($a))[0] <=> (_data($b))[0] } @opt;
+    } else {
+        puke "Unsupported sort type '$sort' specified";
+    }
+
+    # return our options
+    return @opt;
 }
 
 sub _initfields {
@@ -264,9 +315,9 @@ sub _initfields {
             # we turn our values hashref into an arrayref on the fly
             my @v = _data($args{values});
             while (@v) {
-                debug 1, "walking HASH values specified";
                 my $key = lc shift @v;
-                $val{$key} = [shift @v];
+                $val{$key} = [_data shift @v];
+                debug 1, "walking hash: $key => @{$val{$key}}";
             }
         } else {
             puke "Unsupported operand to 'values' attribute";
@@ -279,12 +330,14 @@ sub _initfields {
         # We no longer "pre-catch" CGI. Instead, we allow stickiness
         # meaning that CGI values override our default values from above
         my @v;
-        if (@v = $CGI->param($k) and "@v") {
+        if ($self->{opt}{sticky} and $CGI and @v = $CGI->param($k) and "@v") {
             debug 2, "CGI yielded $k = @v";
             $self->{fields}{$k}{value} = \@v;
             $self->{field_cgivals}{$k} = 1;
         } else {
-            $self->{fields}{$k}{value} = $val{$k};
+            # we do not set the value to null if it's already
+            # been manually initialized, say through a field() call
+            $self->{fields}{$k}{value} = $val{$k} unless $self->{field_inited}{$k};
         }
         #debug 2, "set $k = $self->{fields}{$k}{value}";
     }
@@ -318,7 +371,8 @@ sub _tag ($;@) {
         # this cleans out all the internal junk kept in each data
         # element, returning everything else (for an html tag)
         my $key = shift;
-        if (_ismember($key, @OURATTR)) {
+        #if (_ismember($key, @OURATTR)) {
+        if ($OURATTR{$key}) {   # faster for common case
             shift; next;
         }
         #my $val = _escapeurl shift;    # too much gets escaped
@@ -343,11 +397,27 @@ sub new {
     $opt{method} ||= $method || 'GET';
     $DEBUG = delete $opt{debug};   # remember that delete returns the val deleted!
 
-    # Move form opts into the {form} item
-    # Not anymore!!
-    #for my $o (qw(name action method encoding onSubmit)) {
-        #$ref->{form}{$o} = delete $opt{$o} if $opt{$o};
-    #}
+    # Redo our magical CGI object if correct
+    if (my $r = delete ${opt}{params}) {
+        # in mod_perl, we can't do anything without a manual params => arg
+        # since otherwise POST params magically disappear
+        puke "Argument to 'params' option must be an object with a param() method"
+            unless UNIVERSAL::can($r, 'param');
+        $CGI = $r;
+    } else {
+        # initialize our CGI object
+        #my $CGI = ($ENV{'GATEWAY_INTERFACE'} =~ /^CGI-Perl/) ? '' : $CGIMOD->new;
+        $CGI = $CGIMOD->new;
+    }
+
+    # Save the rest as options in our data struct
+    $ref->{opt} = \%opt;
+
+    # These default to 1
+    $ref->{opt}{javascript} = 1 unless exists $ref->{opt}{javascript};
+    $ref->{opt}{sticky}     = 1 unless exists $ref->{opt}{sticky};
+    #$ref->{opt}{labels}    = 1 unless exists $ref->{opt}{labels};
+    $ref->{opt}{header}     = 1 unless exists $ref->{opt}{header};
 
     # Process any fields specified, if applicable
     $ref->{fields} = {};
@@ -356,9 +426,6 @@ sub new {
         $ref->_initfields(fields => $fields, 
                           values => delete $opt{values});
     }
-
-    # Save the rest as options for later
-    $ref->{opt} = \%opt;
 
     # Defaults
     #$ref->{opt}{title} ||= 'FormBuilder';
@@ -371,15 +438,9 @@ sub new {
     $ref->{opt}{text}  ||= '';  # shut up "uninit in concat" in heredoc
     $ref->{opt}{body}  ||= { bgcolor => 'white' };
 
-    # These default to 1
-    $ref->{opt}{javascript} = 1 unless exists $ref->{opt}{javascript};
-    $ref->{opt}{sticky} = 1 unless exists $ref->{opt}{sticky};
-    $ref->{opt}{labels} = 1 unless exists $ref->{opt}{labels};
-    $ref->{opt}{header} = 1 unless exists $ref->{opt}{header};
-
     # If the user asked for "realsmart", then we try to automatically
     # figure out some validation stuff (among other things)...
-    if ($ref->{opt}{realsmart}) {
+    if ($ref->{opt}{smartness} >= 2) {
         for my $field (@{$ref->{field_names}}) {
             next if $ref->{opt}{validate}{$field};
             if ($field =~ /email/i) {
@@ -399,7 +460,7 @@ sub new {
                     [qw(AL AK AZ AR CA CO CT DE DC FL GA HI ID IN IA KS
                         KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY
                         NC ND OH OK OR PA RI SC SD TN TX UT VT WA WV WI WY)];
-                debug 1, "via 'realsmart' auto-determined options for '$field' field";
+                debug 2, "via 'smartness' auto-determined options for '$field' field";
             } elsif ($field =~ /^file/i) {
                 # guess based on the OS we're running!
                 if ($^O =~ /win|dos/i) {
@@ -418,7 +479,7 @@ sub new {
             } else {
                 next;   # skip below message
             }
-            debug 1, "via 'realsmart' set validation for '$field' field ",
+            debug 2, "via 'smartness' set validation for '$field' field ",
                      "to '$ref->{opt}{validate}{$field}'";
         }
     }
@@ -436,8 +497,15 @@ sub field {
 
     # handle either ->field($name) or ->field(name => $name)
     my $name = shift unless (@_ % 2 == 0);
-    my %args = _args(@_);
-    $args{name} ||= $name;
+    my %args = ();
+    if (@_ == 2) {
+        # assumed it's legacy name => value
+        $args{name} = shift;
+        $args{value} = shift;
+    } else {
+        %args = _args(@_);
+        $args{name} ||= $name;
+    }
 
     debug 2, "called field(@_)";
 
@@ -453,7 +521,7 @@ sub field {
     unless ($self->{fields}{"$args{name}"}) {
         #my $cgival = join $", $CGI->param($args{name});
         #$args{value} = $cgival if $cgival;
-        if ($CGI->param($args{name})) {
+        if ($self->{opt}{sticky} && $CGI && $CGI->param($args{name})) {
             #$args{value} = [ $CGI->param($args{name}) ];
             debug 1, "sticky $args{name} from CGI = " . $CGI->param($args{name});
             $self->{fields}{"$args{name}"}{value} = [ $CGI->param($args{name}) ];
@@ -466,16 +534,19 @@ sub field {
     while(my($k,$v) = each %args) {
         next if $k eq 'name';
         # special catch for value
+        debug 2, "walking field() args: $k => $v";
         if ($k eq 'value') {
             next if $self->{field_cgivals}{"$args{name}"};  # sticky
-            $v = [ _data $v ];
+            debug 1, "not CGI sticky, so setting value => $v";
+            $self->{field_inited}{"$args{name}"} = 1;
+            $v = [_data $v];
         }
         $self->{fields}{"$args{name}"}{$k} = $v;
     }
 
     # return the value
     my @v = _data($self->{fields}{"$args{name}"}{value});
-    debug 2, "field $args{name} value => @v";
+    debug 2, "return field($args{name} => @v)";
     #return wantarray ? @v : "@v";
     return wantarray ? @v : $v[0];
 }
@@ -516,16 +587,19 @@ sub render {
     my $oldfv = { %{$self->{fields}} };
   
     # we can also put stuff inside a table if so requested...
-    my($to, $tc, $tdo, $td2, $tdc, $tro, $trc, $co, $cc) = ('' x 9);
+    my($to, $tc, $tdl, $tdo, $td2, $tdc, $tro, $trc, $co, $cc) = ('' x 9);
     unless (exists $args{table}) {
          $args{table} = 1 if @{$self->{field_names}} > 1;
     }
     if ($args{table}) { 
         # strictly speaking, these should all use _tag, but this is faster
-        # currently table/tr/td attrs are not supported. they should be.
-        $to  = '<table>';   
+        # currently table/tr/td attrs are not supported. should they be?
+        # or should we just tell people to use a fucking template?
+        $to  = '<table>';
         $tc  = '</table>';
-        $tdo = '<td>' . $font;
+        my $align = $args{lalign} || 'left';
+        $tdl = _tag('td', align => $align) . $font;
+        $tdo = "<td>$font";
         $td2 = _tag('td', colspan => 2) . $font;
         $tdc = '</td>';
         $tro = '<tr>';
@@ -565,7 +639,7 @@ sub render {
     my $jsfunc = '';
     if ($args{validate} && $args{javascript}) {
         $jsfunc .= "\n" . _tag('script', language => 'JavaScript1.2')
-                  . "<!-- hide from old browsers\nfunction validateForm (form) {\n";
+                  . "<!-- hide from old browsers\nfunction validate (form) {\n";
     }
 
     # import all our fields from our data structure and make 'em tags
@@ -577,8 +651,8 @@ sub render {
 
         # print a label unless it's 0
         my $label = '';
-        if ($args{labels}) {
-            $label = $attr->{label} || _toname($field);
+        if ($args{labels} || ! exists $args{labels}) {
+            $label = $attr->{label} || $args{labels}{$field} || _toname($field);
             debug 1, "label for '$field' field set to '$label'";
         }
 
@@ -590,17 +664,22 @@ sub render {
         my @value = $attr->{value} ? @{$attr->{value}} : ();
         delete $attr->{value};
 
+        debug 2, "$field: retrieved value '@value' from \$attr->{value}";
+
         # override the type if we're printing them out statically
         $attr->{type} = 'hidden' if $args{static};
 
         # unless the type has been set explicitly, we make a
         # guess based on how many items there are to display;
         # basically, how many options we have
-        if (! $attr->{type} && ($args{smart} || ! defined $args{smart})) {
-            if (ref $attr->{options} eq 'ARRAY') {
-                if (@{$attr->{options}} >= $args{selectnum}) {
+        if (! $attr->{type} && ($args{smartness} || ! exists $args{smartness})) {
+            if (my $ref = ref $attr->{options}) {
+                debug 2, "field $field has multiple options, so setting to select|radio|checkbox";
+                my $n = () = ($ref eq 'HASH') ? keys %{$attr->{options}}
+                                              : @{$attr->{options}};
+                if ($n >= $args{selectnum}) {
                     $attr->{type} = 'select';
-                } elsif (@{$attr->{options}} >= $args{radionum}) {
+                } elsif ($n >= $args{radionum}) {
                     if ($attr->{multiple} || @value > 1) {
                         $attr->{type} = 'checkbox';
                     } else {
@@ -609,12 +688,16 @@ sub render {
                 }
             } elsif ($field =~ /passw[or]*d/i) {
                 $attr->{type} = 'password';
-            } elsif ($field =~ /details?/i || grep /\n|\r/, @value
-                     || $attr->{cols} || $attr->{rows}) {
+            } elsif ($field =~ /(?:details?|comments?)$/i
+                     || grep /\n|\r/, @value || $attr->{cols} || $attr->{rows}) {
                 $attr->{type} = 'textarea';
+                # this is dicey, because textareas suck by default
+                $attr->{cols} ||= 65;
+                $attr->{rows} ||= 10;
             } else {
                 $attr->{type} = 'text';
             } 
+            debug 2, "field $field set to type $attr->{type} automagically";
         }
 
         debug 1, "generating '$field' field as type '$attr->{type}' (@value)";
@@ -647,25 +730,58 @@ sub render {
                 # Need some magical JavaScript crap to figure out the type of value
                 # God the DOM sucks so much ass!!!! I can't believe the value element
                 # changes based on the type of field!!
-                if ($attr->{type} eq 'select') {
-                    $jsfunc .= <<EOF;
-    // get value for field from select list
-    var $field = form.$field.options[form.$field.selectedIndex].value;
-EOF
-                } elsif ($attr->{type} eq 'checkbox') {
-                    $jsfunc .= <<EOF;
-    // get field from checkbox - this is a PITA!
+                my $close_brace = '';
+                my $idt = 0;
+                my $is_select = 0;
+                my $in = _indent($idt);
+                my $entry = 'did not enter a valid value';
 
+                if ($attr->{type} eq 'select' || $attr->{type} eq 'checkbox') {
+
+                    # get value for field from select list or checkbox
+                    # always assume it is a multiple to guarantee we get all values
+                    $jsfunc .= <<EOF;
+$in    // select or checkbox list; always assume it's multiple to get all values
+$in    var selected_$field = 0;
+$in    for (var loop = 0; loop < form.$field.options.length; loop++) {
+$in        if (form.$field.options[loop].selected || form.$field.options[loop].checked) {
+$in            var $field = form.$field.options[loop].value;
+$in            selected_$field++;
 EOF
+                    $close_brace = <<EOF;
+
+$in        }
+$in    } // close for loop;
+$in    if (! selected_$field) {
+$in        alert('You must select an option from the "$label" list');
+$in        return false;
+$in    }
+EOF
+                    $in = _indent($idt += 2);
+                    $is_select++;
+
                 } elsif ($attr->{type} eq 'radio') {
+
+                    # get field from radio button
+                    # must cycle through all again to see which is checked. yeesh.
                     $jsfunc .= <<EOF;
-    // get field from radio button
-    var $field = form.$field.checked.value;
+$in    // radio group
+$in    var $field = '';
+$in    for (var loop = 0; loop < form.$field.length; loop++) {
+$in        if (form.$field\[loop].checked) {
+$in             $field = form.$field\[loop].value;
+$in        }
+$in    }
 EOF
+                    $entry = 'must choose an option';
+
                 } else {
+
+                    # get value from text or other straight input
+                    # at least this part makes some sense
                     $jsfunc .= <<EOF;
-    // get value from text or other straight input
-    var $field = form.$field.value;
+$in    // standard text, hidden, password, or textarea box
+$in    var $field = form.$field.value;
 EOF
                 }
 
@@ -676,61 +792,64 @@ EOF
 
                 if ($pattern =~ m!^m?(.).*\1$!) {
                     # JavaScript regexp
-                    $jsfunc .= qq(    if (! $field.match($pattern)) {\n);
+                    $jsfunc .= qq($in    if (! $field.match($pattern)) {\n);
                 } elsif (ref $pattern eq 'ARRAY') {
                     # must be w/i this set of values
                     # can you figure out how this piece of Perl works? ha ha ha ha ....
-                    $jsfunc .= "    if ($field != '" . join("' && $field != '", @{$pattern}) . "') {\n";
+                    $jsfunc .= "$in    if ($field != '"
+                             . join("' && $field != '", @{$pattern}) . "') {\n";
                 } elsif ($pattern eq 'VALUE') {
                     # Not null
-                    $jsfunc .= qq(    if ((! $field && $field != 0) || $field == "") {\n);
+                    $jsfunc .= qq($in    if ((! $field && $field != 0) || $field == "") {\n);
                 } else {
                     # literal string is a literal comparison, but provide
                     # a warning just in case
                     belch "Validation string '$pattern' may be a typo of a builtin pattern"
                         if ($pattern =~ /^[A-Z]+$/); 
-                    $jsfunc .= qq(    if (! ($field $pattern)) {\n);
+                    $jsfunc .= qq($in    if (! ($field $pattern)) {\n);
                 }
 
+                # add on our alert message, which is unfortunately always generic
                 $jsfunc .= <<EOF;
-        alert('Error: You did not enter a valid value for the "$label" field');
-        return false;
-    }
+$in        alert('Error: You $entry for the "$label" field');
+$in        return false;
+$in    }$close_brace
 EOF
-            }   # SPECIAL NOTE: The above bracket closes *JavaScript* code, not Perl
+            }
         }
 
         # Now we generate the HTML tag for each element 
         if ($attr->{type} eq 'select') {
 
             # "options" are the options for our select list
-            $attr->{options} ||= $attr->{value};
-            my @opt = _data($attr->{options});
-            if (my $sort = $attr->{sort}) {
-                @opt = sort @opt;   # currently type is ignored
-            }
+            my @opt = _opt($attr->{options} ||= $vattr || ['','']);
+            @opt = _sort(@opt, $attr->{sortopts}) if $attr->{sortopts};
 
             # generate our select tag. handle multiples.
             my $mult = $attr->{multiple} || (@value > 1) ? ' multiple' : '';
-            $tag = _tag("select$mult", name => $field);
+            $tag = _tag("select$mult", name => $field, %{$attr});
             for my $opt (@opt) {
-                my($o,$n) = (ref $opt eq 'ARRAY') ? (@{$opt}) : ($opt, $opt);
-                #$n ||= _toname($o);
+                # Since our data structure is a series of ['',''] things,
+                # we get the name from that. If not, then it's a list
+                # of regular old data that we _toname if nameopts => 1 
+                my($o,$n) = (ref $opt eq 'ARRAY') ? (@{$opt}) : ($opt);
+                $n ||= $attr->{nameopts} ? _toname($o) : $o;
                 my $slct = _ismember($o, @value) ? ' selected' : '';
                 $tag .= _tag("option$slct", value => $o) . $n . '</option>';
             }
             $tag .= '</select>';
 
         } elsif ($attr->{type} eq 'radio' || $attr->{type} eq 'checkbox') {
-            $attr->{options} ||= $attr->{value};
-            my @opt = $attr->{options} ? _data($attr->{options})
-                                       : [1, ''];
-            if (my $sort = $attr->{sort}) {
-                @opt = sort @opt;   # currently type is ignored
-            }
+            # get our options
+            my @opt = _opt($attr->{options} ||= $vattr || [1, '']);
+            @opt = _sort(@opt, $attr->{sortopts}) if $attr->{sortopts};
+
             for my $opt (@opt) {
-                my($o,$n) = (ref $opt eq 'ARRAY') ? (@{$opt}) : ($opt, $opt);
-                #$n ||= _toname($o);
+                # Since our data structure is a series of ['',''] things,
+                # we get the name from that. If not, then it's a list
+                # of regular old data that we _toname if nameopts => 1 
+                my($o,$n) = (ref $opt eq 'ARRAY') ? (@{$opt}) : ($opt);
+                $n ||= $attr->{nameopts} ? _toname($o) : $o;
                 my $slct = _ismember($o, @value) ? ' checked' : '';
                 $tag .= _tag("input$slct", name => $field, value => $o, %{$attr}) 
                       . ' ' . $n . ' ';
@@ -749,11 +868,11 @@ EOF
             # way to handle multiple form values of the same name
             @value = (undef) unless @value; # this creates a single-element array
             for my $value (@value) {
-                my %value = defined($value) ? (value => $value) : ();
+                my %value = (defined($value) && $attr->{type} ne 'password') ? (value => $value) : ();
                 $tag .= _tag('input', name => $field, %value, %{$attr});
                 #$tag .= $value[0] if $attr->{type} eq 'hidden';
-                $tag .= $value if $attr->{type} eq 'hidden';
-                $tag .= ' ' if $args{static};   # for hidden field spacing
+                # print the value out too when in a static context
+                $tag .= "$value " if $attr->{type} eq 'hidden' && $args{static};
             }
         }
 
@@ -762,6 +881,7 @@ EOF
 
         # if we have a template, then we setup the tag to a tmpl_var of the
         # same name via param(). otherwise, we generate HTML rows and stuff
+        my $comment = ' ' . $attr->{comment};
         if ($args{template}) {
             # in a template, instead of bold/red like below, we put
             # little text after the thingy
@@ -770,7 +890,7 @@ EOF
             $req = qq(<font color="red">$req</font>) if $self->{fields}{$field}{invalid};
 
             # assign the template tag
-            $tmplvar{"field-$field"} = $tag . $req;
+            $tmplvar{"field-$field"} = $tag . $comment . $req;
 
             # and the value tags
             $tmplvar{"value-$field"} = $value[0];
@@ -787,24 +907,33 @@ EOF
             # and error it too
             $label = qq(<font color="red">$label</font>) if $self->{fields}{$field}{invalid};
 
+            # and spacing if aligned right
+            $label .= '&nbsp;' if $args{lalign} eq 'right';
+
             # and postfix the helptag if applicable
             $helptag = '' if $args{nohelp} || $args{static};
             $helptag = qq( <font size="-1">($helptag)</font>) if $helptag;
 
-            $outhtml .= $tro . $tdo . $label . $tdc . ' ' . $tdo . $tag . $helptag
-                      . $tdc . $trc . ' ' . $br;
+            if ($attr->{type} eq 'hidden' && ! $args{static}) {
+                # hidden fields in a non-static context get, well, hidden
+                $outhtml .= $tag . $br;
+            } else {
+                $outhtml .= $tro . $tdl . $label . $tdc . ' ' . $tdo
+                         . $tag . $comment . $helptag . $tdc . $trc . ' ' . $br;
+            }
         }
     }
 
     # close our JavaScript if it was opened
     if ($jsfunc) {
+        $jsfunc .= $args{jsfunc} if $args{jsfunc};  # extra validation stuff
         $jsfunc .= "    return true;  // all checked ok\n}\n";
         $jsfunc .= $args{jshead} if $args{jshead};  # user-defined javascript
         $jsfunc .= "//-->\n</script><noscript>"
                  . q(<font color="red"><b>Please enable JavaScript or use a newer browser</b>)
                  . q(</font></noscript>);
         # setup our form onSubmit
-        $self->{opt}{onSubmit} = 'return validateForm(this);'; 
+        $self->{opt}{onSubmit} = 'return validate(this);'; 
     }
 
     # handle the submit/reset buttons
@@ -852,15 +981,17 @@ EOF
     # have added an onSubmit attr. as such we have to add to the front
     # we also include a couple special state tracking tags, _submitted
     # and _sessionid.
-    my $formtag = _tag('form', %{$self->{opt}})
-                . _tag('input', type => 'hidden', name => '_submitted', 
-                        value => $CGI->param('_submitted') + 1)
-                . _tag('input', type => 'hidden', name => '_sessionid',
-                        value => $CGI->param('_sessionid'));
+    my $formtag = _tag('form', %{$self->{opt}});
+    if ($CGI) {
+        $formtag .= _tag('input', type => 'hidden', name => '_submitted', 
+                          value => $CGI->param('_submitted') + 1)
+                  . _tag('input', type => 'hidden', name => '_sessionid',
+                          value => $CGI->param('_sessionid'));
+    }
 
     # If we set keepextras, then this means that any extra fields that
     # we've set that are *not* in our fields() will be added to the form
-    if ($args{keepextras}) {
+    if ($args{keepextras} && $CGI) {
         for my $k ($CGI->param) {
             next if $self->{fields}{$k}
                  || $k eq '_sessionid' || $k eq '_submitted';
@@ -1025,6 +1156,7 @@ sub mailresults {
 
 sub submitted {
     # this returns the value of the submit key, if any
+    return unless $CGI;
     return $CGI->param('_submit');
 }
 
@@ -1035,11 +1167,13 @@ sub submitted {
 
 sub sessionid {
     # checks for the _sessoinid parameter
+    return unless $CGI;
     return $CGI->param('_sessionid');
 }
 
 # This allows a crude method of delegation
 sub cgi_param {
+    return unless $CGI;
     shift; $CGI->param(@_);
 }
 
@@ -1604,6 +1738,40 @@ These C<< <tmpl_var> >> variables would follow the normal rules for
 templates. For more details on templates, see the documentation for
 C<HTML::Template>.
 
+=item params => $object
+
+Specify an object from which the parameters should be derived.
+The object must have a C<param()> method which will return values
+for each parameter by name. By default a CGI object will be 
+automatically created and used.
+
+However, you may want to specify this if you're using C<mod_perl>
+or are using a C<POST> method:
+
+    use Apache::Request;
+    use CGI::FormBuilder;
+
+    sub handler {
+        my $r = Apache::Request->new(shift);
+        my $form = CGI::FormBuilder->new(... params => $r);
+        # ...
+        print $form->render;
+    }
+
+Or, if you need to initialize a C<CGI.pm> object separately:
+
+    use CGI;
+    use CGI::FormBuilder;
+
+    my $q = new CGI;
+    my $mode = $q->param('mode');
+    # do stuff based on mode ...
+    my $form = CGI::FormBuilder->new(... params => $q);
+
+The above example would allow you to access CGI parameters
+directly via C<< $q->param >> (however, note that you could
+get the same functionality by using C<< $form->cgi_param >>).
+
 =item action => $script
 
 What script to point the form to. Defaults to itself, which is
@@ -1674,13 +1842,19 @@ C<< <body> >> tag verbatim (for example, bgcolor, alink, etc).
 If you're thinking about using this, check out the
 C<template> option above.
 
+=item lalign => 'left' | 'right' | 'center'
+
+This is how to align the field labels in the table layout. I really
+don't like this option being here, but it does turn out to be
+pretty damn useful. You should probably be using a template.
+
 =item radionum => $threshold
 
 =item selectnum => $threshold
 
 These affect the "intelligence" of the module. The threshold is
 a number of options over which the item converts to the specified
-type. Huh? Well, the defaults are 2, 2, and 4, respectively.
+type. Huh? Well, the defaults are 2 and 4, respectively.
 That is, if a field has more than 2 options, it will become a
 radio box, but if it has more than 4 options, it will become a
 select list.
@@ -1701,23 +1875,36 @@ If using JavaScript, you can also specify some JavaScript code
 that will be included verbatim in the <head> section of the
 document.
 
-=item realsmart => 1 | 0
+=item jsfunc => JSCODE
 
-If set to 1, then B<FormBuilder> will try to be I<really> smart
-and guess a lot of stuff based on the names of your fields, especially
-the validation routines to use. For example, if you create a field
-called "host" it will automatically be validated against the "HOST"
-builtin pattern. If you create a field called "state", not only
-will it be validated against the "STATE" pattern but will also be
-given a list of options corresponding to the US states. It does
-something comparable for a field named "country".
+Just like C<jshead>, only this is stuff that will go into the
+C<validate> JavaScript function. As such, you can use it to
+add extra JavaScript validate code verbatim. Just return false
+if something doesn't work. For example:
 
-This option is useful, but still quite experimental. Defaults to 0.
+    my $jsfunc = <<EOF;
+if (form.password.value == 'password') {
+    alert("What are you, a moron? You used 'password' for your password?!");
+    return false;
+}
+EOF
+    ->new(... jsfunc => $jsfunc);
 
-=item debug => 1 | 0
+This is another option I don't like. Should you be using a template?
+
+=item smartness => 0 | 1 | 2
+
+By default CGI::FormBuilder tries to be pretty smart for you, like
+figuring out the types of fields based on their names and number
+of options. If you don't want this behavior at all, set C<smartness>
+to C<0>. If you want it to be B<really> smart, like figuring
+out what type of validation routines to use for you, set it to
+C<2>. It defaults to C<1>.
+
+=item debug => 0 | 1 | 2
 
 If set to 1, the module spits copious debugging info to STDERR.
-Defaults to 0.
+If set to 2, it spits out even more gunk.  Defaults to 0.
 
 =back
 
@@ -1766,7 +1953,15 @@ To get the list of valid field names just call it without and args:
 
     my @fields = $form->field;
 
-The C<field()> function takes several parameters to manipulate stuff:
+And to get a hashref of field/value pairs, call it as:
+
+    my $fields = $form->field;
+    my $name = $fields->{name}[0];
+
+Note that the data structure returned will has B<all> values as
+arrayrefs. As such, you must access singular elements as shown above.
+
+The C<field()> function takes several parameters:
 
 =over
 
@@ -1789,7 +1984,7 @@ result in the field automatically becoming a multiple select list
 or checkbox group, depending on the number of options specified
 above.
 
-=item options => \@options
+=item options => \@options | \%options
 
 This takes an arrayref of options. It also automatically results
 in the field becoming a radio (if <= 4) or select list (if > 4),
@@ -1805,9 +2000,9 @@ That is, you will get something like this:
     <option value="so">so</option>
     </select>
 
-However, if a given item is an ARRAYREF, then the first element
-will be taken as the value and the second as the label. So
-something like this:
+However, if a given item is either an arrayref or hashref, then
+the first element will be taken as the value and the second as the
+label. So something like this:
 
     push @opt, ['yes', 'You betcha!'];
     push @opt, ['no', 'No way Jose'];
@@ -1824,14 +2019,36 @@ Would result in something like the following:
     <option value="so">So</option>
     </select>
 
-You get the idea.
+And this code would have the same net effect:
+
+    push @opt, {yes => 'You betcha!'};
+    push @opt, {no  => 'No way Jose'};
+    push @opt, {maybe => 'Perchance...'};
+    push @opt, {so  => 'So'};
+    $form->field(name => 'opinion', options => \@opt);
+
+As would, in fact, this code:
+
+    my %opt = (
+        yes => 'You betcha!',
+        no  => 'No way Jose',
+        maybe => 'Perchance...',
+        so  => 'So'
+    );
+    $form->field(name => 'opinion', options => \%opt);
+
+You get the idea. The goal is to give you as much flexibility
+as possible when constructing your data structures, and this
+module figures it out correctly.
+
+For a simpler alternative, see the C<nameopts> option below.
 
 =item label => $string
 
 This will be the label printed out next to the field. By default
 it will be generated automatically from the field name.
 
-=item validate => REGEX
+=item validate => '/regex/'
 
 Similar to the C<validate> option used in C<new>, this affects
 the validation just of that single field. As such, rather than
@@ -1840,6 +2057,21 @@ a hashref, you would just specify the regex to match against.
 This regex should be specified as a single-quoted string, and
 NOT as a C<qr()> deal. The reason is that this needs to be
 easily usable by JavaScript routines as well.
+
+=item comment => $string
+
+This prints out the given comment I<after> the field to fill
+in, vebatim. For example, if you wanted a field to look like
+this:
+
+    Joke [____________] (keep it clean, please!)
+
+You would use the following:
+
+    $form->field(name => 'joke', comment => '(keep it clean, please!)');
+
+The C<comment> can actually be anything you want (even another
+form field). But don't tell anyone I said that.
 
 =item required => 1 | 0
 
@@ -1856,10 +2088,40 @@ values from the options provided. This turns radio groups
 into checkboxes and selects into multi-selects. Defaults
 to automatically being figured out based on number of values.
 
-=item sort => alpha | numeric
+=item sortopts => alpha | numeric
 
 If set, and there are options, then the options will be sorted 
-in the specified order.
+in the specified order. For example:
+
+    $form->field(name => 'category', options => \@cats,
+                 sortopts => 'alpha');
+
+Would sort the C<@cats> options in alpha order.
+
+=item nameopts => 1 | 0
+
+If set to 1, then options for select lists will be automatically
+named as well. So, if you specified a list like:
+
+    $form->field(name => 'department', 
+                 options => qw[/molecular_biology philosophy psychology
+                                particle_physics social_anthropology/],
+                 nameopts => 1);
+
+This would create a list like:
+
+    <select name="department">
+        <option value="molecular_biology">Molecular Biology</option>
+        <option value="philosophy">Philosophy</option>
+        <option value="psychology">Psychology</option>
+        <option value="particle_physics">Particle Physics</option>
+        <option value="social_anthropology">Social Anthropology</option>
+    </select>
+
+Basically, you get names for the options that are determined in 
+the same way as the names for the fields. This is designed as
+a simpler alternative to using custom C<options> data structures
+if your data is regular enough to support it.
 
 =item htmlattr => $value, htmlattr => $value
 
@@ -2018,7 +2280,7 @@ It's best to call C<validate()> in conjunction with this to make
 sure it's ok. It keys off the submit button (stored as the param
 C<_submit>) to figure out if it's been submitted yet.
 
-=head2 validate(field => REGEX, field => REGEX)
+=head2 validate(field => '/regex/', field => '/regex/')
 
 This validates the form based on the validation criteria passed
 into C<new()> via the C<validate> option. In addition, you can
@@ -2029,7 +2291,7 @@ with different geos:
     if ($location eq 'US') {
         $form->validate(state => 'STATE', zipcode => 'ZIPCODE');
     } else {
-        $form->validate(state => '\w{2,3}');
+        $form->validate(state => '/^\w{2,3}$/');
     }
 
 Note that if you pass args to your C<validate()> function like
@@ -2147,7 +2409,7 @@ C<validate> option appropriately.
 
 =head2 Ex2: order_form.cgi
 
-This is very similar to the above, only it uses the C<realsmart> option
+This is very similar to the above, only it uses the C<smartness> option
 to fill in the "state" options automatically, as well as guess at the
 validation types we want. I recommend you use the C<debug> option to
 see what's going on until you're sure it's doing what you want.
@@ -2159,7 +2421,7 @@ see what's going on until you're sure it's doing what you want.
 
     my $form = CGI::FormBuilder->new(
                     header => 1, method => 'POST',
-                    realsmart => 1, debug => 1,
+                    smartness => 2, debug => 2,
                     fields => [qw/first_name last_name email address
                                   state zipcode credit_card/],
                );
@@ -2296,7 +2558,7 @@ is recommended you get it and install it!
 
 =head1 VERSION
 
-$Id: FormBuilder.pm,v 1.54 2001/09/04 22:42:40 nwiger Exp $
+$Id: FormBuilder.pm,v 1.65 2001/09/19 18:26:08 nwiger Exp $
 
 =head1 AUTHOR
 
