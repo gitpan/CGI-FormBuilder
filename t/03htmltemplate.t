@@ -1,8 +1,9 @@
-#!/usr/bin/perl
+#!/usr/bin/perl -I.
 
 use strict;
-use vars qw($TESTING);
+use vars qw($TESTING $DEBUG);
 $TESTING = 1;
+$DEBUG = $ENV{DEBUG} || 0;
 use Test;
 
 # use a BEGIN block so we print our plan before CGI::FormBuilder is loaded
@@ -32,7 +33,7 @@ my $template = <<EOT;
 <title>User Info</title>
 Please update your info and hit "Submit".
 <p>
-<tmpl_var form-start>
+<tmpl_var form-start><tmpl_var form-state>
 Enter your name: <tmpl_var field-name>
 <select name="color" multiple>
     <tmpl_loop loop-color>
@@ -57,7 +58,7 @@ my @test = (
 <title>User Info</title>
 Please update your info and hit "Submit".
 <p>
-<form action="03template.t" method="GET"><input id="_submitted" name="_submitted" type="hidden" value="1" /><input id="_sessionid" name="_sessionid" type="hidden" value="" />
+<form action="03htmltemplate.t" method="GET"><input id="_submitted" name="_submitted" type="hidden" value="1" /><input id="_sessionid" name="_sessionid" type="hidden" value="" />
 Enter your name: <input id="name" name="name" type="text" />
 <select name="color" multiple>
     
@@ -89,7 +90,7 @@ FYI, your dress size is 42<br>
 <title>User Info</title>
 Please update your info and hit "Submit".
 <p>
-<form action="03template.t" method="GET"><input id="_submitted" name="_submitted" type="hidden" value="1" /><input id="_sessionid" name="_sessionid" type="hidden" value="" />
+<form action="03htmltemplate.t" method="GET"><input id="_submitted" name="_submitted" type="hidden" value="1" /><input id="_sessionid" name="_sessionid" type="hidden" value="" />
 Enter your name: <input id="name" name="name" size="80" type="text" />
 <select name="color" multiple>
     
@@ -112,7 +113,7 @@ FYI, your dress size is 8<br>
                  values => {color => [qw/yellow green orange/]},
                },
 
-        mod => { color => {options => [qw/red green blue yellow pink purple orange chartreuse/] },
+        mod => { color => {options => [[red => 1], [blue => 2], [yellow => 3], [pink => 4]] },
                  size  => {value => '(unknown)' } 
                },
 
@@ -120,25 +121,17 @@ FYI, your dress size is 8<br>
 <title>User Info</title>
 Please update your info and hit "Submit".
 <p>
-<form action="03template.t" method="GET"><input id="_submitted" name="_submitted" type="hidden" value="1" /><input id="_sessionid" name="_sessionid" type="hidden" value="" />
+<form action="03htmltemplate.t" method="GET"><input id="_submitted" name="_submitted" type="hidden" value="1" /><input id="_sessionid" name="_sessionid" type="hidden" value="" />
 Enter your name: <input id="name" name="name" type="text" />
 <select name="color" multiple>
     
-    <option value="red" >red</option>
+    <option value="red" >1</option>
     
-    <option value="green" selected>green</option>
+    <option value="blue" >2</option>
     
-    <option value="blue" >blue</option>
+    <option value="yellow" selected>3</option>
     
-    <option value="yellow" selected>yellow</option>
-    
-    <option value="pink" >pink</option>
-    
-    <option value="purple" >purple</option>
-    
-    <option value="orange" selected>orange</option>
-    
-    <option value="chartreuse" >chartreuse</option>
+    <option value="pink" >4</option>
     
 </select>
 FYI, your dress size is (unknown)<br>
@@ -151,25 +144,26 @@ FYI, your dress size is (unknown)<br>
 
 # Cycle thru and try it out
 for (@test) {
-    my $form = CGI::FormBuilder->new( %{ $_->{opt} } );
+    my $form = CGI::FormBuilder->new( %{ $_->{opt} }, debug => $DEBUG );
     while(my($f,$o) = each %{$_->{mod} || {}}) {
         $o->{name} = $f;
         $form->field(%$o);
     }
+
     # just compare the output of render with what's expected
-    ok($form->render, $_->{res});
+    my $ok = ok($form->render, $_->{res});
 
-    if ($ENV{LOGNAME} eq 'nwiger') {
+    if (! $ok && $ENV{LOGNAME} eq 'nwiger') {
         open(O, ">/tmp/fb.1.out");
-        print O $form->render;
-        close O;
-
-        open(O, ">/tmp/fb.2.out");
         print O $_->{res};
         close O;
 
+        open(O, ">/tmp/fb.2.out");
+        print O $form->render;
+        close O;
+
         system "diff /tmp/fb.1.out /tmp/fb.2.out";
-        exit if $?;
+        exit 1;
     }
 }
 

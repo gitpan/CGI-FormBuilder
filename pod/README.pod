@@ -1,0 +1,134 @@
+
+=head1 NAME
+
+README - README for FormBuilder 3.0, please also see Changes
+
+=head1 DESCRIPTION
+
+For details on installation, please read the file C<INSTALL>.
+
+FormBuilder is a fully-functional form engine with numerous features.
+It is far more than a form-generating module. For example, you can
+build a complete application with something as simple as this:
+
+    use CGI::FormBuilder;
+
+    # Let's assume we did a DBI query to get existing values
+    my $dbval = $sth->fetchrow_hashref;
+
+    my $form = CGI::FormBuilder->new(
+                    method   => 'POST',
+                    fields   => [qw/name email phone gender/],
+                    values   => $dbval,
+                    validate => { email => 'EMAIL', phone => 'PHONE' },
+                    required => 'ALL',
+                    header   => 1,
+                    stylesheet => '/path/to/style.css',
+               );
+
+    # Change gender field to have options
+    $form->field(name => 'gender', options => [qw/Male Female/]);
+
+    if ($form->submitted && $form->validate) {
+        my $fields = $form->fields;    # get form fields as hashref
+
+        # Do something to update your data (you would write this)
+        do_data_update($fields->{name}, $fields->{email},
+                       $fields->{phone}, $fields->{gender});
+
+        # Show confirmation screen
+        print $form->confirm;
+
+        # Email the person a brief confirmation
+        $form->mailconfirm(to => $fields->{email});
+
+    } else {
+        # Print out the form
+        print $form->render;
+    }
+
+That simple bit of code would print out an entire form, laid out in a
+table, complete with JavaScript validation code. Default values would
+be filled in from the DBI hashref. It would also handle stickiness
+across multiple submissions correctly. It will also be able to tell
+if it's been submitted, and do server-side validation too.
+
+Overall, I just plain hate form generation and validation because the
+majority of the process is tedious and mindless. B<FormBuilder> tries
+to get rid of the stoopid parts.
+
+=head1 WHY USE FORMBUILDER?
+
+There are a lot of form modules, scripts, etc out there. So why use
+this one? Well, that's up to you, but here are the features that I
+feel are the real benefits of B<FormBuilder>:
+
+=head2 DWIMmery
+
+This module tries to C<Do What I Mean>.  Tell it the fields you care
+about, and it takes care of all the stupid HTML and JavaScript
+generation and processing for you. It also gives you back the correct
+values that you want. It will even label your fields automatically.
+
+=head2 Input field abstraction
+
+You simply define your fields and their values, and this module will
+take care of figuring out what representation is best.  It will then
+generate the appropriate input fields (input, select, radio, etc),
+even changing any JavaScript actions appropriately.
+
+=head2 Easy handling of defaults
+
+Just specify a hash of values to use as the defaults for your fields.
+This will be searched case-insensitively and displayed in the form. What's
+more, if the user enters something via the CGI that overrides a default,
+when you use the C<field()> method to get the data you'll get the correct
+value.
+
+=head2 Correct stickiness
+
+Stickiness is a PITA. B<FormBuilder> correctly handles even multiple values
+selected in a multiple select list, integrated with proper handling of defaults.
+
+=head2 Robust field validation
+
+Form validation sucks, and this is where B<FormBuilder> is a big help.
+It has tons of builtin patterns, and will even generate gobs of 
+JavaScript validation code for you. You can specify your own regexps
+as well, and B<FormBuilder> will correctly check even multivalued inputs.
+
+=head2 Multiple submit mode support
+
+B<FormBuilder> allows you to reliably tell whether the person clicked on
+the C<Update> or C<Delete> button of your form, normally a big pain.
+
+=head2 Template driver support
+
+B<FormBuilder> can natively "drive" several major templating engines,
+including C<HTML::Template>, C<Template Toolkit>, and C<Text::Template>.
+if you want to build a form application with a template in less that 20
+lines of Perl, B<FormBuilder> is for you.
+
+=head1 INSTALLATION
+
+Installation is standard, the same way as for other Perl modules.
+
+    perl Makefile.PL
+    make
+    make test
+    make install
+
+=head1 SUPPORT
+
+There is a website devoted to this module at www.formbuilder.org which
+has tutorials, code examples, full documentation, and much more.
+
+=head1 AUTHOR
+
+Copyright (c) 2000-2005 Nathan Wiger, Sun Microsystems <nate@sun.com>.
+All Rights Reserved.
+
+This module is free software; you may copy this under the terms of
+the GNU General Public License, or the Artistic License, copies of
+which should have accompanied your Perl kit.
+

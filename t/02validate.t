@@ -1,19 +1,17 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl -I.
 
 use strict;
-use vars qw($TESTING);
+use vars qw($TESTING $DEBUG);
 $TESTING = 1;
+$DEBUG = $ENV{DEBUG} || 0;
 use Test;
 
 # use a BEGIN block so we print our plan before CGI::FormBuilder is loaded
-BEGIN { plan tests => 7 }
+BEGIN { plan tests => 11 }
 
 # Need to fake a request or else we stall
 $ENV{REQUEST_METHOD} = 'GET';
-
-# egads this part is annoying
-use CGI 'header';
-my $h = header();
+$ENV{QUERY_STRING} = '_submitted=1&submit=ClickMe&blank=&hiphop=Early+East+Coast';
 
 use CGI::FormBuilder;
 
@@ -24,6 +22,7 @@ sub is_number {
 
 # What options we want to use, and data to validate
 my @test = (
+    #1
     {
         opt => { fields => [qw/first_name email/],
                  validate => {email => 'EMAIL'}, 
@@ -32,6 +31,8 @@ my @test = (
                },
         pass => 1,
     },
+
+    #2
     {
         # max it out, baby
         opt => { fields => [qw/supply demand/],
@@ -41,6 +42,8 @@ my @test = (
                },
         pass => 0,
     },
+
+    #3
     {
         # max it out, baby
         opt => { fields => [qw/supply tag/],
@@ -50,6 +53,8 @@ my @test = (
                },
         pass => 0,
     },
+
+    #4
     {
         opt => { fields => [qw/date time ip_addr name time_confirm/],
                  validate => { date => 'DATE', time => 'TIME', ip_addr => 'IPV4',
@@ -58,6 +63,8 @@ my @test = (
                },
         pass => 1,
     },
+
+    #5
     {
         opt => { fields => [qw/security_test/],
                  validate => { security_test => 'ne 42' },
@@ -65,13 +72,17 @@ my @test = (
                },
         pass => 1,
     },
+
+    #6
     {
         opt => { fields => [qw/security_test2/],
                  validate => { security_test2 => 'ne 42' },
-                 values => { security_test => 'foo\';`cat /etc/passwd`;\'foo' },
+                 values => { security_test2 => 'foo\';`cat /etc/passwd`;\'foo' },
                },
         pass => 1,
     },
+
+    #7
     {
         opt => { fields => [qw/subref_num/],
                  values => {subref_num => [0..9]},
@@ -79,15 +90,54 @@ my @test = (
                },
         pass => 1,
     },
+
+    #8
+    {
+        opt => { fields => [qw/blank/],
+                 values => {blank => '1@2.com'},
+                 validate => {blank => 'EMAIL'},
+                 required => 'NONE',
+               },
+        pass => 1,
+    },
+
+    #9
+    {
+        opt => { fields => [qw/blank/],
+                 values => {blank => '1@2.com'},
+                 validate => {blank => 'EMAIL'},
+                 required => [qw/blank/],
+               },
+        pass => 0,  # should fail
+    },
+
+    #10
+    {
+        opt => { fields => [qw/tomato potato/],
+                 values => {tomato => 'TomaTo', potato => '~SQUASH~'},
+                 validate => {tomato => {perl => '=~ /^TomaTo$/',
+                                         javascript => 'placeholder'},
+                              potato => {perl => 'VALUE',
+                                         javascript => 'placeholder'},
+                             },
+               },
+        pass => 1,
+    },
+
+    #11
+    {
+        opt => { fields => [qw/have you seen/],
+                 values => { you => 'me', seen => 'OB', have => "Nothing" },
+                 validate => { have => '/^Not/' },
+                 required => 'ALL' },
+        pass => 1,
+    },
 );
 
 # Cycle thru and try it out
 for my $t (@test) {
-    #$ENV{QUERY_STRING} = join '&', map { $_ . '=' . $t->{data}{$_} } keys %{$t->{data}};
-    #$ENV{QUERY_STRING} =~ tr/ /+/;
-    #warn "QUERY_STRING=$ENV{QUERY_STRING}\n" if $ENV{DEBUG};
 
-    my $form = CGI::FormBuilder->new( %{ $t->{opt} } );
+    my $form = CGI::FormBuilder->new( %{ $t->{opt} }, debug => $DEBUG );
     while(my($f,$o) = each %{$t->{mod} || {}}) {
         $o->{name} = $f;
         $form->field(%$o);
