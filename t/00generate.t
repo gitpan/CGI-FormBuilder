@@ -50,8 +50,7 @@ my @test = (
     {
         opt => { fields => [qw/first_name last_name/], submit => 'Update', 
                  reset => 0, header => 1, body => {bgcolor => 'black'} },
-        res => $h . q(<html><head><title>00generate</title></head><body bgcolor="black"><h3>00generate</h3>
-<form action="00generate.t" method="GET"><input name="_submitted" type="hidden" value="1"><input name="_sessionid" type="hidden" value=""><table>
+        res => $h . q(<html><head><title>00generate</title></head><body bgcolor="black"><h3>00generate</h3><form action="00generate.t" method="GET"><input name="_submitted" type="hidden" value="1"><input name="_sessionid" type="hidden" value=""><table>
 <tr valign="middle"><td align="left">First Name</td><td><input name="first_name" type="text"></td></tr>
 <tr valign="middle"><td align="left">Last Name</td><td><input name="last_name" type="text"></td></tr>
 <tr valign="middle"><td colspan="2"><center><input name="_submit" type="submit" value="Update"></center></td></tr></table>
@@ -142,8 +141,7 @@ function validate (form) {
                  values  => { supply => [0..4], demand => [5..9] },
                  method => 'PUT', title => 'Econ 101', action => '/nowhere.cgi', header => 1, name => 'econ',
                  font   => 'arial,helvetica', fieldtype => 'select' },
-        res => $h . q(<html><head><title>Econ 101</title></head><body bgcolor="white"><font face="arial,helvetica"><h3>Econ 101</h3>
-<form action="/nowhere.cgi" method="PUT" name="econ"><input name="_submitted_econ" type="hidden" value="1"><input name="_sessionid" type="hidden" value=""><table>
+        res => $h . q(<html><head><title>Econ 101</title></head><body bgcolor="white"><font face="arial,helvetica"><h3>Econ 101</h3><form action="/nowhere.cgi" method="PUT" name="econ"><input name="_submitted_econ" type="hidden" value="1"><input name="_sessionid" type="hidden" value=""><table>
 <tr valign="middle"><td align="left"><font face="arial,helvetica">Supply</td><td><font face="arial,helvetica"><select multiple name="supply" type="select"><option value="">-select-</option><option selected value="0">0</option><option selected value="1">1</option><option selected value="2">2</option><option selected value="3">3</option><option selected value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option></select></td></tr>
 <tr valign="middle"><td align="left"><font face="arial,helvetica">Demand</td><td><font face="arial,helvetica"><select multiple name="demand" type="select"><option value="">-select-</option><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option selected value="5">5</option><option selected value="6">6</option><option selected value="7">7</option><option selected value="8">8</option><option selected value="9">9</option></select></td></tr>
 <tr valign="middle"><td colspan="2"><font face="arial,helvetica"><center><input name="_reset" type="reset" value="Reset"><input name="_submit" type="submit" value="Submit"></center></td></tr></table>
@@ -203,8 +201,7 @@ function validate (form) {
     return true;  // all checked ok
 }
 //-->
-</script><noscript><font color="red"><b>Please enable JavaScript or use a newer browser</b></font></noscript><p></head><body bgcolor="white"><h3>00generate</h3>
-<p>Fields shown in <b>bold</b> are required.<form action="00generate.t" method="GET" onSubmit="return validate(this);"><input name="_submitted" type="hidden" value="1"><input name="_sessionid" type="hidden" value=""><input name="ticket" type="hidden" value="111"><input name="user" type="hidden" value="pete"><input name="replacement" type="hidden" value="TRUE"><table>
+</script><noscript><font color="red"><b>Please enable JavaScript or use a newer browser</b></font></noscript><p></head><body bgcolor="white"><h3>00generate</h3><p>Fields shown in <b>bold</b> are required.<form action="00generate.t" method="GET" onSubmit="return validate(this);"><input name="_submitted" type="hidden" value="1"><input name="_sessionid" type="hidden" value=""><input name="ticket" type="hidden" value="111"><input name="user" type="hidden" value="pete"><input name="replacement" type="hidden" value="TRUE"><table>
 <tr valign="middle"><td align="left"><b>Hostname</b></td><td><input name="hostname" type="text" value="localhost"> <font size="-1">(valid hostname)</font></td></tr>
 <tr valign="middle"><td align="left"><b>Domain</b></td><td><input name="domain" type="text" value="localdomain"> <font size="-1">(DNS domain)</font></td></tr>
 <tr valign="middle"><td colspan="2"><center><input name="_reset" type="reset" value="Reset"><input name="_submit" type="submit" value="Submit"></center></td></tr></table>

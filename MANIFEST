@@ -3,7 +3,9 @@ Makefile.PL
 README
 Changes
 MANIFEST
-t/00generate.t
-t/01process.t
+FormBuilder.pod
 t/02upload.t
+t/01process.t
+t/00generate.t
 t/03template.t
+t/04validate.t

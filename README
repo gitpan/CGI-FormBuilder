@@ -93,11 +93,12 @@ INSTALLATION
     Installation is standard, the same way as for other Perl modules.
 
 SUPPORT
-    Support is currently via email to the developer. However, this module is
-    growing quickly and a mailing list is expected soon.
+    There is a website devoted to this module at www.formbuilder.org which
+    has tutorials, code examples, full documentation, and much more!
 
 AUTHOR
-    Copyright (c) 2001 Nathan Wiger <nate@wiger.org>. All Rights Reserved.
+    Copyright (c) 2001-2003 Nathan Wiger, Sun Microsystems <nate@sun.com>.
+    All Rights Reserved.
 
     This module is free software; you may copy this under the terms of the
     GNU General Public License, or the Artistic License, copies of which
