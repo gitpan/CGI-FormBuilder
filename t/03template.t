@@ -26,12 +26,6 @@ $ENV{QUERY_STRING}   = 'ticket=111&user=pete&replacement=TRUE';
 
 use CGI::FormBuilder;
 
-# UNIX test
-#my $NOT_UNIX = -d '/usr' ? 0 : 1;
-my $NOT_UNIX = 0;
-
-#warn "# VERSION = $CGI::FormBuilder::VERSION\n";
-
 # Create our template and store it in a scalarref
 my $template = <<EOT;
 <html>
@@ -130,6 +124,8 @@ Please update your info and hit "Submit".
 Enter your name: <input name="name" type="text">
 <select name="color" multiple>
     
+    <option value="" >-select-</option>
+    
     <option value="red" >red</option>
     
     <option value="green" selected>green</option>
@@ -148,7 +144,7 @@ Enter your name: <input name="name" type="text">
     
 </select>
 FYI, your dress size is (unknown)<br>
- <input onClick="this.form.submit.value = this.value;" name="_submit" type="submit" value="Update"><input onClick="this.form.submit.value = this.value;" name="_submit" type="submit" value="Delete">
+ <input onClick="this.form._submit.value = this.value;" name="_submit" type="submit" value="Update"><input onClick="this.form._submit.value = this.value;" name="_submit" type="submit" value="Delete">
 </form>
 ),
     },
@@ -162,7 +158,20 @@ for (@test) {
         $o->{name} = $f;
         $form->field(%$o);
     }
-    # skip all tests on non-UNIX platforms because of fucking CRLF
-    skip($NOT_UNIX, $form->render, $_->{res});
+    # just compare the output of render with what's expected
+    ok($form->render, $_->{res});
+
+    if ($ENV{LOGNAME} eq 'nwiger') {
+        open(O, ">/tmp/fb.1.out");
+        print O $form->render;
+        close O;
+
+        open(O, ">/tmp/fb.2.out");
+        print O $_->{res};
+        close O;
+
+        system "diff /tmp/fb.1.out /tmp/fb.2.out";
+        exit if $?;
+    }
 }
 

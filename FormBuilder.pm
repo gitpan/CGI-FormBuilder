@@ -1,5 +1,6 @@
 
-# Copyright (c) 2001-2002 Nathan Wiger <nate@wiger.org>
+# Copyright (c) 2001-2002 Nathan Wiger <nate@nateware.com>
+# Please visit www.formbuilder.org for support information
 # Use "perldoc FormBuilder.pm" for documentation
 
 package CGI::FormBuilder;
@@ -21,6 +22,7 @@ CGI::FormBuilder - Easily generate and process stateful forms
                     values => $dbval,
                     validate => { email => 'EMAIL', phone => 'PHONE' },
                     required => 'ALL',
+                    font => 'arial,helvetica',
                );
 
     # Change gender field to have options
@@ -33,27 +35,31 @@ CGI::FormBuilder - Easily generate and process stateful forms
         do_data_update($fields->{name}, $fields->{email},
                        $fields->{phone}, $fields->{gender});
 
-        print $form->confirm(header => 1);  # confirmation screen
+        # Show confirmation screen
+        print $form->confirm(header => 1);
 
+        # Email the person a brief confirmation
         $form->mailconfirm(to => $fields->{email});
 
     } else {
-        print $form->render(header => 1);   # print out the form
+        # Print out the form
+        print $form->render(header => 1);
     }
 
 =cut
 
 use Carp;
 use strict;
-use vars qw($VERSION @ISA @EXPORT @EXPORT_OK);
-$VERSION = do { my @r=(q$Revision: 2.6 $=~/\d+/g); sprintf "%d."."%02d"x$#r,@r };
+use vars qw($VERSION $CGIMOD $CGI $AUTOLOAD);
+$VERSION = do { my @r=(q$Revision: 2.7 $=~/\d+/g); sprintf "%d."."%02d"x$#r,@r };
 
 # use CGI for stickiness (prefer CGI::Minimal for _much_ better speed)
 # we try the faster one first, since they're compatible for our needs
-my $CGIMOD = 'CGI::Minimal';
-eval { require CGI::Minimal };
-if ($@) { require CGI; $CGIMOD = 'CGI'; }
-my $CGI = '';
+# XXX sorry, this is no longer true, due to no ";" support and file uploads
+
+use CGI;
+$CGIMOD = 'CGI';
+$CGI::USE_PARAM_SEMICOLONS = 0;   # use "&" not ";"
 
 # For debug(), the value is set in new()
 my $DEBUG;
@@ -74,24 +80,26 @@ my %VALID = (
     INTPHONE => ['/^\+\d+[\s\-][\d\-\s]+$/', '+prefix local-number'],
     EMAIL => ['/^[\w\-\+\.]+\@[a-zA-Z0-9][-a-zA-Z0-9\.]*\.[a-zA-Z]+$/', 'name@host.domain'],
     CARD  => '/^\d{4}[\- ]?\d{4}[\- ]?\d{4}[\- ]?\d{4}$|^\d{4}[\- ]?\d{6}[\- ]?\d{5}$/',
-    MMYY  => ['/^\d{1,2}\/?\d{2}$/', 'MM/YY'],
-    MMYYYY=> ['/^\d{1,2}\/?\d{4}$/', 'MM/YYYY'],
-    DATE  => ['/^\d{1,2}\/\d{1,2}\/\d{4}$/', 'MM/DD/YYYY'],
-    #DATE  => '/^\d{1,2}\/\d{1,2}\/\d{4}$|^\d{1,2}\/\d{4}$|^\d{1,2}\/\d{2}$/',
+    MMYY  => ['/^([1-9]|1[0-2])\/?[0-9]{2}$/', 'MM/YY'],
+    MMYYYY=> ['/^([1-9]|1[0-2])\/?[0-9]{4}$/', 'MM/YYYY'],
+    DATE  => ['/^([1-9]|1[0-2])\/?([1-9]|[1-2][0-9]|3[1-2])\/?[0-9]{4}$/', 'MM/DD/YYYY'],
+    TIME  => ['/^[0-9]{1,2}:[0-9]{2}$/', 'HH:MM (24-hour)' ],
+    AMPM  => ['/^[0-9]{1,2}:[0-9]{2}\s*([aA]|[pP])[mM]$/', 'HH:MM AM/PM' ],
     ZIPCODE=> '/^\d{5}$|^\d{5}\-\d{4}$/',
     STATE => ['/^[a-zA-Z]{2}$/', 'two-letter abbr'],
-    IPV4  => '/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/',  # not strictly correct (allows 555.555)
-    NETMASK => '/^(\d{1,3}\.){0,3}\d{1,3}$/',
+    COUNTRY => ['/^[a-zA-Z]{2}$/', 'two-letter abbr'],
+    IPV4  => ['/^([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-5][0-5])\.([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-5][0-5])\.([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-5][0-5])\.([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-5][0-5])$/', 'IP address'],
+    NETMASK => ['/^(\d{1,3}\.){0,3}\d{1,3}$/', 'IP netmask' ],
     FILE  => ['/^[\/\w\.\-]+$/', 'UNIX format'],
     WINFILE => ['/^[a-zA-Z]:\\[\\\w\s\.\-]+$/', 'Windows format'],
     MACFILE => ['/^[:\w\.\-]+$/', 'Mac format'],
     USER  => ['/^[-a-zA-Z0-9]{4,8}$/', '4-8 characters'],  # require a 4-8 char username
-    HOST  => '/^[a-zA-Z0-9][-a-zA-Z0-9]*$/',
-    DOMAIN=> '/^[a-zA-Z0-9][-a-zA-Z0-9\.]*\.[a-zA-Z]+$/',   # mostly correct, but allows "dom.c-o.uk"
-    ETHER => '/^[\da-f]{1,2}[\.:]?[\da-f]{1,2}[\.:]?[\da-f]{1,2}[\.:]?[\da-f]{1,2}[\.:]?[\da-f]{1,2}[\.:]?[\da-f]{1,2}$/i',
+    HOST  => ['/^[a-zA-Z0-9][-a-zA-Z0-9]*$/', 'valid hostname'],
+    DOMAIN=> ['/^[a-zA-Z0-9][-a-zA-Z0-9\.]*\.[a-zA-Z]+$/', 'DNS domain'],   # mostly correct, but allows "dom.c-o.uk"
+    ETHER => ['/^[\da-f]{1,2}[\.:]?[\da-f]{1,2}[\.:]?[\da-f]{1,2}[\.:]?[\da-f]{1,2}[\.:]?[\da-f]{1,2}[\.:]?[\da-f]{1,2}$/i', 'ethernet' ],
     # Many thanks to Mark Belanger for these additions
-    FNAME => '/^[a-zA-Z]+[- ][a-zA-Z]+$/',
-    LNAME => '/^[a-zA-Z]+-?[a-zA-Z]+\s*,?(?:[a-zA-Z]+|[a-zA-Z]+\.)?$/',
+    FNAME => '/^[a-zA-Z]+[- ]?[a-zA-Z]*$/',
+    LNAME => '/^[a-zA-Z]+[- ]?[a-zA-Z]+\s*,?([a-zA-Z]+|[a-zA-Z]+\.)?$/',
     CCMM  => '/^0[1-9]|1[012]$/',
     CCYY  => '/^[1-9]{2}$/', 
 );
@@ -100,19 +108,62 @@ my %VALID = (
 # we interpret are "valid", instead we yank out all the options and
 # stuff that we use internally. This allows arbitrary tags to be
 # specified in the generation of HTML tags, and also means that this
-# module doesn't go out of date when the HTML spec changes.
+# module doesn't go out of date when the HTML spec changes next week.
 my @OURATTR = qw(
-    attr body checknum comment debug fieldattr fields fieldtype font
+    attr body checknum comment debug delete fieldattr fields fieldtype font
     force header invalid javascript keepextras label labels lalign
-    linebreaks multiple nameopts options params radionum required
+    linebreaks multiple nameopts options override params radionum required
     reset selectnum smartness sortopts static sticky submit table
-    template text title validate valign value_orig values
+    template title type_orig validate valign value_orig values messages 
 );
 
 # trick for speedy lookup
 my %OURATTR = map { $_ => 1 } @OURATTR;
 
-sub debug { 
+# Default messages, since all can be customized. These are used when
+# the person does not specify any special ones (the normal case).
+my %MESSAGES = (
+    js_invalid_start      => '%s error(s) were encountered with your submission:',
+    js_invalid_end        => 'Please correct these fields and try again.',
+
+    js_invalid_input      => '- You must enter a valid value for the "%s" field',
+    js_invalid_select     => '- You must choose an option for the "%s" field',
+    js_invalid_checkbox   => '- You must choose an option for the "%s" field',
+    js_invalid_radio      => '- You must choose an option for the "%s" field',
+    js_invalid_password   => '- You must enter a valid value for the "%s" field',
+    js_invalid_textarea   => '- You must fill in the "%s" field',
+    js_invalid_file       => '- You must specify a valid file for the "%s" field',
+
+    form_required_text    => '<p>Fields shown in <b>bold</b> are required.',
+    form_invalid_text     => '<p>%s error(s) were encountered with your submission. '
+                           . 'Please correct the fields <font color="%s">'
+                           . '<b>highlighted</b></font> below.',
+    form_invalid_color    => 'red',
+
+    form_invalid_input    => 'You must enter a valid value',
+    form_invalid_select   => 'You must choose an option from this list',
+    form_invalid_checkbox => 'You must choose an option from this group',
+    form_invalid_radio    => 'You must choose an option from this group',
+    form_invalid_password => 'You must enter a valid value',
+    form_invalid_textarea => 'You must fill in this field',
+    form_invalid_file     => 'You must specify a valid filename',
+
+    form_select_default   => '-select-',
+    form_submit_default   => 'Submit',
+    form_reset_default    => 'Reset',
+    
+    form_confirm_text     => 'Success! Your submission has been received %s.',
+);
+
+# How about this? Built-in options for commonly used fields. So cool.
+my %OPTIONS = (
+    STATE => [qw(AL AK AZ AR CA CO CT DE DC FL GE HI ID IL IN IA KS
+                 KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY NC
+                 ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY)],
+);
+
+# Begin internal functions
+sub debug ($;@) {
     return unless $DEBUG >= $_[0];  # first arg is debug level
     shift;  # using $_[0] directly above is just a little faster...
     my($func) = (caller(1))[3];
@@ -166,7 +217,7 @@ sub _ismember ($@) {
     }
     return;
 }
-
+ 
 sub _indent (;$) {
     # return proper spaces to indent x 4
     return "    " x shift();
@@ -194,8 +245,6 @@ sub _opt ($) {
         @opt = ($ref eq 'HASH')
                   ? map { [$_, $opt->{$_}] } keys %{$opt}
                   : map { (ref $_ eq 'HASH')  ? [each %{$_}] : $_ } _data $opt;
-                  #: map { (ref $_ eq 'HASH')  ? [each %{$_}] : $_
-                        #: ( (ref $_ eq 'ARRAY') ? $_ : [$_, $_] ) } _data $opt;
     } else {
         # this code should not be reached, but is here for safety
         @opt = ($opt);
@@ -206,22 +255,29 @@ sub _opt ($) {
 
 sub _sort (\@$) {
     # pass in the sort and ref to opts
-    my @opt  = @{ shift() };
+    my @opt  = @{ shift() };        # must deref to reorg
     my $sort = shift;
 
-    if ($sort eq 'alpha') {
-        @opt = sort { (_data($a))[0] cmp (_data($b))[0] } @opt;   # currently type is ignored
-    } elsif ($sort eq 'numeric') {
+    debug 1, "_sort($sort, @opt) called for field";
+
+    # Currently we can only sort on the value, which sucks if the value
+    # and label are substantially different. This is caused by the fact
+    # that options as specified by the user only have one element, not two
+    # as hashes or generated options do. This should really be an option,
+    # since sometimes you want the values sorted too. Patches welcome.
+    if ($sort eq 'alpha' || $sort eq 'name' || $sort eq 'NAME' || $sort eq '1') {
+        @opt = sort { (_data($a))[0] cmp (_data($b))[0] } @opt;
+    } elsif ($sort eq 'numeric' || $sort eq 'num' || $sort eq 'NUM') {
         @opt = sort { (_data($a))[0] <=> (_data($b))[0] } @opt;
     } else {
-        puke "Unsupported sort type '$sort' specified - must be 'alpha' or 'numeric'";
+        puke "Unsupported sort type '$sort' specified - must be 'NAME' or 'NUM'";
     }
 
     # return our options
     return @opt;
 }
 
-sub _initfields {
+sub _initfields () {
 
     # Resolve the fields and values, called by new() as:
     #
@@ -239,10 +295,13 @@ sub _initfields {
     my %args = _args(@_);
     my %val  = ();
     my @val  = ();
+    local $^W = 0;      # -w sucks
 
     # Safety catch
     $self->{fields} ||= {};
     $self->{field_names} ||= [];
+
+    debug 1, "called _initfields(@_)";
 
     # check to see if 'fields' is a hash or array ref
     if (ref $args{fields} eq 'HASH') {
@@ -268,13 +327,13 @@ sub _initfields {
     # the fields and picking up the values.
 
     if ($args{values}) {
-        debug 2, "args{values} = $args{values}";
+        debug 1, "args{values} = $args{values}";
         if (UNIVERSAL::can($args{values}, 'param')) {
             # it's a blessed CGI ref or equivalent, so use its param() method
             for my $key ($args{values}->param) {
                 # always assume an arrayref of values...
                 $val{$key} = [ $args{values}->param($key) ];
-                debug 1, "retrieved values from param(): $key => @{$val{$key}}";
+                debug 2, "setting values from param(): $key => @{$val{$key}}";
             }
         } elsif (ref $args{values} eq 'HASH') {
             # must lc all the keys since we're case-insensitive, then
@@ -283,7 +342,7 @@ sub _initfields {
             while (@v) {
                 my $key = lc shift @v;
                 $val{$key} = [_data shift @v];
-                debug 1, "walking values from HASH: $key => @{$val{$key}}";
+                debug 2, "setting values from HASH: $key => @{$val{$key}}";
             }
         } elsif (ref $args{values} eq 'ARRAY') {
             # also accept an arrayref which is walked sequentially below
@@ -296,73 +355,105 @@ sub _initfields {
     # Now setup our data structure. Hmm, is this the right way to
     # do this? I mean, philosophically speaking...
     for my $k (_data($args{fields})) {
+        debug 1, "initializing field '$k'";
         # We no longer "pre-catch" CGI. Instead, we allow stickiness
         # meaning that CGI values override our default values from above
         my @v = ();
         @v = $CGI->param($k) if $CGI;   # get it from CGI if object exists
-        if (grep { length $_ } @v) {
-            # must do this extensive check; otherwise, we get value="" in our
-            # form which causes unique problems for browsers in some instances
-            debug 2, "CGI yielded $k = @v";
-            $self->{fields}{$k}{value} = \@v;
-            $self->{field_cgivals}{$k} = 1;
+
+        # There is a stupid fucking Netscrape bug that occurs if you have a
+        # hidden field w/o explicit value= attr. This catches that. If it
+        # causes you problems, set smartness => 0 to override this trick.
+        if ($self->{opt}{smartness} && "@v" eq '  ') {
+            debug 1, "CGI browser bug caught, ignoring $k values";
+            undef @v;
+        }
+
+        if (@v) {
+            if (length "@v" > 0) {
+                # if any values are found, add to the tag
+                debug 1, "CGI yielded $k = '" . join(', ', @v) . "'";
+                $self->{fields}{$k}{value} = \@v;
+                $self->{field_cgivals}{$k} = 1;
+            } else {
+                # field was defined, but set to "", so clear out
+                debug 1, "CGI cleared out $k";
+                $self->{fields}{$k}{value} = [];
+                $self->{field_cgivals}{$k} = [];
+            }
         } elsif (! $self->{field_inited}{$k}) {
             # we do not set the value here if it's already been 
             # manually initialized, say through a field() call
             if (keys %val) {
                 # 'values' hashref arg
+                debug 1, "CGI has no value, using values hashref = ", $val{lc($k)};
                 $self->{fields}{$k}{value} = $val{lc($k)};
             } elsif (@val) {
                 # now accept an arrayref to 'values' as well; walk sequentially
+                debug 1, "CGI has no value, shifting values array = ", $val{lc($k)};
                 $self->{fields}{$k}{value} = [_data shift @val];
+            } else {
+                debug 1, "CGI has no value, no defaults found, so clearing";
+                $self->{fields}{$k}{value} = [];
             }
+    
             # first time around, save "original" value; this is used
             # later to resolve conflicts between sticky => 0 and values => $ref 
-            $self->{fields}{$k}{value_orig} ||= $self->{fields}{$k}{value};
+            $self->{fields}{$k}{value_orig} = $self->{fields}{$k}{value};
         }
-        debug 2, "set value $k = " . join ', ', @{$self->{fields}{$k}{value}}
+        # Check for any options specified
+        if (my $o = delete $self->{opt}{options}{$k}) {
+            $self->{fields}{$k}{options} = $o;
+        }
+
+        debug 1, "set value $k = '" . join(', ', @{$self->{fields}{$k}{value}}) . "'"
                     if $self->{fields}{$k}{value};
 
     }
 
     # Finally, if the user asked for "realsmart", then we try to automatically
     # figure out some validation stuff (among other things)...
-    if ($self->{opt}{smartness} && $self->{opt}{smartness} >= 2) {
+    if ($self->{opt}{smartness} >= 2) {
         for my $field (@{$self->{field_names}}) {
             next if $self->{opt}{validate}{$field};
             if ($field =~ /email/i) {
-                $self->{opt}{validate}{$field} = 'EMAIL'; 
+                $self->{opt}{validate}{$field} ||= 'EMAIL'; 
             } elsif ($field =~ /phone/i) {
-                $self->{opt}{validate}{$field} = 'PHONE';
+                $self->{opt}{validate}{$field} ||= 'PHONE';
             } elsif ($field =~ /date/i) {
-                $self->{opt}{validate}{$field} = 'DATE';
+                $self->{opt}{validate}{$field} ||= 'DATE';
             } elsif ($field =~ /credit.*card/i) {
-                $self->{opt}{validate}{$field} = 'CARD';
+                $self->{opt}{validate}{$field} ||= 'CARD';
             } elsif ($field =~ /^zip(?:code)?$/i) {
-                $self->{opt}{validate}{$field} = 'ZIPCODE';
+                $self->{opt}{validate}{$field} ||= 'ZIPCODE';
             } elsif ($field =~ /^state$/i) {
-                $self->{opt}{validate}{$field} = 'STATE';
+                $self->{opt}{validate}{$field} ||= 'STATE';
                 # the options are the names of the US states + DC (51)
-                $self->{fields}{$field}{options} =
-                    [qw(AL AK AZ AR CA CO CT DE DC FL GE HI ID IL IN IA KS
-                        KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY NC
-                        ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY)];
+                $self->{fields}{$field}{options} ||= $OPTIONS{STATE};
+                debug 2, "via 'smartness' auto-determined options for '$field' field";
+            } elsif ($field =~ /^countr/i) {
+                $self->{opt}{validate}{$field} ||= 'COUNTRY';
+                # the options are the currently-valid country codes, US first, of course :-)
+                $self->{fields}{$field}{options} ||= $OPTIONS{COUNTRY};
                 debug 2, "via 'smartness' auto-determined options for '$field' field";
             } elsif ($field =~ /^file/i) {
-                # guess based on the OS we're running!
-                if ($^O =~ /win|dos/i) {
-                    $self->{opt}{validate}{$field} = 'WINFILE';
-                } elsif ($^O =~ /mac/i) {
-                    $self->{opt}{validate}{$field} = 'MACFILE';
+                # guess based on the browser the user is running!
+                if ($ENV{HTTP_USER_AGENT} =~ /\bwin|\bdos/i) {
+                    $self->{opt}{validate}{$field} ||= 'WINFILE';
+                } elsif ($ENV{HTTP_USER_AGENT} =~ /\bmac/i) {
+                    $self->{opt}{validate}{$field} ||= 'MACFILE';
                 } else {
-                    $self->{opt}{validate}{$field} = 'FILE';
+                    # UNIX by default, hehe :-)
+                    $self->{opt}{validate}{$field} ||= 'FILE';
                 }
             } elsif ($field =~ /^domain/i) {
-                $self->{opt}{validate}{$field} = 'DOMAIN';
+                $self->{opt}{validate}{$field} ||= 'DOMAIN';
             } elsif ($field =~ /^host|host$/i) {
-                $self->{opt}{validate}{$field} = 'HOST';
+                $self->{opt}{validate}{$field} ||= 'HOST';
             } elsif ($field =~ /^user|user$/i) {
-                $self->{opt}{validate}{$field} = 'USER';
+                $self->{opt}{validate}{$field} ||= 'USER';
+            } elsif ($field =~ /^name/i) {
+                $self->{opt}{validate}{$field} ||= 'NAME';
             } else {
                 next;   # skip below message
             }
@@ -400,11 +491,10 @@ sub _tag ($;@) {
         # this cleans out all the internal junk kept in each data
         # element, returning everything else (for an html tag)
         my $key = shift;
-        #if (_ismember($key, @OURATTR)) {
-        if ($OURATTR{$key}) {   # faster for common case
+        # Eeek, I used "text" here and body takes a text attr!!
+        if ($OURATTR{$key} || ($key eq 'text' && $name ne 'body')) {
             shift; next;
         }
-        #my $val = _escapeurl shift;    # too much gets escaped
         my $val = _escapehtml shift;    # minimalist HTML escaping
         push @tag, qq($key="$val");
     }
@@ -422,14 +512,17 @@ sub _expreqd ($$) {
     my $vald = shift || {};
     if ($reqd) {
         if ($reqd eq 'ALL') {
+            debug 1, "fields deemed as required: ALL";
             $reqd = $self->{field_names};     # point to field_names
         } elsif ($reqd eq 'NONE') {
+            debug 1, "fields deemed as required: NONE";
             $reqd = [];
         }
         unless (ref $reqd eq 'ARRAY') {
             puke("Argument to 'required' option must be an arrayref, 'ALL', or 'NONE'");
         }
         # create a hash for easy lookup
+        debug 1, "fields deemed as required: @$reqd";
         $need{$_} = 1 for @{$reqd};
     } else {
         $need{$_} = 1 for keys %{$vald};
@@ -437,19 +530,20 @@ sub _expreqd ($$) {
     return wantarray ? %need : \%need;
 }
 
-sub new {
+sub new () {
     my $class = shift;
+    local $^W = 0;      # -w sucks
 
     # handle ->new($method) and ->new(method => $method)
     my $method = shift unless (@_ % 2 == 0);
     my %args = _args(@_);
     $args{method} ||= $method if $method;
 
-    # Warning
+    # Warning to try and catch user error
     belch "You won't be able to get at any form values unless you specify 'fields' to new()"
         unless $args{fields};
 
-    $DEBUG ||= delete $args{debug} || 0;   # recall that delete returns the val deleted
+    $DEBUG = delete $args{debug} || 0;   # recall that delete returns the val deleted
 
     # Redo our magical CGI object if specified
     # This is the *only* option that must be specified in new and not render
@@ -461,8 +555,41 @@ sub new {
         $CGI = $r;
     } else {
         # initialize our CGI object
-        #my $CGI = ($ENV{'GATEWAY_INTERFACE'} =~ /^CGI-Perl/) ? '' : $CGIMOD->new;
         $CGI = $CGIMOD->new;
+    }
+
+    # New for 2.07, add in customized messages support
+    if ($args{messages}) {
+        if (my $ref = ref $args{messages}) {
+            # hashref, get values directly
+            croak "Argument to 'messages' option must be a filename or hashref"
+                unless $ref eq 'HASH';
+            while(my($k,$v) = each %MESSAGES) {
+                $args{messages}{$k} = $v unless exists $args{messages}{$k};
+            }
+        } else {
+            # filename, just *warn* on missing, and use defaults
+            if (-f $args{messages} && -r _ && open(M, "<$args{messages}")) {
+                $args{messages} = \%MESSAGES;
+                while(<M>) {
+                    next if /^\s*#/ || /^\s*$/;
+                    chomp;
+                    my($k,$v) = split ' ', $_, 2;
+                    $args{messages}{$k} = $v;
+                }
+                close M;
+            } else {
+                belch "Could not read messages file $args{messages}: $!";
+                $args{messages} = \%MESSAGES;
+            }
+        }
+    } else {
+        $args{messages} = \%MESSAGES;
+    }
+
+    # These options default to 1
+    for my $def2one (qw/sticky labels smartness/) {
+        $args{$def2one} = 1 unless exists $args{$def2one};
     }
 
     # Now bless all our options into ourself
@@ -473,7 +600,7 @@ sub new {
     if (my $fields = delete $self->{opt}{fields}) {
         $self->_initfields(fields => $fields,
                            values => delete $self->{opt}{values});
-    } elsif (my $values = $self->{opt}{values}) {
+    } elsif (my $values = delete $self->{opt}{values}) {
         $self->_initfields(values => $values);
     }
 
@@ -481,21 +608,15 @@ sub new {
 }
 
 *fields = \&field;
-sub field {
+sub field () {
     my $self = shift;
+    local $^W = 0;      # -w sucks
     debug 2, "called \$form->field(@_)";
 
     # handle either ->field($name) or ->field(name => $name)
-    my $name = shift unless (@_ % 2 == 0);
-    my %args = ();
-    if (@_ == 2) {
-        # assumed it's "legacy" name => value
-        $args{name} = shift;
-        $args{value} = shift;
-    } else {
-        %args = _args(@_);
-        $args{name} ||= $name;
-    }
+    my $name = (@_ % 2 == 0) ? '' : shift();
+    my %args = _args(@_);
+    $args{name} ||= $name;
 
     # must catch this here each time
     $self->{fields} ||= {};
@@ -508,7 +629,7 @@ sub field {
         if (wantarray) {
             return @{$self->{field_names}};
         } else {
-            # Unfortunately, this only returns a single value
+            # Unfortunately, this only returns a single value for each field
             my %ret = map { $_ => scalar $self->field($_) } @{$self->{field_names}};
             return \%ret;
         }
@@ -520,7 +641,6 @@ sub field {
         local $^W = 0;   # length() triggers uninit, too slow to catch
         if ($CGI && length $CGI->param($args{name})) {
             debug 1, "sticky $args{name} from CGI = " . $CGI->param($args{name});
-            $self->{fields}{"$args{name}"}{value_orig} ||= $self->{fields}{"$args{name}"}{value};
             $self->{fields}{"$args{name}"}{value} = [ $CGI->param($args{name}) ];
             $self->{field_cgivals}{"$args{name}"} = 1;
         }
@@ -534,39 +654,45 @@ sub field {
         debug 2, "walking field() args: $k => $v";
         if ($k eq 'value') {
             # don't set value if CGI already has!
-            next if $self->{field_cgivals}{"$args{name}"} && ! $args{force};
-            debug 1, "manually forced field $args{name} value => $v";
+            if ($self->{field_cgivals}{"$args{name}"}) {
+                next unless $args{force} || $args{override};
+                # force CGI value, including thru param, this only matters for multi-forms
+            }
+            debug 1, "manually forcing field $args{name} value => $v";
             $self->{field_inited}{"$args{name}"} = 1;
-            $self->{fields}{"$args{name}"}{value_orig} ||= $self->{fields}{"$args{name}"}{value};
             $v = [_data $v];
+
+            # save any manually initied values here
+            # the actual {value} element is set at the bottom of the while()
+            #$CGI->param(-name => $args{name}, -value => $v, -override => 1);
+            $self->{fields}{"$args{name}"}{value_orig} = $v;
+        } elsif ($k eq 'delete') {
+            # wipe field value out entirely
+            my @fn = ();
+            for (@{$self->{field_names}}) {
+                push @fn, $_ unless $_ eq $args{name};
+            }
+            $self->{field_names} = \@fn;
+            delete $self->{field_inited}{"$args{name}"};
+            delete $self->{field_cgivals}{"$args{name}"};
+            delete $self->{fields}{"$args{name}"};
+            $CGI->delete($args{name});
+            return;
         }
         $self->{fields}{"$args{name}"}{$k} = $v;
+        #debug 2, "\$self->{fields}{$args{name}}{$k} = $v";
     }
 
     # return the value
     my @v = _data($self->{fields}{"$args{name}"}{value});
-    debug 2, "return field($args{name})";
+    debug 1, "return field($args{name}) = (", join(', ', @v), ") [len = ", scalar(@v), "]";
     return wantarray ? @v : $v[0];
 }
 
-# force return of a hash from above field function
-sub values {
-    puke "Sorry, CGI::FormBuilder->values is not currently supported";
-    my $href = scalar shift()->field;
-    # Now setup all our values
-    my @ret;
-    while(my($k,$v) = each %{$href}) {
-       push @ret, $k, join $", @{$v->{value} || []};
-    }
-    return wantarray ? @ret : \@ret;
-}
-
 *output = \&render;  # unpublished, but works
-sub render {
+sub render () {
     my $self = shift;
-
-    # lose fucking uninitialized warnings
-    local $^W = 0;
+    local $^W = 0;      # -w sucks
 
     # We create our hash based on the variables set from our
     # global options, followed by those from our local sub call
@@ -576,6 +702,8 @@ sub render {
     my($basename) = ($^O =~ /Win32/i)
                          ? ($0 =~ m!.*\\(.*)\??!)
                          : ($0 =~ m!.*/(.*)\??!);
+    $basename ||= $0;
+    debug 2, "derived basename = $basename from $0";
 
     # We manually set these to the "defaults" because browers suck
     unless ($args{action} ||= $ENV{SCRIPT_NAME}) {
@@ -587,9 +715,10 @@ sub render {
     puke "You can only specify the 'params' option to ".__PACKAGE__."->new"
         if $args{params};
 
-    # These options default to 1
-    for my $def2one (qw/sticky labels smartness/) {
-        $args{$def2one} = 1 unless exists $args{$def2one};
+    # Remove validation if we're static, since that makes no sense
+    if ($args{static}) {
+        delete $args{required};
+        delete $args{validate};
     }
 
     # Per request of Peter Billam, auto-determine javascript setting
@@ -612,10 +741,12 @@ sub render {
 
     # Process any fields specified, if applicable
     $self->{opt}{smartness} = $args{smartness};   # XXX kludge
+    
     if (my $fields = delete $args{fields}) {
+        belch "Specifying 'fields' to render() is deprecated and unsupported";
         $self->_initfields(fields => $fields,
                            values => delete $args{values});
-    } elsif (my $values = $args{values}) {
+    } elsif (my $values = delete $args{values}) {
         $self->_initfields(values => $values);
     }
 
@@ -631,11 +762,16 @@ sub render {
     # Thresholds for radio, checkboxes, and selects (in # of items)
     carp "Warning: 'radionum' option is deprecated and will be ignored"
         if $args{radionum};
-    $args{selectnum} ||= 5;
+    $args{selectnum} = 5 unless defined $args{selectnum};
 
     my %tmplvar = %{$self->{tmplvar} || {}};  # holds stuff for HTML::Template
     my $outhtml = '';
-    my $font = $args{font} ? _tag('font', face => $args{font}) : '';
+    my $font = '';
+    if ($args{font}) {
+        $font = (ref $args{font} eq 'HASH')
+                    ? _tag('font', %{$args{font}})
+                    : _tag('font', face => $args{font});
+    }
 
     # XXX This is a major fucking hack. the only way that we
     # XXX can reliably keep state is by saving the whole
@@ -654,7 +790,7 @@ sub render {
         # Strictly speaking, these should all use _tag, but this is faster.
         # Currently, table/tr/td attrs are not supported. Should they be?
         # Or should we just tell people to use a fucking template?
-        $to  = '<table>';
+        $to  = (ref $args{table} eq 'HASH') ? _tag('table', %{$args{table}}) : '<table>';
         $tc  = '</table>';
         $tdl = '<td align="' . ($args{lalign} || 'left') . '">' . $font;
         $tdo = '<td>' . $font;
@@ -681,10 +817,15 @@ sub render {
     # For holding the JavaScript validation code
     my $jsfunc = '';
     my $jsname = $args{name} ? "validate_$args{name}" : 'validate';
-    if ($args{javascript} && $args{validate} || $args{required}) {
-        $jsfunc .= "\n" . _tag('script', language => 'JavaScript1.2')
-                 . "<!-- hide from old browsers\nfunction $jsname (form) {\n";
 
+    # User-specified jsfunc options
+    my $ajsf = delete $args{jsfunc} || '';
+
+    if ($args{javascript} && $args{validate} || $args{required}) {
+        $jsfunc  = "function $jsname (form) {\n"
+                 . "    var alertstr = '';\n"
+                 . "    var invalid  = 0;\n\n";
+        $jsfunc .= $ajsf;
     }
 
     # As of v1.97, now have a sub to handle expansion of 'required'
@@ -725,9 +866,6 @@ sub render {
         # then tells our else statement below to also print out the value
         my $static = $attr->{type} eq 'static' || $args{static};
 
-        # override the type if we're printing them out statically
-        $attr->{type} = 'hidden' if $static;
-
         # set default field type to fieldtype if exists
         $attr->{type} ||= $args{fieldtype} if $args{fieldtype};
 
@@ -738,46 +876,67 @@ sub render {
             }
         }
 
-        # Unless the type has been set explicitly, we make a
-        # guess based on how many items there are to display;
-        # basically, how many options we have
-        # We also catch our 'jsclick' option, which changes w/ type
-        if (! $attr->{type} && ($args{smartness} || ! exists $args{smartness})) {
+        # Check for text value specifying builtin options
+        if ($attr->{options} && ! ref $attr->{options}) {
+            if (my $dt = $OPTIONS{"$attr->{options}"}) {
+                $attr->{options} = $dt;
+            } else {
+                belch "Options string '$attr->{options}' may be a typo of a builtin option";
+                $attr->{options} = [$attr->{options}];
+            }
+        }
+
+        # Unless the type has been set explicitly, we make a guess based on how many items
+        # there are to display, which is basically, how many options we have
+        # Our 'jsclick' option is now changed down in the javascript section, fixing a bug
+        if (! $attr->{type} && $args{smartness}) {
+            debug 1, "input type not set for '$field', checking for options";
             if (my $ref = ref $attr->{options}) {
-                debug 2, "field $field has multiple options, so setting to select|radio|checkbox";
-                my $n = () = ($ref eq 'HASH') ? keys %{$attr->{options}}
-                                              : @{$attr->{options}};
+                debug 2, "field '$field' has multiple options, so setting to select|radio|checkbox";
+                my $n = 0;
+                if ($ref eq 'HASH') {
+                    $n = keys %{$attr->{options}};
+                } elsif ($ref eq 'ARRAY') {
+                    $n = @{$attr->{options}};
+                } else {
+                    puke "Unsupported data structure type '$ref' supplied to 'options' argument";
+                }
                 $n ||= 0;
                 if ($n >= $args{selectnum}) {
                     $attr->{type} = 'select';
-                    $attr->{onChange} = delete $attr->{jsclick} if $attr->{jsclick};
                 } else {
                     # Something is a checkbox if it is a multi-valued box.
                     # However, it is *also* a checkbox if only single-valued options,
                     # otherwise you can't unselect it.
                     if ($attr->{multiple} || @value > 1 || $n == 1) {
                         $attr->{type} = 'checkbox';
-                        $attr->{onClick} = delete $attr->{jsclick} if $attr->{jsclick};
                     } else {
                         $attr->{type} = 'radio';
-                        $attr->{onClick} = delete $attr->{jsclick} if $attr->{jsclick};
                     }
                 }
-            } elsif ($field =~ /passw[or]*d/i) {
-                $attr->{type} = 'password';
-                    $attr->{onChange} = delete $attr->{jsclick} if $attr->{jsclick};
-            } elsif ($field =~ /(?:details?|comments?)$/i
-                     || grep /\n|\r/, @value || $attr->{cols} || $attr->{rows}) {
-                $attr->{type} = 'textarea';
-                $attr->{onChange} = delete $attr->{jsclick} if $attr->{jsclick};
-                # this is dicey, because textareas suck by default
-                $attr->{cols} ||= 65;
-                $attr->{rows} ||= 10;
-            } else {
-                $attr->{type} = 'text';
-                $attr->{onChange} = delete $attr->{jsclick} if $attr->{jsclick};
-            } 
+            } elsif ($args{smartness} >= 2) {
+                debug 2, "smartness >= 2, auto-determining field type for '$field'";
+                # as of 2.07, only autodetermine field types with high smartness
+                if ($field =~ /passw[or]*d/i) {
+                    $attr->{type} = 'password';
+                } elsif ($field =~ /(?:details?|comments?)$/i
+                        || grep /\n|\r/, @value || $attr->{cols} || $attr->{rows}) {
+                    $attr->{type} = 'textarea';
+                    # this is dicey, because textareas suck by default
+                    $attr->{cols} ||= 60;
+                    $attr->{rows} ||= 10;
+                } elsif ($field =~ /\bfile/i) {
+                    $attr->{type} = 'file';
+                }
+            }
+            $attr->{type} ||= 'text';   # default if no fancy settings matched
             debug 2, "field '$field' set to type '$attr->{type}' automagically";
+        }
+
+        # override the type if we're printing them out statically
+        if ($static) {
+            $attr->{type_orig} = $attr->{type};  # store for later
+            $attr->{type} = 'hidden';
         }
 
         debug 1, "generating '$field' field as type '$attr->{type}' (@value)";
@@ -785,7 +944,8 @@ sub render {
         # We now create the validation JavaScript, if it was requested
         # and we have a validation criterion for that specific field
         my $helptag = '';
-        if ($args{validate} and my $pattern = $args{validate}{$field} or $need{$field}) {
+        my $pattern = $args{validate}{$field};
+        if (($args{validate} && $pattern) || $need{$field}) {
 
             debug 2, "now generating JavaScript validation code for '$field'";
 
@@ -799,17 +959,16 @@ sub render {
             # This is actually an HTML feature that must be nested here...
             $self->{fields}{$field}{required} = 1;
 
-            if ($args{javascript}) {
+            # Check our hash to see if it's a special pattern
+            ($pattern, $helptag) = _data($VALID{$pattern}) if $VALID{$pattern};
 
-                # Check our hash to see if it's a special pattern
-                ($pattern, $helptag) = _data($VALID{$pattern}) if $VALID{$pattern};
+            if ($args{javascript}) {
 
                 # Holders for different parts of JS code
                 my $close_brace = '';
                 my $idt = 0;
                 my $is_select = 0;
                 my $in = _indent($idt);
-                my $entry = 'did not enter a valid value';
 
                 # make field name JS-safe
                 (my $jsfield = $field) =~ s/\W+/_/g;
@@ -820,16 +979,23 @@ sub render {
                 #
                 # Note we have to use form.elements['name'] instead of just form.name
                 # as the JAPH using this module may have defined fields like "u.type"
-                if ($attr->{type} eq 'select' || $attr->{type} eq 'checkbox') {
+                #
+                # Finally, we expand our error message above, way up here, so that
+                # we can simply integrate the custom message with the predefined text
+                my $et = $attr->{type} || 'text';
+                $et = 'input' if $et eq 'text';
+                my $alertstr = sprintf $args{messages}{"js_invalid_$et"}, $label;
+                $alertstr .= '\n';
 
-                    # get value for field from select list or checkbox
-                    # always assume it is a multiple to guarantee we get all values
+                if ($attr->{type} eq 'select') {
+
+                    # Get value for field from select list
+                    # Always assume it is a multiple to guarantee we get all values
                     $jsfunc .= <<EOF;
-$in    // select or checkbox list; always assume it's multiple to get all values
+$in    // select list: always assume it's multiple to get all values
 $in    var selected_$jsfield = 0;
 $in    for (var loop = 0; loop < form.elements['$field'].options.length; loop++) {
-$in        if (form.elements['$field'].options[loop].selected
-$in          || form.elements['$field'].options[loop].checked) {
+$in        if (form.elements['$field'].options[loop].selected) {
 $in            var $jsfield = form.elements['$field'].options[loop].value;
 $in            selected_$jsfield++;
 EOF
@@ -838,28 +1004,35 @@ EOF
 $in        }
 $in    } // close for loop;
 $in    if (! selected_$jsfield) {
-$in        alert('You must select an option from the "$label" list');
-$in        return false;
+$in        alertstr += '$alertstr';
+$in        invalid++;
 $in    }
 EOF
                     $in = _indent($idt += 2);
                     $is_select++;
 
-                } elsif ($attr->{type} eq 'radio') {
+                } elsif ($attr->{type} eq 'radio' || $attr->{type} eq 'checkbox') {
 
-                    # get field from radio button
-                    # must cycle through all again to see which is checked. yeesh.
+                    # Get field from radio buttons or checkboxes
+                    # Must cycle through all again to see which is checked. yeesh.
+                    # However, this only works if there are MULTIPLE checkboxes!
+                    # Damn damn damn I have the JavaScript DOM so damn much!!!!!!
                     $jsfunc .= <<EOF;
-$in    // radio group
+$in    // radio group or checkboxes
 $in    var $jsfield = '';
-$in    for (var loop = 0; loop < form.elements['$field'].length; loop++) {
-$in        if (form.elements['$field']\[loop].checked) {
-$in             $jsfield = form.elements['$field']\[loop].value;
+$in
+$in    if (form.elements['$field'][0]) {
+$in        for (var loop = 0; loop < form.elements['$field'].length; loop++) {
+$in            if (form.elements['$field']\[loop].checked) {
+$in                $jsfield = form.elements['$field']\[loop].value;
+$in            }
+$in        }
+$in    } else {
+$in        if (form.elements['$field'].checked) {
+$in            $jsfield = form.elements['$field'].value;
 $in        }
 $in    }
 EOF
-                    $entry = 'must choose an option';
-
                 } else {
 
                     # get value from text or other straight input
@@ -873,8 +1046,7 @@ EOF
                 # As of v1.97, now our fields are only required if %need got set above
                 # So, if not set, add a not-null check to the if below
                 my $nn = $need{$field} ? ''
-                       #: qq{($jsfield != undefined) &&\n$in       };
-                       : qq{($jsfield || $jsfield == 0) &&\n$in       };
+                       : qq{($jsfield || $jsfield === 0) &&\n$in       };
 
                 # pre-catch: hashref is a grouping per-language
                 if (ref $pattern eq 'HASH') {
@@ -889,9 +1061,9 @@ EOF
                     # can you figure out how this piece of Perl works? ha ha ha ha ....
                     $jsfunc .= "$in    if ($nn ($jsfield != '"
                              . join("' && $jsfield != '", @{$pattern}) . "') ) {\n";
-                } elsif ($pattern eq 'VALUE') {
+                } elsif ($pattern eq 'VALUE' || $need{$field}) {
                     # Not null
-                    $jsfunc .= qq($in    if ($nn ((! $jsfield && $jsfield != 0) || $jsfield == "")) {\n);
+                    $jsfunc .= qq($in    if ($nn ((! $jsfield && $jsfield != 0) || $jsfield === "")) {\n);
                 } else {
                     # literal string is a literal comparison, but provide
                     # a warning just in case
@@ -902,8 +1074,8 @@ EOF
 
                 # add on our alert message, which is unfortunately always generic
                 $jsfunc .= <<EOF;
-$in        alert('Error: You $entry for the "$label" field');
-$in        return false;
+$in        alertstr += '$alertstr';
+$in        invalid++;
 $in    }$close_brace
 EOF
             }
@@ -914,13 +1086,18 @@ EOF
 
         # Must catch this to prevent non-existent fault below
         $attr->{labels} = {} unless ref $attr->{labels} eq 'HASH';
+        $attr->{sortopts} ||= $args{sortopts} if $args{sortopts};
 
         # Now we generate the HTML tag for each element 
         if ($attr->{type} eq 'select') {
 
+            $attr->{onChange} = delete $attr->{jsclick} if $attr->{jsclick};
+
             # "options" are the options for our select list
             @opt = _opt($attr->{options} ||= $vattr);
             @opt = _sort(@opt, $attr->{sortopts}) if $attr->{sortopts};
+            unshift @opt, ['', $args{messages}{form_select_default}]
+                if $args{smartness} && ! $attr->{multiple};
 
             # generate our select tag. handle multiples.
             my $mult = $attr->{multiple} || (@value > 1) ? ' multiple' : '';
@@ -937,6 +1114,8 @@ EOF
             $tag .= '</select>';
 
         } elsif ($attr->{type} eq 'radio' || $attr->{type} eq 'checkbox') {
+            $attr->{onClick} = delete $attr->{jsclick} if $attr->{jsclick};
+
             # get our options
             @opt = _opt($attr->{options} ||= $vattr);
             @opt = _sort(@opt, $attr->{sortopts}) if $attr->{sortopts};
@@ -950,30 +1129,44 @@ EOF
                 my $slct = _ismember($o, @value) ? ' checked' : '';
                 $tag .= _tag("input$slct", name => $field, value => $o, %{$attr}) 
                       . ' ' . $n . ' ';
+                $tag .= '<br>' if $attr->{linebreaks};
             }
         } elsif ($attr->{type} eq 'textarea') {
+            $attr->{onChange} = delete $attr->{jsclick} if $attr->{jsclick};
             my $text = join "\n", @value;
             $tag = _tag('textarea', name => $field, %{$attr}) . _escapehtml($text) . "</textarea>";
 
         } else {
+            $attr->{onChange} = delete $attr->{jsclick} if $attr->{jsclick};
             # handle default size attr
             $attr->{size} ||= $args{attr}{size} if $args{attr}{size};
 
-            #my %value = (@value && "@value") ? (value => $value[0]) : ();
-            #my $value = join $", @value;
             # we iterate over each value - this is the only reliable
             # way to handle multiple form values of the same name
             @value = (undef) unless @value; # this creates a single-element array
             for my $value (@value) {
                 # setup the value
-                my %value = (defined($value) && $attr->{type} ne 'password')
+                my %value = (defined($value) && $attr->{type} ne 'password'
+                                             && $attr->{type_orig} ne 'password')
                                 ? (value => $value) : ();
 
                 # render the tag
                 $tag .= _tag('input', name => $field, %value, %{$attr});
 
+                # Check for passwords
+                $value = '********' if $attr->{type_orig} eq 'password' && $args{smartness};
+
                 # print the value out too when in a static context
-                $tag .= _escapehtml($value) if $attr->{type} eq 'hidden' && $static;
+                my $tagcom = _escapehtml($value);
+                $tag .= $tagcom . ' ' if $attr->{type} eq 'hidden' && $static && $tagcom;
+                $tag .= '<br>' if $attr->{linebreaks};
+            }
+
+            # special catch to make life easier
+            # if there's a 'file' field, set the form enctype if they forgot
+            if ($attr->{type} eq 'file' && $args{smartness}) {
+                $args{enctype} ||= 'multipart/form-data';
+                debug 2, "verified enctype => 'multipart/form-data' for 'file' field";
             }
         }
 
@@ -982,31 +1175,49 @@ EOF
         # reset the value attr
         $attr->{value} = $vattr;
 
+        # setup an error, if any
+        my $et = $attr->{type} || 'text';
+        $et = 'input' if $et eq 'text';
+        my $error = $self->{fields}{$field}{invalid}
+                        ? ($args{messages}{"form_invalid_$et"}
+                           || $args{messages}{form_invalid_field})
+                        : '';
+        debug 2, "got error string = $error for form_invalid_$et";
+
         # if we have a template, then we setup the tag to a tmpl_var of the
         # same name via param(). otherwise, we generate HTML rows and stuff
-        my $comment = ' ' . $attr->{comment} if $attr->{comment};
         if (ref $args{template} eq 'HASH' && $args{template}{type} eq 'TT2') {
             # Template Toolkit can access complex data pretty much unaided
             $tmplvar{field}{$field} = {
                  %{ $self->{fields}{$field} },
-                 field  => $tag . $comment,
-                 values => \@value,
-                 options => \@opt,      # added by nwiger
-                 label  => $label,
+                 field   => $tag,
+                 values  => \@value,
+                 options => \@opt,                   # added by nwiger
+                 comment => $attr->{comment} || '',  # added by nwiger
+                 error   => $error,                  # added by nwiger
+                 label   => $label,
             };
         } elsif ($args{template}) {
-            # in a template, instead of bold/red like below, we put
-            # little text after the thingy
-            my $req = $need{$field} ? qq( <font size="-1">(required)</font>) : '';
-            $req = qq(<font color="red">$req</font>) if $self->{fields}{$field}{invalid};
+            # for HTML::Template, each data struct is manually assigned
+            # to a separate <tmpl_var> and <tmpl_loop> tag
 
-            # assign the template tag
-            $tmplvar{"field-$field"} = $tag . $comment . $req;
+            # assign the field tag
+            $tmplvar{"field-$field"} = $tag;
             debug 2, "<tmpl_var field-$field> = " . $tmplvar{"field-$field"};
 
-            # and the value tags
+            # and the value tag - can only hold first value!
             $tmplvar{"value-$field"} = $value[0];
             debug 2, "<tmpl_var value-$field> = " . $tmplvar{"value-$field"};
+
+            # and the label tag for the field
+            $tmplvar{"label-$field"} = $label;
+            debug 2, "<tmpl_var label-$field> = " . $tmplvar{"value-$field"};
+
+            # and the comment tag
+            $tmplvar{"comment-$field"} = $attr->{comment} || '';
+
+            # and finally any error
+            $tmplvar{"error-$field"} = $error;
 
             # create a <tmpl_loop> for multi-values/multi-opts
             # we can't include the field, really, since this would involve
@@ -1034,9 +1245,13 @@ EOF
         } else {
             # bold it if so necessary
             $label = "<b>$label</b>" if $need{$field};
+            my $oops = '';
 
             # and error it too
-            $label = qq(<font color="red">$label</font>) if $self->{fields}{$field}{invalid};
+            if ($error) {
+                $label = qq(<font color="$args{messages}{form_invalid_color}">$label</font>);
+                $oops = qq($tdo<font size="-1">$error</font>$tdc);
+            }
 
             # and spacing if aligned right
             $label .= '&nbsp;' if $args{lalign} eq 'right';
@@ -1049,23 +1264,50 @@ EOF
                 # hidden fields in a non-static context get, well, hidden
                 $outhtml .= $tag . $br;
             } else {
+                my $comment = $attr->{comment} ? (' ' . $attr->{comment}) : '';
                 $outhtml .= $tro . $tdl . $label . $tdc . $tdo
-                         . $tag . $comment . $helptag . $tdc . $trc . $br;
+                          . $tag . $comment . $helptag . $tdc . $oops
+                          . $trc . $br;
             }
         }
     } # end foreach field loop
 
-    # close our JavaScript if it was opened
+    # Finally, close our JavaScript if it was opened, wrapping in <script> tags
     if ($jsfunc) {
-        $jsfunc .= $args{jsfunc} if $args{jsfunc};  # extra validation stuff
+        (my $alertstart = $args{messages}{js_invalid_start}) =~ s/%s/'+invalid+'/g;
+        (my $alertend   = sprintf $args{messages}{js_invalid_end}) =~ s/%s/'+invalid+'/g;
+        $jsfunc .= <<EOJS;
+    if (invalid > 0 || alertstr != '') {
+        if (! invalid) invalid = 'The following';   // catch for programmer error
+        alert('$alertstart'+'\\n\\n'+alertstr+'\\n'+'$alertend');
+        // reset counters
+        alertstr = '';
+        invalid  = 0;
+        return false;
+    }
+EOJS
         $jsfunc .= "    return true;  // all checked ok\n}\n";
-        $jsfunc .= $args{jshead} if $args{jshead};  # user-defined javascript
-        $jsfunc .= "//-->\n</script><noscript>"
-                 . q(<font color="red"><b>Please enable JavaScript or use a newer browser</b>)
-                 . q(</font></noscript><p>);
+
         # setup our form onSubmit
         # needs to be ||= so user can overrride w/ own tag
         $args{onSubmit} ||= "return $jsname(this);"; 
+    }
+
+    # Must do separately to handle jshead
+    if (my $ajsh = delete $args{jshead}) {
+        $jsfunc .= $ajsh;
+    }
+
+    if ($jsfunc) { 
+        # Must *prepend* opening <script> tag
+        $jsfunc  = "\n" . _tag('script', language => 'JavaScript1.3')
+                 . "<!-- hide from old browsers\n"
+                 . $jsfunc;
+
+        # Now append closing tag
+        $jsfunc .= "//-->\n</script><noscript>"
+                 . qq(<font color="$args{messages}{form_invalid_color}"><b>Please enable JavaScript )
+                 . q(or use a newer browser</b></font></noscript><p>);
     }
 
     # handle the submit/reset buttons
@@ -1077,8 +1319,8 @@ EOF
             if (ref $args{submit} eq 'ARRAY') {
                 # multiple buttons + JavaScript - here we go!
                 for my $s (_data $args{submit}) {
-                    my $js = $args{submit}
-                                ? qq( onClick="this.form.submit.value = this.value;")
+                    my $js = ($args{submit} && $args{javascript})
+                                ? qq( onClick="this.form._submit.value = this.value;")
                                 : '';
                     $submit .= _tag("input$js", type => 'submit', name => '_submit',
                                 value => $s);
@@ -1086,12 +1328,12 @@ EOF
             } else {
                 # show the text on the button
                 $submit = _tag('input', type => 'submit', name => '_submit',
-                                value => ($args{submit} || 'Submit'));
+                                value => ($args{submit} || $args{messages}{form_submit_default}));
             }
         }
         if ($args{reset} || ! exists $args{reset}) {
             $reset = _tag('input', type => 'reset', name => '_reset',
-                           value => ($args{reset}  || 'Reset'));
+                           value => ($args{reset}  || $args{messages}{form_reset_default}));
         }
     }
 
@@ -1106,15 +1348,18 @@ EOF
 
     # hidden trailer. if you perceive this as annoying, let me know and I
     # may remove it. it's supposed to help.
-    my $copy = $::TESTING ? '' : "<!-- Generated by CGI::FormBuilder v$VERSION available from cpan.org -->\n";
+    my $copy = $::TESTING ? ''
+             : "\n<!-- Generated by CGI::FormBuilder v$VERSION available from www.formbuilder.org -->\n";
 
     # opening <form> tag: this is reversed, because our JavaScript might
     # have added an onSubmit attr. as such we have to add to the front
     # we also include a couple special state tracking tags, _submitted
     # and _sessionid.
-    my $formtag = _tag('form', %args) . $copy;
-    my($sid, $smv) = (0, 0);
+    delete $args{sortopts};     # prevent "<form sortopts=1>"
+    my $formtag = $copy . _tag('form', %args);
+
     # suffix _submitted w/ form name if present
+    my($sid, $smv) = (0, 0);
     my $smtag = '_submitted' . ($args{name} ? "_$args{name}" : '');
     if ($CGI) {
         $sid = $CGI->param('_sessionid') || '';
@@ -1126,11 +1371,21 @@ EOF
     # If we set keepextras, then this means that any extra fields that
     # we've set that are *not* in our fields() will be added to the form
     if ($args{keepextras} && $CGI) {
+        my @just_these = ();
+        if (my $ref = ref $args{keepextras}) {
+            if ($ref eq 'ARRAY') {
+                @just_these = @{$args{keepextras}}; 
+            } else {
+                puke "Unsupported data structure type '$ref' passed to 'keepextras' option";
+            }
+        }
         for my $k ($CGI->param) {
             # skip leading underscore fields, previously-defined fields, and submit/reset
             next if $self->{fields}{$k} || $k =~ /^_/ || $k eq 'submit' || $k eq 'reset';
             for my $v ($CGI->param($k)) {
-                $formtag .= _tag('input', type => 'hidden', name => $k, value => $v);
+                if (! @just_these || _ismember($k, @just_these)) {
+                    $formtag .= _tag('input', type => 'hidden', name => $k, value => $v);
+                }
             }
         }
     }
@@ -1145,14 +1400,14 @@ EOF
     # the HTML we generated above verbatim by returning as a scalar.
     # 
     # NOTE: added code to handle Template Toolkit, abw November 2001
-    my $header = $args{header} ? "Content-type: text/html\n\n" : '';
+    my $header = $args{header} ? $self->cgi_header : '';
 
     if ($args{template}) {
         my (%tmplopt, $tmpltype) = ();
 
         if (ref $args{template} eq 'HASH') {
             %tmplopt = %{$args{template}};
-            $tmpltype = $tmplopt{type} || 'HTML';
+            $tmpltype = delete($tmplopt{type}) || 'HTML';
         } else {
             %tmplopt = (filename => $args{template}, die_on_bad_params => 0);
             $tmpltype = 'HTML';
@@ -1160,10 +1415,12 @@ EOF
 
         if ($tmpltype eq 'HTML') {
             eval { require HTML::Template };
+            $tmplopt{die_on_bad_params} = 0;    # force to avoid blow-ups
             puke "Can't use templates because HTML::Template is not installed!" if $@; 
             my $h = HTML::Template->new(%tmplopt);
 
             # a couple special fields
+            $tmplvar{'form-title'}  = $args{title} || '';
             $tmplvar{'form-start'}  = $formtag;
             $tmplvar{'form-submit'} = $submit;
             $tmplvar{'form-reset'}  = $reset;
@@ -1181,7 +1438,7 @@ EOF
         } elsif ($tmpltype eq 'TT2') {
 
             eval { require Template };
-            puke "Can't use templates because the Template Toolkit is not installed!" if $@; 
+            puke "Can't use templates because Template Toolkit is not installed!" if $@; 
 
             my ($tt2engine, $tt2template, $tt2data, $tt2var, $tt2output);
             $tt2engine = $tmplopt{engine} || { };
@@ -1189,10 +1446,11 @@ EOF
                 || puke $Template::ERROR unless UNIVERSAL::isa($tt2engine, 'Template');
             $tt2template = $tmplopt{template}
                 || puke "tt2 template not specified";
-            $tt2data = $tmplopt{data} || { };
-            $tt2var = $tmplopt{variable};
+            $tt2data = $tmplopt{data} || {};
+            $tt2var  = $tmplopt{variable};      # optional var for nesting
 
             # special fields
+            $tmplvar{'title'}  = $args{title} || '';
             $tmplvar{'start'}  = $formtag;
             $tmplvar{'submit'} = $submit;
             $tmplvar{'reset'}  = $reset;
@@ -1225,15 +1483,12 @@ EOF
                 . "$body$font<h3>$args{title}</h3>\n" if $header;
 
         # Insert any text we may have specified
-        my $text = $args{text} || $args{text} || '';
-        if (! $text) {
-            if ($self->{state}{invalid}) {
-                my $s = $self->{state}{invalid} == 1 ? '' : 's';
-                $text = qq(Your submission had $self->{state}{invalid} error$s. Please correct )
-                      . qq(the <font color="red"><b>red</b></font> fields below.\n);
-            } elsif (keys %need) {
-                $text = qq(Fields shown in <b>bold</b> are required.);
-            }
+        my $text = $args{text} || '';
+        if ($self->{state}{invalid}) {
+            $text .= sprintf $args{messages}{form_invalid_text}, $self->{state}{invalid},
+                             $args{messages}{form_invalid_color};
+        } elsif (keys %need) {
+            $text .= $args{messages}{form_required_text};
         }
 
         $outhtml = $header . $jsfunc . $text . $outhtml;
@@ -1246,18 +1501,17 @@ EOF
     return $outhtml;
 }
 
-sub confirm {
-
+sub confirm () {
     # This is nothing more than a special wrapper around render()
     my $self = shift;
     my %args = _args(@_);
     my $date = localtime;
-    $args{text} ||= qq(<b>Success!</b> Your submission has been received $date.);
+    $args{text} ||= sprintf $self->{opt}{messages}{form_confirm_text}, $date;
     $args{static} = 1;
     return $self->render(%args);
 }
 
-sub mail {
+sub mail () {
     # This is a very generic mail handler
     my $self = shift;
     my %args = _args(@_);
@@ -1289,7 +1543,7 @@ EOF
     return close(MAIL);
 }
 
-sub mailconfirm {
+sub mailconfirm () {
 
     # This prints out a very generic message. This should probably
     # be much better, but I suspect very few if any people will use
@@ -1314,7 +1568,7 @@ EOF
     $self->mail(%args);
 }
 
-sub mailresults {
+sub mailresults () {
     # This is a wrapper around mail() that sends the form results
     my $self = shift;
     my %args = _args(@_);
@@ -1336,50 +1590,63 @@ sub mailresults {
     $self->mail(%args, text => $text);
 }
 
-sub submitted {
+sub submitted () {
     # this returns the value of the submit key, if any
     return unless $CGI;
     my $self = shift;
     my $smtag = shift || ('_submitted' . ($self->{opt}{name} ? "_$self->{opt}{name}" : ''));
+
     if ($CGI->param($smtag)) {
         # If we've been submitted, then we return the value of
         # the submit tag (which allows multiple submission buttons).
         # Must use an "|| 0E0" or else hitting "Enter" won't cause
         # $form->submitted to be true (as the button is only sent
         # across CGI when clicked).
-        return $CGI->param('_submit') || '0E0';
+        my $sr = $CGI->param('_submit') || '0E0';
+        debug 2, "submitted() is true, returning $sr";
+        return $sr;
     } else {
         return;
     }
 }
 
-sub sessionid {
-    # checks for the _sessoinid parameter
+sub sessionid () {
+    # checks/sets the _sessoinid parameter
     return unless $CGI;
-    return $CGI->param('_sessionid');
+    my $self = shift;
+    my $sid  = shift;
+    $sid ? $CGI->param(-name => '_sessionid', -value => $sid, -override => 1)
+         : $CGI->param('_sessionid');
 }
 
-# This allows a crude method of delegation
-sub cgi_param {
+# These allow a crude method of delegation
+sub cgi_param () {
     return unless $CGI;
     shift; $CGI->param(@_);
 }
 
+sub cgi_header () {
+    return unless $CGI;
+    shift; $CGI->header(@_);
+}
+
 # This allows us to interface with our HTML::Template
-sub tmpl_param {
+sub tmpl_param () {
     my $self = shift; 
     my $key  = shift;
     @_ ? $self->{tmplvar}{$key} = shift
        : $self->{tmplvar}{$key};
 }
 
-sub validate {
+sub validate () {
 
-    # this function does all the validation on the Perl side
-    # it doesn't generate JavaScript; see render() for that...
+    # This function does all the validation on the Perl side.
+    # It doesn't generate JavaScript; see render() for that...
 
     my $self = shift;
     my $form = $self;   # XXX alias for examples (paint-by-numbers)
+
+    debug 1, "called validate(@_)";
 
     # Create our %valid hash which takes into account local args
     my %valid = (%{$self->{opt}{validate} || {}}, _args(@_));
@@ -1399,18 +1666,20 @@ sub validate {
         puke "Attempt to validate non-existent field '$field'"
             unless $self->{fields}{$field};
 
+        # check for if $need{$field}; if not, next if blank
+        if ($need{$field}) {
+            debug 1, "$field: is required per 'required' param";
+        } else {
+            debug 1, "$field: is optional per 'required' param";
+            next unless $self->field($field);
+            debug 1, "$field: ...but is defined, so still checking";
+        }
+
         # loop thru, and if something isn't valid, we tag it
         my $atleastone = 0;
         for my $value ($self->field($field)) {
             my $thisfail = 0;
             $atleastone++;
-
-            # check for if $need{$field}; if not, next if blank
-            if (! $need{$field}) {
-                debug 2, "$field: is optional per 'required' param";
-                next if (! defined $value);
-                debug 2, "$field: ...but is defined, so still checking";
-            }
 
             # Check our hash to see if it's a special pattern
             ($pattern) = _data($VALID{$pattern}) if $VALID{$pattern};
@@ -1420,9 +1689,9 @@ sub validate {
                 $pattern = $pattern->{perl} || next;
             }
 
-            debug 1, "$field: validating against pattern '$pattern'";
+            debug 1, "$field: validating ($value) against pattern '$pattern'";
 
-            if ($pattern =~ m!^m?(.).*\1$!) {
+            if ($pattern =~ m#^m?(.).*\1$#) {
                 # it be a regexp
                 debug 1, "$field: does '$value' =~ $pattern ?";
                 unless (eval qq('$value' =~ $pattern ? 1 : 0)) {
@@ -1466,6 +1735,29 @@ sub validate {
     debug 2, "validation done, failures (\$bad) = $bad";
     $self->{state}{invalid} = $bad;
     return $bad ? 0 : 1;
+}
+
+sub AUTOLOAD () {
+    # This allows direct addressing by name, for quicker usage
+    my $self  = shift;
+    my($name) = $AUTOLOAD =~ /.*::(.+)/;
+    return 1 if $name eq 'DESTROY';
+    if ($self->{fields}{$name}) {
+        if (@_) {
+            my %args = @_;
+            $args{name} = $name;
+            debug 1, "AUTOLOAD dispatch to \$form->field(name $name @_)";
+            return $self->field(%args);
+        } else {
+            debug 1, "AUTOLOAD dispatch to \$form->field($name)";
+            return $self->field($name);
+        }
+    } elsif (! @_) {
+        debug 1, "AUTOLOAD dispatch to \$CGI->param($name)";
+        return $CGI->param($name);
+    } else {
+        puke "Attempt to address non-existent field '$name' by name"
+    }
 }
 
 1;
@@ -1553,7 +1845,7 @@ more than this:
 
     print $form->render(header => 1);
 
-Not only does this generate about 4 times as much XHTML-compliant code
+Not only does this generate about 4 times as much HTML-compliant code
 as the above Perl code, but it also keeps values statefully across
 submissions, even when multiple values are selected. And if you
 do nothing more than add the C<validate> option to C<new()>:
@@ -1573,13 +1865,13 @@ like our form fields and their stickiness, but we need to change
 a couple things. For one, we want the page to be laid out very 
 precisely. No problem! We simply create an C<HTML::Template> compatible
 template and tell our module to use that. The C<HTML::Template>
-module uses special XHTML tags to print out variables. All you
+module uses special HTML tags to print out variables. All you
 have to do in your template is create one for each field that you're
 printing, as well as one for the form header itself:
 
     <html>
     <head>
-    <title>User Information</title>
+    <title><tmpl_var form-title></title>
     <tmpl_var js-head><!-- this holds the JavaScript code -->
     </head>
     <tmpl_var form-start><!-- this holds the initial form tag -->
@@ -1624,7 +1916,7 @@ The template might look something like this:
 
     <html>
     <head>
-      <title>User Information</title>
+      <title>[% form.title %]</title>
       [% form.jshead %]
     </head>
     <body>
@@ -1829,179 +2121,37 @@ different options. None of these are mandatory - you can call the
 C<new()> constructor without any fields, but your form will be really
 really short. :-)
 
-=head2 new(opt => $val, opt => $val)
+This documentation is very extensive, but can be a bit dizzying due
+to the enormous number of options that let you tweak just about anything.
+As such, I recommend that if this is your first time using this module,
+you stop and visit:
+
+    www.formbuilder.org
+
+And click on "Tutorials" and "Examples". Then, use the following section
+as a reference later on.
+
+=head2 new()
 
 This is the constructor, and must be called very first. It returns
 a C<$form> object, which you can then modify and print out to create
-the form. Options will be described shortly.
-
-=head2 render(opt => $val, opt => $val)
-
-This function renders the form into HTML, and returns a string
-containing the form. The most common use is simply:
-
-    print $form->render;
-
-However, C<render()> accepts B<the exact same options> as C<new()>
-Why? Because this allows you to set certain options at different
-points in your code, which is often useful. For example, you could
-change the formatting based on whether C<layout> appeared in the
-query string:
-
-    my $form = CGI::FormBuilder->new(method => 'POST',
-                                     fields => [qw/name email/]);
-
-    # Get our layout from an extra CGI param
-    my $layout = $form->cgi_param('layout');
-
-    # If we're using a layout, then make sure to request a template
-    if ($layout) {
-        print $form->render(template => $layout);
-    } else {
-        print $form->render(header => 1);
-    }
-
-The following are all the options accepted by both C<new()> and
-C<render()>:
+the form. This function accepts all of the options listed under C<render()>
+below. In addition, it takes 6 options that can only be specified to C<new()>:
 
 =over
-
-=item action => $script
-
-What script to point the form to. Defaults to itself, which is
-the recommended setting.
-
-=item body => \%hash
-
-This takes a hashref of attributes that will be stuck in the
-C<< <body> >> tag verbatim (for example, bgcolor, alink, etc).
-If you're thinking about using this, check out the
-C<template> option above (and below).
-
-=item debug => 0 | 1 | 2
-
-If set to 1, the module spits copious debugging info to STDERR.
-If set to 2, it spits out even more gunk.  Defaults to 0.
 
 =item fields => \@array | \%hash
 
 The C<fields> option takes an arrayref of fields to use in the form.
 The fields will be printed out in the same order they are specified.
-This option is needed if you expect your form to have any fields.
+This option is needed if you expect your form to have any fields,
+and is I<the> central option to FormBuilder.
 
 You can also specify a hashref of key/value pairs. The advantage is
 you can then bypass the C<values> option. However, the big disadvantage
 is you cannot control the order of the fields. This is ok if you're
 using a template, but in real-life it turns out that passing a hashref
 to C<fields> is not very useful.
-
-=item fieldtype => 'type'
-
-This can be used to set the default type for all fields. For example,
-if you're writing a survey application, you may want all of your
-fields to be of type C<textarea> by default. Easy:
-
-    my $form = CGI::FormBuilder->new(... fieldtype => 'textarea');
-
-=item fieldattr => { opt => val, opt => val }
-
-Even more flexible than C<fieldtype>, this option allows you to 
-specify I<any> type of HTML attribute and have it be the default
-for all fields. For example:
-
-    my $form = CGI::FormBuilder->new(... fieldattr => { class => 'myClass' });
-
-Would set the C<class> HTML attribute on all fields by default,
-so that when they are printed out they will have a C<class="myClass">
-part of their HTML tag.
-
-=item font => $font
-
-The font to use for the form. This is output as a series of
-C<< <font> >> tags for best browser compatibility. If you're 
-thinking about using this, check out the C<template> option.
-
-=item header => 0 | 1
-
-If set to 1, a valid C<Content-type> header will be printed out.
-This defaults to 0, since usually people end up using templates
-or embedding forms in other HTML.
-
-=item javascript => 0 | 1
-
-If set to 1, JavaScript is generated in addition to HTML, the
-default setting.
-
-=item jshead => JSCODE
-
-If using JavaScript, you can also specify some JavaScript code
-that will be included verbatim in the <head> section of the
-document. I'm not very fond of this one, what you probably
-want is the next option.
-
-=item jsfunc => JSCODE
-
-Just like C<jshead>, only this is stuff that will go into the
-C<validate> JavaScript function. As such, you can use it to
-add extra JavaScript validate code verbatim. Just return false
-if something doesn't work. For example:
-
-    my $jsfunc = <<EOF;
-if (form.password.value == 'password') {
-    alert("What are you, a moron? You used 'password' for your password?!");
-    return false;
-}
-EOF
-    ->new(... jsfunc => $jsfunc);
-
-Then, this code will be automatically called when form validation
-is invoked. This option can actually be quite useful.
-
-=item keepextras => 0 | 1
-
-If set to 1, then extra parameters not set in your fields declaration
-will be kept as hidden fields in the form. However, you will need
-to use C<cgi_param()>, not C<field()>, to get to the values. This is
-useful if you want to keep some extra parameters like referrer or
-company available but not have them be valid form fields. See below
-under C</"param"> for more details.
-
-=item labels => \%hash
-
-Like C<values>, this is a list of key/value pairs where the keys
-are the names of C<fields> specified above. By default, B<FormBuilder>
-does some snazzy case and character conversion to create pretty labels
-for you. However, if you want to explicitly name your fields, use this
-option.
-
-For example:
-
-    my $form = CGI::FormBuilder->new(
-                    fields => [qw/name email/],
-                    labels => {
-                        name  => 'Your Full Name',
-                        email => 'Primary Email Address'
-                    }
-               );
-
-Usually you'll find that if you're contemplating this option what
-you really want is a template.
-
-=item lalign => 'left' | 'right' | 'center'
-
-This is how to align the field labels in the table layout. I really
-don't like this option being here, but it does turn out to be
-pretty damn useful. You should probably be using a template.
-
-=item linebreaks => 0 | 1
-
-If set to 1, line breaks will be inserted after each input field.
-By default this is figured out for you, so usually not needed.
-
-=item method => 'POST' | 'GET'
-
-Either C<POST> or C<GET>, the type of CGI method to use. Defaults
-to C<GET> if nothing is specified.
 
 =item name => $string
 
@@ -2019,8 +2169,6 @@ to build a complex multi-form app and are having problems, try naming
 your forms.
 
 =item params => $object
-
-This option can B<only> be specified to C<new()> but not to C<render()>.
 
 This specifies an object from which the parameters should be derived.
 The object must have a C<param()> method which will return values
@@ -2053,218 +2201,6 @@ are using a C<POST> form method:
 The above example would allow you to access CGI parameters
 directly via C<< $q->param >> (however, note that you could
 get the same functionality by using C<< $form->cgi_param >>).
-
-=item required => \@array | 'ALL' | 'NONE'
-
-This is a list of those values that are required to be filled in.
-Those fields named must be included by the user. If the C<required>
-option is not specified, by default any fields named in C<validate>
-will be required.
-
-As of v1.97, the C<required> option now takes two other settings,
-the string C<ALL> and the string C<NONE>. If you specify C<ALL>,
-then all fields are required. If you specify C<NONE>, then none
-of them are I<in spite of what may be set via the "validate" option>.
-
-This is useful if you have fields that you need to be validated if
-filled in, but which are optional. For example:
-
-    my $form = CGI::FormBuilder->new(
-                    fields => qw[/name email/],
-                    validate => { email => 'EMAIL' },
-                    required => 'NONE'
-               );
-
-This would make the C<email> field optional, but if filled in then
-it would have to match the C<EMAIL> pattern.
-
-In addition, it is I<very> important to note that if the C<required>
-I<and> C<validate> options are specified, then they are taken as an
-intersection. That is, only those fields specified as C<required>
-must be filled in, and the rest are optional. For example:
-
-    my $form = CGI::FormBuilder->new(
-                    fields => qw[/name email/],
-                    validate => { email => 'EMAIL' },
-                    required => [qw/name/]
-               );
-
-This would make the C<name> field mandatory, but the C<email> field
-optional. However, if C<email> is filled in, then it must match the
-builtin C<EMAIL> pattern.
-
-=item reset => 0 | $string
-
-If set to 0, then the "Reset" button is not printed. If set to 
-text, then that will be printed out as the reset button. Defaults
-to printing out a button that says "Reset".
-
-=item selectnum => $threshold
-
-These affect the "intelligence" of the module. If a given field
-has any options, then it will be a radio group by default. However,
-if more than C<selectnum> options are present, then it will become
-a select list. The default is 5 or more options. For example:
-
-    # This will be a radio group
-    my @opt = qw(Yes No);
-    $form->field(name => 'answer', options => \@opt);
-
-    # However, this will be a select list
-    my @states = qw(AK CA FL NY TX);
-    $form->field(name => 'state', options => \@states);
-
-    # This is the one special case - single items are checkboxes
-    $form->field(name => 'answer', options => 'Yes');
-
-There is no threshold for checkboxes since these are basically
-a type of multiple radio select group. As such, a radio group
-becomes a checkbox group if there are multiple values (not
-options, but actual values) for a given field, or if you 
-specify C<< multiple => 1 >> to the C<field()> method. Got it?
-
-=item smartness => 0 | 1 | 2
-
-By default CGI::FormBuilder tries to be pretty smart for you, like
-figuring out the types of fields based on their names and number
-of options. If you don't want this behavior at all, set C<smartness>
-to C<0>. If you want it to be B<really> smart, like figuring
-out what type of validation routines to use for you, set it to
-C<2>. It defaults to C<1>.
-
-=item static => 0 | 1
-
-If set to 1, then the form will be output with static hidden
-fields. Defaults to 0.
-
-=item sticky => 0 | 1
-
-Determines whether or not form values should be sticky across
-submissions. This does I<not> affect the value you get back from
-a call to C<field()>. It also does not affect default values. It
-only affects values the user may have entered via the CGI.
-
-This defaults to 1, meaning values are sticky. However, you may
-want to set it to 0 if you have a form which does something like
-adding parts to a database. See the L</"EXAMPLES"> section for 
-a good example.
-
-=item submit => 0 | $string | \@array
-
-If set to 0, then the "Submit" button is not printed. It defaults
-to creating a button that says "Submit" verbatim. If given an
-argument, then that argument becomes the text to show. For example:
-
-    print $form->render(submit => 'Do Lookup');
-
-Would make it so the submit button says "Do Lookup" on it. 
-
-If you pass an arrayref of multiple values, you get a key benefit.
-This will create multiple submit buttons, each with a different value.
-In addition, though, when submitted only the one that was clicked
-will be sent across CGI via some JavaScript tricks. So this:
-
-    print $form->render(submit => ['Add A Gift', 'No Thank You']);
-
-Would create two submit buttons. Clicking on either would submit the
-form, but you would be able to see which one was submitted via the
-C<submitted()> function:
-
-    my $clicked = $form->submitted;
-
-So if the user clicked "Add A Gift" then that is what would end up
-in the variable C<$clicked> above. This allows nice conditionality:
-
-    if ($form->submitted eq 'Add A Gift') {
-        # show the gift selection screen
-    } elsif ($form->submitted eq 'No Thank You')
-        # just process the form
-    }
-
-See the L</"EXAMPLES"> section for more details.
-
-=item table => 0 | 1
-
-By default B<FormBuilder> decides how to layout the form based on
-the number of fields, values, etc. You can force it into a table
-by specifying C<1>, or force it out of one with C<0>. I have never
-found this option useful.
-
-=item template => $filename | \%hash
-
-This points to a filename that contains an C<HTML::Template>
-compatible template to use to layout the HTML. You can also specify
-the C<template> option as a reference to a hash, allowing you to
-further customize the template processing options.
-
-For example, you could turn on caching in C<HTML::Template> with
-something like the following:
-
-    my $form = CGI::FormBuilder->new(
-                    fields => \@fields,
-                    template => {
-                        filename => 'form.tmpl',
-                        die_on_bad_params => 0,     # required
-                        shared_cache => 1
-                    }
-               );
-
-In addition, specifying a hashref allows you to use an alternate template
-processing system like the C<Template Toolkit>.  A minimal configuration
-would look like this:
-
-    my $form = CGI::FormBuilder->new(
-                    fields => \@fields,
-                    template => {
-                        type => 'TT2',      # use Template Toolkit
-                        template => 'form.tmpl',
-                    },
-               );
-
-The C<type> option specifies the name of the processor.  Use C<TT2> to
-invoke the Template Toolkit or C<HTML> (the default) to invoke
-C<HTML::Template> as shown above. All other options besides C<type>
-are passed to the constructor for that templating system verbatim,
-so you'll need to consult those docs to see what different options do.
-
-For lots more information on templates, see the L</"TEMPLATES"> section
-below.
-
-=item text => $text
-
-This is text that is included below the title but above the
-actual form. Useful if you want to say something simple like
-"Contact $adm for more help", but if you want lots of text
-check out the C<template> option above.
-
-=item title => $title
-
-This takes a string to use as the title of the form. 
-
-=item valign => 'top' | 'middle' | 'bottom'
-
-Another one I don't like, this alters how form fields are laid out in
-the natively-generated table. Default is "middle".
-
-=item values => \%hash | \@array
-
-The C<values> option takes a hashref of key/value pairs specifying
-the default values for the fields. These values will be overridden
-by the values entered by the user across the CGI. The values are
-used case-insensitively, making it easier to use DBI hashref records
-(which are in upper or lower case depending on your database).
-
-This option is useful for selecting a record from a database or
-hardwiring some sensible defaults, and then including them in the
-form so that the user can change them if they wish. For example:
-
-    my $rec = $sth->fetchrow_hashref;
-    my $form = CGI::FormBuilder->new(fields => \@fields,
-                                     values => $rec);
-
-As of version 1.95, you can also pass an arrayref, in which case
-each value is used sequentially for each field as specified to
-the C<fields> option.
 
 =item validate => \%hash
 
@@ -2362,13 +2298,553 @@ So if you need different processing just create your own regular expression
 and pass it in. If there's something really useful let me know and maybe
 I'll add it.
 
+=item messages => $filename | \%hash
+
+This option allows you to customize basically all the messages 
+this module outputs. This is useful if you are writing a multilingual
+application, or are just anal and want the messages exactly right.
+
+The messaging system is simple, as it borrows somewhat from C<getttext()>.
+Each message displayed is given a unique key. If you specify a custom
+message for a given key, then that message is used. Otherwise, the
+default is printed. Note that it is up to you to figure out what to
+pass in - there is no magic C<LC_MESSAGES> mysterium to this module.
+
+For example, let's say you wrote a script that needed to display custom
+JavaScript error messages. You could do something like this:
+
+    # Get language requested
+    my $lang = $ENV{HTTP_ACCEPT_LANGUAGE} || 'en';
+
+    # Get the appropriate file
+    my $langfile = "/languages/formbuilder/messages.$lang";
+
+    my $form = CGI::FormBuilder->new(
+                    fields => \@fields,
+                    messages => $langfile,
+               );
+
+    print $form->render;
+
+Then, your language file would contain the following:
+
+    # FormBuilder messages for "en" locale
+    js_invalid_start      %s error(s) were found in your form:\n
+    js_invalid_end        Fix these fields and try again!
+    js_invalid_select     - You must choose an option for the "%s" field\n
+
+Alternatively, you could specify this directly as a hashref:
+
+    my $form = CGI::FormBuilder->new(
+                    fields => \@fields,
+                    messages => {
+                        js_invalid_start  => '%s error(s) were found in your form:\n',
+                        js_invalid_end    => 'Fix these fields and try again!',
+                        js_invalid_select => '- Choose an option from the "%s" list\n',
+                    }
+               );
+
+Although in practice this is rarely useful, unless you just want to
+tweak one or two things.
+
+This system is easy, are there are many many messages that can be 
+customized. Here is a list of the fields that can be customized,
+along with their default values.
+
+    js_invalid_start        %s error(s) were encountered with your submission:
+    js_invalid_end          Please correct these fields and try again.
+
+    js_invalid_input        - You must enter a valid value for the "%s" field
+    js_invalid_select       - You must choose an option for the "%s" field
+    js_invalid_checkbox     - You must choose an option for the "%s" field
+    js_invalid_radio        - You must choose an option for the "%s" field
+    js_invalid_password     - You must enter a valid value for the "%s" field
+    js_invalid_textarea     - You must fill in the "%s" field
+    js_invalid_file         - You must specify a valid file for the "%s" field
+
+    form_required_text      <p>Fields shown in <b>bold</b> are required.
+
+    form_invalid_text       <p>%s error(s) were encountered with your submission.
+                            Please correct the fields <font color="%s">
+                            <b>highlighted</b></font> below.
+
+    form_invalid_color      red
+
+    form_confirm_text       Success! Your submission has been received %s.
+
+    form_invalid_input      You must enter a valid value
+    form_invalid_select     You must choose an option from this list
+    form_invalid_checkbox   You must choose an option from this group
+    form_invalid_radio      You must choose an option from this group
+    form_invalid_password   You must enter a valid value
+    form_invalid_textarea   You must fill in this field
+    form_invalid_file       You must specify a valid filename
+
+    form_select_default     -select-
+    form_submit_default     Submit
+    form_reset_default      Reset
+
+The C<js_> tags are used in JavaScript alerts, whereas the C<form_> tags
+are used in HTML and templates managed by FormBuilder.
+
+In some of the messages, you will notice a C<%s> C<printf> format. This
+is because these messages will include certain details for you. For example,
+the C<js_invalid_start> tag will print the number of errors if you include
+the C<%s> format tag. Of course, you this is optional, so if you leave it
+out then you won't get the number of errors.
+
+The best way to get an idea of how these work is to experiment a little.
+It should become obvious really quickly.
+
+=item debug => 0 | 1 | 2
+
+If set to 1, the module spits copious debugging info to STDERR.
+If set to 2, it spits out even more gunk.  Defaults to 0.
+
+=back
+
+=head2 render()
+
+This function renders the form into HTML, and returns a string
+containing the form. The most common use is simply:
+
+    print $form->render;
+
+However, C<render()> accepts B<the exact same options> as C<new()>
+Why? Because this allows you to set certain options at different
+points in your code, which is often useful. For example, you could
+change the formatting based on whether C<layout> appeared in the
+query string:
+
+    my $form = CGI::FormBuilder->new(method => 'POST',
+                                     fields => [qw/name email/]);
+
+    # Get our layout from an extra CGI param
+    my $layout = $form->cgi_param('layout');
+
+    # If we're using a layout, then make sure to request a template
+    if ($layout) {
+        print $form->render(template => $layout);
+    } else {
+        print $form->render(header => 1);
+    }
+
+The following are all the options accepted by both C<new()> and
+C<render()>:
+
+=over
+
+=item action => $script
+
+What script to point the form to. Defaults to itself, which is
+the recommended setting.
+
+=item body => \%hash
+
+This takes a hashref of attributes that will be stuck in the
+C<< <body> >> tag verbatim (for example, bgcolor, alink, etc).
+If you're thinking about using this, also check out the
+C<template> option above (and below).
+
+=item fieldtype => 'type'
+
+This can be used to set the default type for all fields. For example,
+if you're writing a survey application, you may want all of your
+fields to be of type C<textarea> by default. Easy:
+
+    my $form = CGI::FormBuilder->new(... fieldtype => 'textarea');
+
+=item fieldattr => { opt => val, opt => val }
+
+Even more flexible than C<fieldtype>, this option allows you to 
+specify I<any> type of HTML attribute and have it be the default
+for all fields. For example:
+
+    my $form = CGI::FormBuilder->new(... fieldattr => { class => 'myClass' });
+
+Would set the C<class> HTML attribute on all fields by default,
+so that when they are printed out they will have a C<class="myClass">
+part of their HTML tag. Maybe you want a template?
+
+=item font => $font | \%fonttags
+
+The font face to use for the form. This is output as a series of
+C<< <font> >> tags for best browser compatibility, and will even
+take care of the tedious table elements. I use this option all the
+time. If you specify a hashref instead of just a font name, then
+each key/value pair will be taken as part of the C<< <font> >> tag.
+For example:
+
+    font => {face => 'verdana', size => '-1', color => 'gray'}
+
+Would generate the following tag:
+
+    <font face="verdana" size="-1" color="gray">
+
+And properly nest them in all of the table elements.
+
+=item header => 0 | 1
+
+If set to 1, a valid C<Content-type> header will be printed out,
+along with a whole bunch of HTML C<< <body> >> code, a C<< <title> >>
+tag, and so on. This defaults to 0, since usually people end up using
+templates or embedding forms in other HTML. Setting it to 1 is a great
+way to throw together a quick and dirty form, though.
+
+=item javascript => 0 | 1
+
+If set to 1, JavaScript is generated in addition to HTML, the
+default setting.
+
+=item jshead => JSCODE
+
+If using JavaScript, you can also specify some JavaScript code
+that will be included verbatim in the <head> section of the
+document. I'm not very fond of this one, what you probably
+want is the next option.
+
+=item jsfunc => JSCODE
+
+Just like C<jshead>, only this is stuff that will go into the
+C<validate> JavaScript function. As such, you can use it to
+add extra JavaScript validate code verbatim. If something fails,
+you should do two things:
+
+    - append to the JS variable "alertstr"
+    - increment the JS variable "invalid"
+
+For example:
+
+    my $jsfunc = <<EOJS;
+    if (form.password.value == 'password') {
+        alertstr += "Moron, you can't use 'password' for your password!\\n";
+        invalid++;
+    }
+    EOJS
+
+    my $form = CGI::FormBuilder->new(... jsfunc => $jsfunc);
+
+Then, this code will be automatically called when form validation
+is invoked. I find this option can be incredibly useful. Most often,
+I use it to bypass validation on certain submit modes. The submit
+button that was clicked is C<form._submit.value>:
+
+    my $jsfunc = <<EOJS;
+    if (form._submit.value == 'Delete') {
+        if (confirm("Really DELETE this entry?")) return true;
+        return false;
+    } else if (form._submit.value == 'Cancel') {
+        // skip validation since we're cancelling
+        return true;
+    }
+    EOJS
+
+Important: When you're quoting, remember that Perl will expand "\n"
+itself. So, if you want a literal newline, you must double-escape
+it, as shown above.
+
+=item keepextras => 0 | 1 | \@array
+
+If set to 1, then extra parameters not set in your fields declaration
+will be kept as hidden fields in the form. However, you will need
+to use C<cgi_param()>, not C<field()>, to get to the values. This is
+useful if you want to keep some extra parameters like referer or
+company available but not have them be valid form fields. See below
+under C</"param"> for more details.
+
+You can also specify an arrayref, in which case only params found on
+that list will be preserved. For example, saying:
+
+    ->new(keepextras => 1, ...);
+
+Will preserve all non-field parameters, whereas saying:
+
+    ->new(keepextras => [qw/mode company/], ...);
+
+Will only preserve the params C<mode> and C<company>.
+
+=item labels => \%hash
+
+Like C<values>, this is a list of key/value pairs where the keys
+are the names of C<fields> specified above. By default, B<FormBuilder>
+does some snazzy case and character conversion to create pretty labels
+for you. However, if you want to explicitly name your fields, use this
+option.
+
+For example:
+
+    my $form = CGI::FormBuilder->new(
+                    fields => [qw/name email/],
+                    labels => {
+                        name  => 'Your Full Name',
+                        email => 'Primary Email Address'
+                    }
+               );
+
+Usually you'll find that if you're contemplating this option what
+you really want is a template.
+
+=item lalign => 'left' | 'right' | 'center'
+
+This is how to align the field labels in the table layout. I really
+don't like this option being here, but it does turn out to be
+pretty damn useful. You should probably be using a template.
+
+=item linebreaks => 0 | 1
+
+If set to 1, line breaks will be inserted after each input field.
+By default this is figured out for you, so usually not needed.
+
+=item method => 'POST' | 'GET'
+
+Either C<POST> or C<GET>, the type of CGI method to use. Defaults
+to C<GET> if nothing is specified.
+
+=item options => \%hash
+
+By using this argument, you can avoid having to specify the options
+for different fields individually:
+
+    my $form = CGI::FormBuilder->new(
+                    fields => [qw/part_number department in_stock/],
+                    options => {
+                        department => [qw/hardware software/],
+                        in_stock   => [qw/yes no/],
+                    }
+               );
+
+This will then create the appropriate multi-option HTML inputs (in
+this case, radio groups) automatically.
+
+=item required => \@array | 'ALL' | 'NONE'
+
+This is a list of those values that are required to be filled in.
+Those fields named must be included by the user. If the C<required>
+option is not specified, by default any fields named in C<validate>
+will be required.
+
+As of v1.97, the C<required> option now takes two other settings,
+the string C<ALL> and the string C<NONE>. If you specify C<ALL>,
+then all fields are required. If you specify C<NONE>, then none
+of them are I<in spite of what may be set via the "validate" option>.
+
+This is useful if you have fields that you need to be validated if
+filled in, but which are optional. For example:
+
+    my $form = CGI::FormBuilder->new(
+                    fields => qw[/name email/],
+                    validate => { email => 'EMAIL' },
+                    required => 'NONE'
+               );
+
+This would make the C<email> field optional, but if filled in then
+it would have to match the C<EMAIL> pattern.
+
+In addition, it is I<very> important to note that if the C<required>
+I<and> C<validate> options are specified, then they are taken as an
+intersection. That is, only those fields specified as C<required>
+must be filled in, and the rest are optional. For example:
+
+    my $form = CGI::FormBuilder->new(
+                    fields => qw[/name email/],
+                    validate => { email => 'EMAIL' },
+                    required => [qw/name/]
+               );
+
+This would make the C<name> field mandatory, but the C<email> field
+optional. However, if C<email> is filled in, then it must match the
+builtin C<EMAIL> pattern.
+
+=item reset => 0 | $string
+
+If set to 0, then the "Reset" button is not printed. If set to 
+text, then that will be printed out as the reset button. Defaults
+to printing out a button that says "Reset".
+
+=item selectnum => $threshold
+
+These affect the "intelligence" of the module. If a given field
+has any options, then it will be a radio group by default. However,
+if more than C<selectnum> options are present, then it will become
+a select list. The default is 5 or more options. For example:
+
+    # This will be a radio group
+    my @opt = qw(Yes No);
+    $form->field(name => 'answer', options => \@opt);
+
+    # However, this will be a select list
+    my @states = qw(AK CA FL NY TX);
+    $form->field(name => 'state', options => \@states);
+
+    # This is the one special case - single items are checkboxes
+    $form->field(name => 'answer', options => ['Yes']);
+
+There is no threshold for checkboxes since these are basically
+a type of multiple radio select group. As such, a radio group
+becomes a checkbox group if there are multiple values (not
+options, but actual values) for a given field, or if you 
+specify C<< multiple => 1 >> to the C<field()> method. Got it?
+
+=item smartness => 0 | 1 | 2
+
+By default CGI::FormBuilder tries to be pretty smart for you, like
+figuring out the types of fields based on their names and number
+of options. If you don't want this behavior at all, set C<smartness>
+to C<0>. If you want it to be B<really> smart, like figuring
+out what type of validation routines to use for you, set it to
+C<2>. It defaults to C<1>.
+
+=item sortopts => alpha | numeric | NAME | NUM | 1
+
+If specified to C<render()> or C<new()>, this has the same effect
+as the same-named option to C<field()>, only it applies to all fields.
+
+=item static => 0 | 1
+
+If set to 1, then the form will be output with static hidden
+fields. Defaults to 0.
+
+=item sticky => 0 | 1
+
+Determines whether or not form values should be sticky across
+submissions. This does I<not> affect the value you get back from
+a call to C<field()>. It also does not affect default values. It
+only affects values the user may have entered via the CGI.
+
+This defaults to 1, meaning values are sticky. However, you may
+want to set it to 0 if you have a form which does something like
+adding parts to a database. See the L</"EXAMPLES"> section for 
+a good example.
+
+=item submit => 0 | $string | \@array
+
+If set to 0, then the "Submit" button is not printed. It defaults
+to creating a button that says "Submit" verbatim. If given an
+argument, then that argument becomes the text to show. For example:
+
+    print $form->render(submit => 'Do Lookup');
+
+Would make it so the submit button says "Do Lookup" on it. 
+
+If you pass an arrayref of multiple values, you get a key benefit.
+This will create multiple submit buttons, each with a different value.
+In addition, though, when submitted only the one that was clicked
+will be sent across CGI via some JavaScript tricks. So this:
+
+    print $form->render(submit => ['Add A Gift', 'No Thank You']);
+
+Would create two submit buttons. Clicking on either would submit the
+form, but you would be able to see which one was submitted via the
+C<submitted()> function:
+
+    my $clicked = $form->submitted;
+
+So if the user clicked "Add A Gift" then that is what would end up
+in the variable C<$clicked> above. This allows nice conditionality:
+
+    if ($form->submitted eq 'Add A Gift') {
+        # show the gift selection screen
+    } elsif ($form->submitted eq 'No Thank You')
+        # just process the form
+    }
+
+See the L</"EXAMPLES"> section for more details.
+
+=item table => 0 | 1 | \%tabletags
+
+By default B<FormBuilder> decides how to layout the form based on
+the number of fields, values, etc. You can force it into a table
+by specifying C<1>, or force it out of one with C<0>.
+
+If you specify a hashref instead, then these will be used to 
+create the C<< <table> >> tag. For example, to create a table
+with no cellpadding or cellspacing, use:
+
+    table => {cellpadding => 0, cellspacing => 0}
+
+=item template => $filename | \%hash
+
+This points to a filename that contains an C<HTML::Template>
+compatible template to use to layout the HTML. You can also specify
+the C<template> option as a reference to a hash, allowing you to
+further customize the template processing options.
+
+For example, you could turn on caching in C<HTML::Template> with
+something like the following:
+
+    my $form = CGI::FormBuilder->new(
+                    fields => \@fields,
+                    template => {
+                        filename => 'form.tmpl',
+                        shared_cache => 1
+                    }
+               );
+
+In addition, specifying a hashref allows you to use an alternate template
+processing system like the C<Template Toolkit>.  A minimal configuration
+would look like this:
+
+    my $form = CGI::FormBuilder->new(
+                    fields => \@fields,
+                    template => {
+                        type => 'TT2',      # use Template Toolkit
+                        template => 'form.tmpl',
+                    },
+               );
+
+The C<type> option specifies the name of the processor.  Use C<TT2> to
+invoke the Template Toolkit or C<HTML> (the default) to invoke
+C<HTML::Template> as shown above. All other options besides C<type>
+are passed to the constructor for that templating system verbatim,
+so you'll need to consult those docs to see what different options do.
+
+For lots more information on templates, see the L</"TEMPLATES"> section
+below.
+
+=item text => $text
+
+This is text that is included below the title but above the
+actual form. Useful if you want to say something simple like
+"Contact $adm for more help", but if you want lots of text
+check out the C<template> option above.
+
+=item title => $title
+
+This takes a string to use as the title of the form. 
+
+=item valign => 'top' | 'middle' | 'bottom'
+
+Another one I don't like, this alters how form fields are laid out in
+the natively-generated table. Default is "middle".
+
+=item values => \%hash | \@array
+
+The C<values> option takes a hashref of key/value pairs specifying
+the default values for the fields. These values will be overridden
+by the values entered by the user across the CGI. The values are
+used case-insensitively, making it easier to use DBI hashref records
+(which are in upper or lower case depending on your database).
+
+This option is useful for selecting a record from a database or
+hardwiring some sensible defaults, and then including them in the
+form so that the user can change them if they wish. For example:
+
+    my $rec = $sth->fetchrow_hashref;
+    my $form = CGI::FormBuilder->new(fields => \@fields,
+                                     values => $rec);
+
+You can also pass an arrayref, in which case each value is used
+sequentially for each field as specified to the C<fields> option.
+While C<new()> is used as an example, this can of course be
+used in C<render()> as well.
+
 =back
 
 Note that any other options specified are passed to the C<< <form> >>
 tag verbatim. For example, you could specify C<onSubmit> or C<enctype>
 to add the respective attributes.
 
-=head2 field(name => $name, opt => $val, opt => $val)
+=head2 field()
 
 This method is called on the C<$form> object you get from the C<new()>
 method above, and is used to manipulate individual fields. You can use
@@ -2389,12 +2865,8 @@ Then, when you used C<render()> to create the form output, the "state"
 field would appear as a select list with the values in C<@states>
 as options.
 
-If just given the C<name> argument and no other options, then the
-value of that field will be returned:
-
-    my $email = $form->field(name => 'email');
-
-Like C<CGI.pm's param()>, in this form the C<< name => >> is optional:
+If just given the name of the field, then the value of that field will
+be returned, just like C<CGI.pm>:
 
     my $email = $form->field('email');
 
@@ -2427,6 +2899,23 @@ this case you'll need to access it via C<field()> to get them all:
 
 The C<field()> function takes several parameters, the first of
 which is mandatory. The rest are listed in alphabetical order:
+
+Finally, you can also take advantage of a new feature and address
+fields directly by name. This means instead of:
+
+    my $address = $form->field('address');
+
+You can say:
+
+    my $address = $form->address;
+
+This works for setting properties as well:
+
+    $form->field(name => 'user_id', size => '8', maxlength => '12');
+    $form->user_id(size => '8', maxlength => '12');
+
+Both of those would do the exact same thing. You will get a fatal
+error if you try to address an invalid field.
 
 =over
 
@@ -2462,7 +2951,8 @@ form field). But don't tell anyone I said that.
 
 This is used in conjunction with the C<value> option to forcibly
 override a field's value. See below under the C<value> option for
-more details.
+more details. For compatibility with C<CGI.pm>, you can also call
+this option C<override> instead, but don't tell anyone.
 
 =item jsclick => $jscode
 
@@ -2514,6 +3004,12 @@ You can also get the same effect by passing complex data
 structures directly to the C<options> argument (see below).
 If you have predictable data, check out the C<nameopts> option.
 
+=item linebreaks => 0 | 1
+
+Similar to the top-level "linebreaks" option, this one will put
+breaks in between options, to space things out more. This is
+useful with radio and checkboxes especially.
+
 =item multiple => 0 | 1
 
 If set to 1, then the user is allowed to choose multiple
@@ -2546,7 +3042,7 @@ the same way as the names for the fields. This is designed as
 a simpler alternative to using custom C<options> data structures
 if your data is regular enough to support it.
 
-=item options => \@options | \%options
+=item options => \@options | \%options | 'BUILTIN'
 
 This takes an arrayref of options. It also automatically results
 in the field becoming a radio (if <= 4) or select list (if > 4),
@@ -2612,6 +3108,13 @@ hash, you cannot control the order of the options.
 If you're just looking for simple naming, see the C<nameopts>
 option above.
 
+Finally, currently a single builtin options set is included:
+C<STATE>, which contains all 50 states + DC as 2-letter codes.
+
+=item override => 0 | 1
+
+A synonym for the C<force> option described above.
+
 =item required => 0 | 1
 
 If set to 1, the field must be filled in:
@@ -2621,7 +3124,7 @@ If set to 1, the field must be filled in:
 This is rarely useful - what you probably want is the C<validate>
 option to C<new()>.
 
-=item sortopts => alpha | numeric
+=item sortopts => alpha | numeric | NAME | NUM | 1
 
 If set, and there are options, then the options will be sorted 
 in the specified order. For example:
@@ -2630,6 +3133,11 @@ in the specified order. For example:
                  sortopts => 'alpha');
 
 Would sort the C<@cats> options in alpha order.
+
+The terms "NAME" and "NUM" have been introduced to keep consistency
+with the C<validate> options. They are synonymous with "alpha" and
+"numeric", respectively. If you specify "1", then an alpha sort is
+done, again for simplicity.
 
 =item type => $type
 
@@ -2694,7 +3202,7 @@ for all fields.
 
 =back
 
-=head2 cgi_param(opt => $val, opt => $val)
+=head2 cgi_param()
 
 Wait a second, if we have C<field()> from above, why the heck
 would we ever need C<cgi_param()>?
@@ -2720,7 +3228,7 @@ This call simply redispatches to C<CGI::Minimal> (if installed)
 or C<CGI.pm>'s C<param()> methods, so consult those docs for 
 more information.
 
-=head2 tmpl_param(name => $val)
+=head2 tmpl_param()
 
 This allows you to interface with your C<HTML::Template> template,
 if you are using one. As with C<cgi_param()> above, this is only
@@ -2732,10 +3240,17 @@ L</"template"> option for more details.
 
 The purpose of this function is to print out a static confirmation
 screen showing a short message along with the values that were
-submitted. This takes a single option - C<text> - which does the 
-same thing listed above. 
+submitted. It is actually just a special wrapper around C<render()>,
+twiddling a couple options.
 
-=head2 submitted('fieldname')
+If you're using templates, you probably want to specify a separate
+success template, such as:
+
+    print $form->confirm(template => 'success.tmpl');
+
+So that you don't get the same screen twice.
+
+=head2 submitted()
 
 This returns the value of the "Submit" button if the form has been
 submitted, undef otherwise. This allows you to either test it in
@@ -2778,7 +3293,7 @@ Then, if the lookup field is present, you'll get a true value.
 (Actually, you'll still get the value of the "Submit" button if
 present.)
 
-=head2 validate(field => '/regex/', field => '/regex/')
+=head2 validate()
 
 This validates the form based on the validation criteria passed
 into C<new()> via the C<validate> option. In addition, you can
@@ -2797,10 +3312,35 @@ this, you will not get JavaScript generated or required fields
 placed in bold. So, this is good for conditional validation
 like the above example, but for most applications you want to
 pass your validation requirements in via the C<validate>
-parameter to the C<new()> function.
+option to the C<new()> function, and just call the C<validate()>
+function with no arguments.
 
-=head2 mailconfirm(to => $email, from => $email, cc => $email,
-                   subject => $string, text => $string);
+=head2 sessionid()
+
+This gets and sets the sessionid, which is stored in the special
+form field C<_sessionid>. By default no session ids are generated
+or used. Rather, this is intended to provide a hook for you to 
+easily integrate this with a session id module like C<Apache::Session>.
+
+Since you can set the session id via the C<_sessionid> field, you
+can pass it as an argument when first showing the form:
+
+    http://mydomain.com/forms/update_info.cgi?_sessionid=0123-091231
+
+This would set things up so that if you called:
+
+    my $id = $form->sessionid;
+
+This would get the value C<0123-091231> in your script. Conversely,
+if you generate a new sessionid on your own, and wish to include it
+automatically, simply set is as follows:
+
+    $form->sessionid($id);
+
+This will cause it to be automatically carried through subsequent
+forms.
+
+=head2 mailconfirm()
 
 This sends a confirmation email to the named addresses. The C<to>
 argument is required; everything else is optional. If no C<from>
@@ -2810,8 +3350,7 @@ since that is a common quasi-standard in the web app world.
 This does not send any of the form results. Rather, it simply
 prints out a message saying the submission was received.
 
-=head2 mailresults(to => $email, delimiter => $delim, joiner => $join,
-                   subject => $string);
+=head2 mailresults()
 
 This emails the form results to the specified address(es). By 
 default it prints out the form results separated by a colon, such as:
@@ -2834,32 +3373,13 @@ Would produce an email like this:
 Note that now the last field ("colors") is separated by commas since
 you have multiple values and you specified a comma as your C<joiner>.
 
-=head2 mail(opt => $val, opt => $val)
+=head2 mail()
 
 This is a more generic version of the above; it sends whatever is
 given as the C<text> argument via email verbatim to the C<to> address.
 In addition, if you're not running C<sendmail> you can specify the
 C<mailer> parameter to give the path of your mailer. This option
 is accepted by the above functions as well.
-
-=head2 sessionid($id)
-
-This gets and sets the sessionid, which is stored in the special
-form field C<_sessionid>. By default no session ids are generated
-or used. Rather, this is intended to provide a hook for you to 
-easily integrate this with a session id module like C<Apache::Session>.
-
-Since you can set the session id via the C<_sessionid> field, you
-can pass it as an argument when first showing the form:
-
-    http://mydomain.com/forms/update_info.cgi?_sessionid=0123-091231
-
-This would set things up so that if you called:
-
-    my $id = $form->sessionid;
-
-This would set C<$id> to C<0123-091231> in your script.
-
 
 =head1 TEMPLATES
 
@@ -2892,11 +3412,6 @@ accepts by using a hashref:
                     }
                 );
 
-When using C<HTML::Template>, many different C<< <tmpl_var> >> variables
-are provided for you. For this reason, it is required that you set
-the C<die_on_bad_params> option to C<0> if specifying a hashref.
-This is done for you automatically if you just specify a filename.
-
 In your template, each of the form fields will correspond directly to
 a C<< <tmpl_var> >> of the same name prefixed with "field-" in the
 template. So, if you defined a field called "email", then you would
@@ -2906,6 +3421,7 @@ and this would be expanded to the complete HTML C<< <input> >> tag.
 In addition, there are a couple special fields:
 
     <tmpl_var js-head>     -  JavaScript to stick in <head>
+    <tmpl_var form-title>  -  The <title> of the HTML form
     <tmpl_var form-start>  -  Opening <form> tag w/ options
     <tmpl_var form-submit> -  The submit button(s)
     <tmpl_var form-reset>  -  The reset button
@@ -2937,21 +3453,26 @@ However, you may want even more control. That is, maybe you want
 to specify every nitty-gritty detail of your input fields, and
 just want this module to take care of the statefulness of the
 values. This is no problem, since this module also provides
-a C<< <tmpl_var> >> with the prefix "value-" in your template.
-This will I<only> contain the field's value. So:
+several other C<< <tmpl_var> >> tags as well:
 
-    For the field...  The <input> tag is in   Just the value is in
-    ----------------  ----------------------  ----------------------
-    job               <tmpl_var field-job>    <tmpl_var value-job>
-    size              <tmpl_var field-size>   <tmpl_var value-size>
-    email             <tmpl_var field-email>  <tmpl_var value-email>
+    <tmpl_var value-[field]>   - The value of a given field 
+    <tmpl_var label-[field]>   - The human-readable label
+    <tmpl_var comment-[field]> - Any optional comment
+    <tmpl_var error-[field]>   - Error text if validation fails
 
 This means you could say something like this in your template:
 
+    <tmpl_var label-email>:
     <input type="text" name="email" value="<tmpl_var value-email>">
+    <font size="-1"><i><tmpl_var error-email></i></font>
 
 And B<FormBuilder> would take care of the value stickiness for you,
 while you have control over the specifics of the C<< <input> >> tag.
+A sample expansion may create HTML like the following:
+
+    Email:
+    <input type="text" name="email" value="nate@wiger">
+    <font size="-1"><i>You must enter a valid value</i></font>
 
 Note, though, that this will only get the I<first> value in the case
 of a multi-value parameter (for example, a multi-select list). To
@@ -2988,7 +3509,7 @@ and then decide if it's selected or not.
 
 When you need precise control in a template this is all exposed to you;
 normally B<FormBuilder> does all this magic for you. If you don't need
-exact control over your lists, simply use the C<< <tmpl_var field-XXX> >>
+exact control over your lists, simply use the C<< <tmpl_var field-[name]> >>
 tag and this will all be done automatically, which I strongly recommend.
 
 But, let's assume you need exact control over your lists. Here's an
@@ -3092,6 +3613,7 @@ By default, the Template Toolkit makes all the form and field
 information accessible through simple variables.
 
     [% jshead %]  -  JavaScript to stick in <head>
+    [% title  %]  -  The <title> of the HTML form
     [% start  %]  -  Opening <form> tag w/ options
     [% submit %]  -  The submit button(s)
     [% reset  %]  -  The reset button
@@ -3171,8 +3693,8 @@ is processed.
         },
     );
 
-For further details on using the Template Toolkit, see L<Template> or
-http://template-toolkit.org/ .
+For further details on using the Template Toolkit, see C<Template> or
+www.template-toolkit.org
 
 =head1 EXAMPLES
 
@@ -3391,7 +3913,7 @@ the next part.
 
 With the exception of the database code, that's the whole application.
 
-=head1 FREQUENTLY ASKED QUESTIONS
+=head1 FREQUENTLY ASKED QUESTIONS (FAQ)
 
 There are a couple questions and subtle traps that seem to poke people
 on a regular basis. Here are some hints.
@@ -3412,11 +3934,11 @@ most optimal HTML representation is for you.
 So, if you want a single-option checkbox, simply say something
 like this:
 
-    $form->field(name => 'join_mailing_list', options => 'Yes');
+    $form->field(name => 'join_mailing_list', options => ['Yes']);
 
 If you want it to be checked by default, you add the C<value> arg:
 
-    $form->field(name  => 'join_mailing_list', options => 'Yes',
+    $form->field(name  => 'join_mailing_list', options => ['Yes'],
                  value => 'Yes');
 
 You see, you're creating a field that has one possible option: "Yes".
@@ -3489,11 +4011,17 @@ It will, but chances are you're probably doing something like this:
     # Our "mode" parameter determines what we do
     my $mode = param('mode');
 
-    # Changed our form based on our mode
+    # Change our form based on our mode
     if ($mode eq 'view') {
-        my $form = CGI::FormBuilder->new(...);
+        my $form = CGI::FormBuilder->new(
+                        method => 'POST',
+                        fields => [qw/.../],
+                   );
     } elsif ($mode eq 'edit') {
-        my $form = CGI::FormBuilder->new(...);
+        my $form = CGI::FormBuilder->new(
+                        method => 'POST',
+                        fields => [qw/.../],
+                   );
     }
 
 The problem is this: Once you read a C<POST> request, it's gone
@@ -3512,11 +4040,20 @@ the C<CGI> object you create to the C<params> option of B<FormBuilder>:
     # Our "mode" parameter determines what we do
     my $mode = $cgi->param('mode');
 
-    # Changed our form based on our mode
+    # Change our form based on our mode
+    # Note: since it is POST, must specify the 'params' option
     if ($mode eq 'view') {
-        my $form = CGI::FormBuilder->new(params => $cgi, ...);
+        my $form = CGI::FormBuilder->new(
+                        method => 'POST',
+                        fields => [qw/.../],
+                        params => $cgi      # get CGI params
+                   );
     } elsif ($mode eq 'edit') {
-        my $form = CGI::FormBuilder->new(params => $cgi, ...);
+        my $form = CGI::FormBuilder->new(
+                        method => 'POST',
+                        fields => [qw/.../],
+                        params => $cgi      # get CGI params
+                   );
     }
 
 Or, since B<FormBuilder> gives you a C<cgi_param()> function, you
@@ -3574,16 +4111,30 @@ section on C<validate> above.
 It sure can, and it's really easy too. Just change the C<enctype>
 as an option to C<new()>:
 
-    my $form = CGI::FormBuilder->new(enctype => 'multipart/form-data',
-                                     method  => 'POST', fields => [qw/file/]);
+    use CGI::FormBuilder;
+    my $form = CGI::FormBuilder->new(
+                    enctype => 'multipart/form-data',
+                    method  => 'POST',
+                    fields  => [qw/filename/]
+               );
 
-    $form->field(name => 'file', type => 'file');
+    $form->field(name => 'filename', type => 'file');
 
-And then get your file with:
+And then get to your file the same way as C<CGI.pm>:
 
     if ($form->submitted) {
-        my $file = $form->field('file');
+        my $file = $form->field('filename');
+
         # save contents in file, etc ...
+        open F, ">$dir/$file" or die $!;
+        while (<$file>) {
+            print F;
+        }
+        close F;
+
+        print $form->confirm(header => 1);
+    } else {
+        print $form->render(header => 1);
     }
 
 In fact, that's a whole file upload program right there.
@@ -3611,12 +4162,23 @@ sometimes (although hopefully rarely), you may be scratching your
 head wondering "Why did it do that?". Just use the C<field>
 method to set things up the way you want and move on.
 
-B<FormBuilder> will try to make use of C<CGI::Minimal> if it is
-available, as that module is B<much> faster than C<CGI.pm>. It
-is recommended you get it and install it!
+Due to too many incompatibilities with CGI.pm, unfortunately
+C<CGI::Minimal> is no longer used. Sorry.
 
 The output of the HTML generated natively may change slightly from
 release to release. If you need precise control, use a template.
+
+=head1 SUPPORT
+
+For support, please start by visiting the FormBuilder website at:
+
+    www.formbuilder.org
+
+This site has numerous tutorials and other documentation to help you
+use FormBuilder to its full potential. There will also be a mailing
+list, hopefully setup by the time are read this.
+
+If you can't find the answer there, then feel free to email me directly.
 
 =head1 ACKNOWLEDGEMENTS
 
@@ -3624,15 +4186,19 @@ This module has really taken off, thanks to very useful input, bug
 reports, and encouraging feedback from a number of people, including:
 
     Andy Wardley
+    Jakob Curdes
     Mark Belanger
     Peter Billam
-    Jakob Curdes
+    Godfrey Carnegie
+    Florian Helmberger
     Mark Houliston
     Randy Kobes
     William Large
     Kevin Lubic
+    Mehryar
     Koos Pol
     Shawn Poulson
+    Dan Collis Puro
     John Theus
 
 Thanks!
@@ -3643,11 +4209,11 @@ L<HTML::Template>, L<Template>, L<CGI::Minimal>, L<CGI>, L<CGI::Application>
 
 =head1 VERSION
 
-$Id: FormBuilder.pm,v 2.6 2002/02/28 00:42:05 nwiger Exp $
+$Id: FormBuilder.pm,v 2.7 2002/10/04 17:42:22 nwiger Exp $
 
 =head1 AUTHOR
 
-Copyright (c) 2001-2002 Nathan Wiger <nate@wiger.org>. All Rights 
+Copyright (c) 2001-2002 Nathan Wiger <nate@nateware.com>. All Rights 
 Reserved.
 
 This module is free software; you may copy this under the terms of
