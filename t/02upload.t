@@ -1,6 +1,8 @@
 #!/usr/bin/perl
 
 use strict;
+use vars qw($TESTING);
+$TESTING = 1;
 use Test;
 
 # use a BEGIN block so we print our plan before CGI::FormBuilder is loaded

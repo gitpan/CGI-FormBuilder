@@ -46,7 +46,7 @@ CGI::FormBuilder - Easily generate and process stateful forms
 use Carp;
 use strict;
 use vars qw($VERSION @ISA @EXPORT @EXPORT_OK);
-$VERSION = do { my @r=(q$Revision: 2.2 $=~/\d+/g); sprintf "%d."."%02d"x$#r,@r };
+$VERSION = do { my @r=(q$Revision: 2.5 $=~/\d+/g); sprintf "%d."."%02d"x$#r,@r };
 
 # use CGI for stickiness (prefer CGI::Minimal for _much_ better speed)
 # we try the faster one first, since they're compatible for our needs
@@ -100,11 +100,13 @@ my %VALID = (
 # we interpret are "valid", instead we yank out all the options and
 # stuff that we use internally. This allows arbitrary tags to be
 # specified in the generation of HTML tags. 
-my @OURATTR = qw(options attr sortopts title text body validate javascript fields
-                 selectnum checknum radionum table label labels comment nameopts
-                 required header linebreaks sticky invalid template keepextras
-                 smartness debug lalign submit reset params multiple values static
-                 fieldtype fieldattr font force value_orig);
+my @OURATTR = qw(
+    attr body checknum comment debug fieldattr fields fieldtype font
+    force header invalid javascript keepextras label labels lalign
+    linebreaks multiple nameopts options params radionum required
+    reset selectnum smartness sortopts static sticky submit table
+    template text title validate valign value_orig values
+);
 
 # trick for speedy lookup
 my %OURATTR = map { $_ => 1 } @OURATTR;
@@ -633,31 +635,32 @@ sub render {
     my $outhtml = '';
     my $font = $args{font} ? _tag('font', face => $args{font}) : '';
 
-    # XXX this is a major fucking hack. the only way that we
+    # XXX This is a major fucking hack. the only way that we
     # XXX can reliably keep state is by saving the whole
     # XXX fields part of the object and restoring it later,
-    # XXX since this sub currently alters it. yeeeesh!
-    # XXX yes, this has to be anonymous so it ends up a copy
+    # XXX since this sub currently alters it. Yeeeesh!
+    # XXX Yes, this has to be anonymous so it ends up a copy
     my $oldfn = [ @{$self->{field_names} ||= []} ];
     my $oldfv = { %{$self->{fields} ||= {}} };
 
     # we can also put stuff inside a table if so requested...
     my($to, $tc, $tdl, $tdo, $td2, $tdc, $tro, $trc, $co, $cc) = ('' x 9);
     unless (exists $args{table}) {
-         $args{table} = 1 if @{$self->{field_names}} > 1;
+        $args{table} = 1 if @{$self->{field_names}} > 1;
     }
     if ($args{table}) { 
-        # strictly speaking, these should all use _tag, but this is faster
-        # currently table/tr/td attrs are not supported. should they be?
-        # or should we just tell people to use a fucking template?
+        # Strictly speaking, these should all use _tag, but this is faster.
+        # Currently, table/tr/td attrs are not supported. Should they be?
+        # Or should we just tell people to use a fucking template?
         $to  = '<table>';
         $tc  = '</table>';
-        my $align = $args{lalign} || 'left';
-        $tdl = _tag('td', align => $align) . $font;
-        $tdo = "<td>$font";
-        $td2 = _tag('td', colspan => 2) . $font;
+        $tdl = '<td align="' . ($args{lalign} || 'left') . '">' . $font;
+        $tdo = '<td>' . $font;
+        $td2 = '<td colspan="2">' . $font;
         $tdc = '</td>';
-        $tro = '<tr>';
+        # we cannot use _tag() for <tr>, because @OURATTR filters
+        # out valign (otherwise all tags would have it)
+        $tro = '<tr valign="' . ($args{valign} || 'middle') . '">';
         $trc = '</tr>';
         $co  = '<center>';
         $cc  = '</center>';
@@ -716,8 +719,12 @@ sub render {
             debug 2, "$field: reset value to '@value' as src was CGI and sticky => 0";
         }
 
+        # Pre-catch setting type to 'static', by twiddling an extra flag, which
+        # then tells our else statement below to also print out the value
+        my $static = $attr->{type} eq 'static' || $args{static};
+
         # override the type if we're printing them out statically
-        $attr->{type} = 'hidden' if $args{static};
+        $attr->{type} = 'hidden' if $static;
 
         # set default field type to fieldtype if exists
         $attr->{type} ||= $args{fieldtype} if $args{fieldtype};
@@ -957,18 +964,14 @@ EOF
             @value = (undef) unless @value; # this creates a single-element array
             for my $value (@value) {
                 # setup the value
-                my %value = (defined($value) && $attr->{type} ne 'password') ? (value => $value) : ();
-
-                # special catch: we allow a type of "static" on individual fields
-                # as well as the form, which will show a hidden field's value
-                # XXX this doesn't work, it's more complicated than this...
-                #$attr->{type} = 'hidden' if my $st = ($attr->{type} eq 'static') ? 1 : 0;
+                my %value = (defined($value) && $attr->{type} ne 'password')
+                                ? (value => $value) : ();
 
                 # render the tag
                 $tag .= _tag('input', name => $field, %value, %{$attr});
 
                 # print the value out too when in a static context
-                $tag .= "$value " if $attr->{type} eq 'hidden' && $args{static};
+                $tag .= _escapehtml($value) if $attr->{type} eq 'hidden' && $static;
             }
         }
 
@@ -1037,10 +1040,10 @@ EOF
             $label .= '&nbsp;' if $args{lalign} eq 'right';
 
             # and postfix the helptag if applicable
-            $helptag = '' if $args{nohelp} || $args{static};
+            $helptag = '' if $args{nohelp} || $static;
             $helptag = qq( <font size="-1">($helptag)</font>) if $helptag;
 
-            if ($attr->{type} eq 'hidden' && ! $args{static}) {
+            if ($attr->{type} eq 'hidden' && ! $static) {
                 # hidden fields in a non-static context get, well, hidden
                 $outhtml .= $tag . $br;
             } else {
@@ -1048,7 +1051,7 @@ EOF
                          . $tag . $comment . $helptag . $tdc . $trc . $br;
             }
         }
-    }
+    } # end foreach field loop
 
     # close our JavaScript if it was opened
     if ($jsfunc) {
@@ -1075,17 +1078,17 @@ EOF
                     my $js = $args{submit}
                                 ? qq( onClick="this.form.submit.value = this.value;")
                                 : '';
-                    $submit .= _tag("input$js", name => "submit", type => 'submit',
+                    $submit .= _tag("input$js", type => 'submit', name => '_submit',
                                 value => $s);
                 }
             } else {
                 # show the text on the button
-                $submit = _tag('input', type => 'submit', name => 'submit',
+                $submit = _tag('input', type => 'submit', name => '_submit',
                                 value => ($args{submit} || 'Submit'));
             }
         }
         if ($args{reset} || ! exists $args{reset}) {
-            $reset = _tag('input', type => 'reset', name => 'reset',
+            $reset = _tag('input', type => 'reset', name => '_reset',
                            value => ($args{reset}  || 'Reset'));
         }
     }
@@ -1101,16 +1104,16 @@ EOF
 
     # hidden trailer. if you perceive this as annoying, let me know and I
     # may remove it. it's supposed to help.
-    #$outhtml .= "<!-- generated by CGI::FormBuilder available from cpan.org -->\n";
+    my $copy = $::TESTING ? '' : "<!-- Generated by CGI::FormBuilder v$VERSION available from cpan.org -->\n";
 
     # opening <form> tag: this is reversed, because our JavaScript might
     # have added an onSubmit attr. as such we have to add to the front
     # we also include a couple special state tracking tags, _submitted
     # and _sessionid.
-    my $formtag = _tag('form', %args);
+    my $formtag = _tag('form', %args) . $copy;
     my($sid, $smv) = (0, 0);
-    my $smtag = '_submitted';
-    $smtag .= "_$args{name}" if $args{name};    # suffix w/ form name if present
+    # suffix _submitted w/ form name if present
+    my $smtag = '_submitted' . ($args{name} ? "_$args{name}" : '');
     if ($CGI) {
         $sid = $CGI->param('_sessionid') || '';
         $smv = ($CGI->param($smtag) || 0) + 1;
@@ -1217,7 +1220,7 @@ EOF
 
         # assemble header HTML-compliantly
         $jsfunc = "<html><head><title>$args{title}</title>$jsfunc</head>"
-                . "$body$font<h3>$args{title}</h3>" if $header;
+                . "$body$font<h3>$args{title}</h3>\n" if $header;
 
         # Insert any text we may have specified
         my $text = $args{text} || $args{text} || '';
@@ -1342,7 +1345,7 @@ sub submitted {
         # Must use an "|| 0E0" or else hitting "Enter" won't cause
         # $form->submitted to be true (as the button is only sent
         # across CGI when clicked).
-        return $CGI->param('submit') || '0E0';
+        return $CGI->param('_submit') || '0E0';
     } else {
         return;
     }
@@ -2231,6 +2234,11 @@ check out the C<template> option above.
 
 This takes a string to use as the title of the form. 
 
+=item valign => 'top' | 'middle' | 'bottom'
+
+Another one I don't like, this alters how form fields are laid out in
+the natively-generated table. Default is "middle".
+
 =item values => \%hash | \@array
 
 The C<values> option takes a hashref of key/value pairs specifying
@@ -2620,6 +2628,10 @@ Would sort the C<@cats> options in alpha order.
 Type of input box to make it. Default is "text", and valid values
 include anything allowed by the HTML specs, including "password",
 "select", "radio", "checkbox", "textarea", "hidden", and so on.
+
+If set to "static", then the field will be printed out, but will
+not be editable. Like when you print out a complete static form,
+the field's value will be placed in a hidden field as well.
 
 =item value => $value | \@values
 
@@ -3622,7 +3634,7 @@ L<HTML::Template>, L<Template>, L<CGI::Minimal>, L<CGI>, L<CGI::Application>
 
 =head1 VERSION
 
-$Id: FormBuilder.pm,v 2.2 2002/02/14 22:38:37 nwiger Exp $
+$Id: FormBuilder.pm,v 2.5 2002/02/21 23:26:54 nwiger Exp $
 
 =head1 AUTHOR
 

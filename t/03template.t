@@ -1,6 +1,8 @@
 #!/usr/bin/perl
 
 use strict;
+use vars qw($TESTING);
+$TESTING = 1;
 use Test;
 
 # use a BEGIN block so we print our plan before CGI::FormBuilder is loaded
@@ -72,7 +74,7 @@ Enter your name: <input name="name" type="text">
     
 </select>
 FYI, your dress size is 42<br>
-<input name="reset" type="reset" value="No esta una button del submito"> 
+<input name="_reset" type="reset" value="No esta una button del submito"> 
 </form>
 ),
 
@@ -104,7 +106,7 @@ Enter your name: <input name="name" size="80" type="text">
     
 </select>
 FYI, your dress size is 8<br>
-<input name="reset" type="reset" value="Start over, boob!"> <input name="submit" type="submit" value="Submit">
+<input name="_reset" type="reset" value="Start over, boob!"> <input name="_submit" type="submit" value="Submit">
 </form>
 ),
     },
@@ -145,7 +147,7 @@ Enter your name: <input name="name" type="text">
     
 </select>
 FYI, your dress size is (unknown)<br>
- <input onClick="this.form.submit.value = this.value;" name="submit" type="submit" value="Update"><input onClick="this.form.submit.value = this.value;" name="submit" type="submit" value="Delete">
+ <input onClick="this.form.submit.value = this.value;" name="_submit" type="submit" value="Update"><input onClick="this.form.submit.value = this.value;" name="_submit" type="submit" value="Delete">
 </form>
 ),
     },
