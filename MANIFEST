@@ -1,6 +1,8 @@
 FormBuilder.pm
 Makefile.PL
-test.pl
 Changes
 MANIFEST
 README
+t/00generate.t
+t/01process.t
+t/02upload.t

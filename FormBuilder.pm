@@ -105,7 +105,7 @@ CGI::FormBuilder - Easily generate and process stateful forms
 use Carp;
 use strict;
 use vars qw($VERSION @ISA @EXPORT @EXPORT_OK);
-$VERSION = do { my @r=(q$Revision: 1.94 $=~/\d+/g); sprintf "%d."."%02d"x$#r,@r };
+$VERSION = do { my @r=(q$Revision: 1.96 $=~/\d+/g); sprintf "%d."."%02d"x$#r,@r };
 
 # use CGI for stickiness (prefer CGI::Minimal for _much_ better speed)
 # we try the faster one first, since they're compatible for our needs
@@ -163,7 +163,7 @@ my @OURATTR = qw(options attr sortopts title text body validate javascript field
                  selectnum checknum radionum table label labels comment nameopts
                  required header linebreaks sticky invalid template keepextras
                  smartness debug lalign submit reset params multiple values static
-                 fieldtype fieldattr);
+                 fieldtype fieldattr font);
 
 # trick for speedy lookup
 my %OURATTR = map { $_ => 1 } @OURATTR;
@@ -199,7 +199,7 @@ sub _args (;@) {
 
 sub _data ($) {
     # auto-derefs appropriately
-    my $data = shift() || return;
+    my $data = shift;
     if (my $ref = ref $data) {
         if ($ref eq 'ARRAY') {
             return wantarray ? @{$data} : $data;
@@ -209,7 +209,7 @@ sub _data ($) {
             puke "Sorry, can't handle odd data ref '$ref'";
         }
     } else {
-        return $data;
+        return $data;   # return as-is
     }
 }
 
@@ -231,6 +231,7 @@ sub _indent (;$) {
 sub _toname ($) {
     # creates a name from a var/file name (like file2name)
     my $name = shift;
+    $name =~ s!\.\w+$!!;        # lose trailing ".cgi" or whatever
     $name =~ s![^a-zA-Z0-9.-/]+! !g;
     $name =~ s!\b(\w)!\u$1!g;
     return $name;
@@ -271,7 +272,7 @@ sub _sort (\@$) {
     } elsif ($sort eq 'numeric') {
         @opt = sort { (_data($a))[0] <=> (_data($b))[0] } @opt;
     } else {
-        puke "Unsupported sort type '$sort' specified";
+        puke "Unsupported sort type '$sort' specified - must be 'alpha' or 'numeric'";
     }
 
     # return our options
@@ -295,18 +296,19 @@ sub _initfields {
     my $self = shift;
     my %args = _args(@_);
     my %val  = ();
+    my @val  = ();
 
     # Safety catch
     $self->{fields} ||= {};
     $self->{field_names} ||= [];
 
-    # check to see if it be a hash or array ref
+    # check to see if 'fields' is a hash or array ref
     if (ref $args{fields} eq 'HASH') {
         # with a hash ref, we setup keys/values
         $self->{field_names} = [ sort keys %{$args{fields}} ];
         while(my($k,$v) = each %{$args{fields}}) {
+            $k = lc $k;     # must lc to ignore case
             $val{$k} = [_data $v]; 
-            #$self->{fields}{$k}{options} = $v;
         }
         # now we lie about what $args{fields} contained so 
         # that the below data struct assembly works
@@ -316,35 +318,36 @@ sub _initfields {
         $self->{field_names} = [ _data $args{fields} ];
     } else {
         # not resetting our fields; we're just setting up values
-        $args{fields} = $self->{field_names}
-            || [keys %{$args{values} || {}}];
+        $args{fields} = $self->{field_names} || [keys %{$args{values} || {}}];
     }
 
     # We currently make two passes, first getting the values
-    # and then inserting them in the data struct. This could
-    # probably be done in one pass, but it resulted in too many
-    # lines of duplicate code. Ideas welcomed.
+    # and storing them into a temp hash, and then going thru
+    # the fields and picking up the values.
 
     if ($args{values}) {
         debug 2, "args{values} = $args{values}";
         if (UNIVERSAL::can($args{values}, 'param')) {
             # it's a blessed CGI ref or equivalent, so use its param() method
-            for my $k ($args{values}->param) {
+            for my $key ($args{values}->param) {
                 # always assume an arrayref of values...
-                my @v = $args{values}->param($k);
-                $val{$k} = \@v;
+                $val{$key} = [ $args{values}->param($key) ];
+                debug 1, "retrieved values from param(): $key => @{$val{$key}}";
             }
         } elsif (ref $args{values} eq 'HASH') {
-            # must lc all the keys since we're case-insensitive
+            # must lc all the keys since we're case-insensitive, then
             # we turn our values hashref into an arrayref on the fly
             my @v = _data($args{values});
             while (@v) {
                 my $key = lc shift @v;
                 $val{$key} = [_data shift @v];
-                debug 1, "walking hash: $key => @{$val{$key}}";
+                debug 1, "walking values from HASH: $key => @{$val{$key}}";
             }
+        } elsif (ref $args{values} eq 'ARRAY') {
+            # also accept an arrayref which is walked sequentially below
+            @val = _data $args{values};
         } else {
-            puke "Unsupported operand to 'values' attribute";
+            puke "Unsupported operand to 'values' attribute - must be hashref or object";
         }
     }
 
@@ -353,17 +356,21 @@ sub _initfields {
     for my $k (_data($args{fields})) {
         # We no longer "pre-catch" CGI. Instead, we allow stickiness
         # meaning that CGI values override our default values from above
-        my @v;
+        my @v = ();
         if ($CGI and @v = $CGI->param($k) and "@v") {
             debug 2, "CGI yielded $k = @v";
             $self->{fields}{$k}{value} = \@v;
             $self->{field_cgivals}{$k} = 1;
-        } else {
+        } elsif (%val) {
             # we do not set the value to null if it's already
             # been manually initialized, say through a field() call
-            $self->{fields}{$k}{value} = $val{$k} unless $self->{field_inited}{$k};
+            $self->{fields}{$k}{value} = $val{lc($k)} unless $self->{field_inited}{$k};
+        } elsif (@val) {
+            # now accept an arrayref to 'values' as well; walk sequentially
+            $self->{fields}{$k}{value} = [_data shift @val] unless $self->{field_inited}{$k};
         }
-        #debug 2, "set $k = $self->{fields}{$k}{value}";
+        debug 2, "set $k = $self->{fields}{$k}{value}"
+                    if $self->{fields}{$k}{value};
     }
 
     # Finally, if the user asked for "realsmart", then we try to automatically
@@ -379,15 +386,15 @@ sub _initfields {
                 $self->{opt}{validate}{$field} = 'DATE';
             } elsif ($field =~ /credit.*card/i) {
                 $self->{opt}{validate}{$field} = 'CARD';
-            } elsif ($field =~ /^zipcode$/i) {
+            } elsif ($field =~ /^zip(?:code)?$/i) {
                 $self->{opt}{validate}{$field} = 'ZIPCODE';
             } elsif ($field =~ /^state$/i) {
                 $self->{opt}{validate}{$field} = 'STATE';
-                # the options are the names of the US states
+                # the options are the names of the US states + DC (51)
                 $self->{fields}{$field}{options} =
-                    [qw(AL AK AZ AR CA CO CT DE DC FL GA HI ID IL IN IA KS
+                    [qw(AL AK AZ AR CA CO CT DE DC FL GE HI ID IL IN IA KS
                         KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY NC
-                        ND OH OK OR PA RI SC SD TN TX UT VT WA WV WI WY)];
+                        ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY)];
                 debug 2, "via 'smartness' auto-determined options for '$field' field";
             } elsif ($field =~ /^file/i) {
                 # guess based on the OS we're running!
@@ -499,7 +506,7 @@ sub field {
     my $name = shift unless (@_ % 2 == 0);
     my %args = ();
     if (@_ == 2) {
-        # assumed it's legacy name => value
+        # assumed it's "legacy" name => value
         $args{name} = shift;
         $args{value} = shift;
     } else {
@@ -528,11 +535,8 @@ sub field {
 
     # push onto our order only if we don't have yet... also init
     # the field value from CGI if it exists...
-    unless ($self->{fields}{"$args{name}"}) {
-        #my $cgival = join $", $CGI->param($args{name});
-        #$args{value} = $cgival if $cgival;
+    if (! $self->{fields}{"$args{name}"} && keys(%args) > 1) {
         if ($CGI && $CGI->param($args{name})) {
-            #$args{value} = [ $CGI->param($args{name}) ];
             debug 1, "sticky $args{name} from CGI = " . $CGI->param($args{name});
             $self->{fields}{"$args{name}"}{value} = [ $CGI->param($args{name}) ];
             $self->{field_cgivals}{"$args{name}"} = 1;
@@ -546,8 +550,6 @@ sub field {
         # special catch for value
         debug 2, "walking field() args: $k => $v";
         if ($k eq 'value') {
-            #next if $self->{field_cgivals}{"$args{name}"};  # sticky
-            #debug 1, "not CGI sticky, so setting value => $v";
             debug 1, "manually forced field $args{name} value => $v";
             $self->{field_inited}{"$args{name}"} = 1;
             $v = [_data $v];
@@ -557,8 +559,7 @@ sub field {
 
     # return the value
     my @v = _data($self->{fields}{"$args{name}"}{value});
-    debug 2, "return field($args{name} => @v)";
-    #return wantarray ? @v : "@v";
+    debug 2, "return field($args{name})";
     return wantarray ? @v : $v[0];
 }
 
@@ -612,9 +613,9 @@ sub render {
     # Defaults
     unless($args{title}) {
         # here we get the name based on the executable! nifty!
-        my($n) = $0 =~ m!.*/(.+)\..*!;
+        my($n) = $0 =~ m!.*/(.+)!;
         $args{title} = _toname($n);
-        debug 1, "auto-created the title as '$n' from script name";
+        debug 1, "auto-created title as '$n' from script name";
     }
     $args{text}  ||= '';  # shut up "uninit in concat" in heredoc
     $args{body}  ||= { bgcolor => 'white' };
@@ -673,7 +674,7 @@ sub render {
         } elsif (ref $args{required} eq 'ARRAY') {
             $args{validate}{$_} = 'VALUE' for @{$args{required}};
         } else {
-            belch("argument to 'required' option must be an ARRAYREF or 'ALL'");
+            belch("argument to 'required' option must be an arrayref or 'ALL'");
         }
     }
         
@@ -688,8 +689,8 @@ sub render {
     for my $field ($self->field) {
 
         # any attributes?
-        my $attr  = $self->{fields}{$field} || {};
-        debug 2, "$field:  attr = $attr / value = $attr->{value}";
+        my $attr = $self->{fields}{$field} || {};
+        debug 2, "$field: attr = $attr / value = $attr->{value}";
 
         # print a label unless it's 0
         my $label = '';
@@ -765,7 +766,7 @@ sub render {
                 $attr->{type} = 'text';
                 $attr->{onChange} = delete $attr->{jsclick} if $attr->{jsclick};
             } 
-            debug 2, "field $field set to type $attr->{type} automagically";
+            debug 2, "field '$field' set to type '$attr->{type}' automagically";
         }
 
         debug 1, "generating '$field' field as type '$attr->{type}' (@value)";
@@ -774,6 +775,8 @@ sub render {
         # and we have a validation criterion for that specific field
         my $helptag = '';
         if ($args{validate} and my $pattern = $args{validate}{$field}) {
+
+            debug 2, "now generating JavaScript validation code for '$field'";
 
             # Special catch, since many would assume this would work
             if (ref $pattern eq 'Regexp') {
@@ -1046,12 +1049,11 @@ EOF
         }
         if ($args{reset} || ! exists $args{reset}) {
             $reset  = _tag('input', type => 'reset', name => 'reset',
-                            value => ($args{reset}  || 'Reset'));
+                            value => ($args{reset}  || 'Reset')) . ' ';
         }
     }
 
-    $outhtml .= $tro . $td2 . $co . $reset
-              . ' '  . $submit . $cc
+    $outhtml .= $tro . $td2 . $co . $reset . $submit . $cc
               . $tdc . $trc . $tc . $br;
 
     # closing </form> tag
@@ -2226,15 +2228,25 @@ check out the C<template> option above.
 
 This takes a string to use as the title of the form. 
 
-=item values => \%hash
+=item values => \%hash | \@array
 
 The C<values> option takes a hashref of key/value pairs specifying
 the default values for the fields. These values will be overridden
-by the values entered by the user across the CGI. 
+by the values entered by the user across the CGI. The values are
+used case-insensitively, making it easier to use DBI hashref records
+(which are in upper or lower case depending on your database).
 
 This option is useful for selecting a record from a database or
 hardwiring some sensible defaults, and then including them in the
-form so that the user can change them if they wish.
+form so that the user can change them if they wish. For example:
+
+    my $rec = $sth->fetchrow_hashref;
+    my $form = CGI::FormBuilder->new(fields => \@fields,
+                                     values => $rec);
+
+As of version 1.95, you can also pass an arrayref, in which case
+each value is used sequentially for each field as specified to
+the C<fields> option.
 
 =item validate => \%hash
 
@@ -2656,10 +2668,9 @@ sure the form validation works. To make sure you're getting accurate
 info, it's recommended that you name your forms with the C<name>
 option described above.
 
-Though this not usually what you want, you can also specify the
-name of an optional field which you want to "watch" instead of
-the default C<_submitted> hidden field. This is useful if you
-have a search form and also want to be able to link to it from
+You can also specify the name of an optional field which you want to
+"watch" instead of the default C<_submitted> hidden field. This is useful
+if you have a search form and also want to be able to link to it from
 other documents directly, such as:
 
     mysearch.cgi?lookup=what+to+look+for
@@ -2669,7 +2680,9 @@ field is not included. However, you can override this by saying:
 
     $form->submitted('lookup');
 
-Then, if the lookup key is present, you'll get a true value.
+Then, if the lookup field is present, you'll get a true value.
+(Actually, you'll still get the value of the "Submit" button if
+present.)
 
 =head2 validate(field => '/regex/', field => '/regex/')
 
@@ -2768,9 +2781,9 @@ important fields.
     use strict;
     use CGI::FormBuilder;
 
-    my @states = qw(AL AK AZ AR CA CO CT DE DC FL GA HI ID IN IA KS
-                    KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY
-                    NC ND OH OK OR PA RI SC SD TN TX UT VT WA WV WI WY);
+    my @states = qw(AL AK AZ AR CA CO CT DE DC FL GE HI ID IL IN IA KS
+                    KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY NC
+                    ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY);
 
     my $form = CGI::FormBuilder->new(
                     header => 1, method => 'POST', title => 'Order Info',
@@ -3003,8 +3016,7 @@ not a defined field, you have to get it via the C<cgi_param()> method:
     my $mode = $form->cgi_param('mode');
 
 This will allow you to build a large multiscreen application easily,
-even integrating it with modules like C<CGI::Application> or if
-you want.
+even integrating it with modules like C<CGI::Application> if you want.
 
 You can also do this by simply defining C<mode> as a field in your
 C<fields> declaration. The reason this is discouraged is because
@@ -3050,6 +3062,9 @@ the C<CGI> object you create to the C<params> option of B<FormBuilder>:
     } elsif ($mode eq 'edit') {
         my $form = CGI::FormBuilder->new(params => $cgi, ...);
     }
+
+Or, since B<FormBuilder> gives you a C<cgi_param()> function, you
+could modify your code so you use B<FormBuilder> exclusively.
 
 =head2 How do I make it so that the values aren't shown in the form?
 
@@ -3103,9 +3118,14 @@ as an option to C<new()>:
     my $form = CGI::FormBuilder->new(enctype => 'multipart/form-data',
                                      method  => 'POST', fields => [qw/file/]);
 
+    $form->field(name => 'file', type => 'file');
+
 And then get your file with:
 
-    my $file = $form->field('file');
+    if ($form->submitted) {
+        my $file = $form->field('file');
+        # ... save contents in file, etc ...
+    }
 
 In fact, that's a whole file upload program right there.
 
@@ -3141,21 +3161,21 @@ is recommended you get it and install it!
 This module has really taken off, thanks to very useful input and
 encouraging feedback from a number of people, including:
 
-    Andy Wardley - huge patch enabling Template Toolkit (TT2)
+    Andy Wardley  - huge patch enabling Template Toolkit (TT2)
     Mark Belanger - lots of helpful regex additions and bugfinding
     William Large - tons of debugging help and doc suggestions
-    Kevin Lubic - tons more debugging and encouragement
+    Kevin Lubic   - tons more debugging and encouragement
 
 There have also been a bunch of people who have pointed out bugs
 and to you I am appreciative as well.
 
 =head1 SEE ALSO
 
-L<HTML::Template>, L<Template>, L<CGI::Minimal>, L<CGI>
+L<HTML::Template>, L<Template>, L<CGI::Minimal>, L<CGI>, L<CGI::Application>
 
 =head1 VERSION
 
-$Id: FormBuilder.pm,v 1.94 2001/12/13 22:36:00 nwiger Exp $
+$Id: FormBuilder.pm,v 1.96 2001/12/14 22:21:18 nwiger Exp $
 
 =head1 AUTHOR
 

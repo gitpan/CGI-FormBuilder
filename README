@@ -862,14 +862,24 @@ FUNCTIONS
     title => $title
         This takes a string to use as the title of the form.
 
-    values => \%hash
+    values => \%hash | \@array
         The "values" option takes a hashref of key/value pairs specifying
         the default values for the fields. These values will be overridden
-        by the values entered by the user across the CGI.
+        by the values entered by the user across the CGI. The values are
+        used case-insensitively, making it easier to use DBI hashref records
+        (which are in upper or lower case depending on your database).
 
         This option is useful for selecting a record from a database or
         hardwiring some sensible defaults, and then including them in the
-        form so that the user can change them if they wish.
+        form so that the user can change them if they wish. For example:
+
+            my $rec = $sth->fetchrow_hashref;
+            my $form = CGI::FormBuilder->new(fields => \@fields,
+                                             values => $rec);
+
+        As of version 1.95, you can also pass an arrayref, in which case
+        each value is used sequentially for each field as specified to the
+        "fields" option.
 
     validate => \%hash
         This option takes a hashref of key/value pairs, where each key is
@@ -1267,11 +1277,10 @@ FUNCTIONS
     recommended that you name your forms with the "name" option described
     above.
 
-    Though this not usually what you want, you can also specify the name of
-    an optional field which you want to "watch" instead of the default
-    "_submitted" hidden field. This is useful if you have a search form and
-    also want to be able to link to it from other documents directly, such
-    as:
+    You can also specify the name of an optional field which you want to
+    "watch" instead of the default "_submitted" hidden field. This is useful
+    if you have a search form and also want to be able to link to it from
+    other documents directly, such as:
 
         mysearch.cgi?lookup=what+to+look+for
 
@@ -1280,7 +1289,9 @@ FUNCTIONS
 
         $form->submitted('lookup');
 
-    Then, if the lookup key is present, you'll get a true value.
+    Then, if the lookup field is present, you'll get a true value.
+    (Actually, you'll still get the value of the "Submit" button if
+    present.)
 
   validate(field => '/regex/', field => '/regex/')
 
@@ -1376,9 +1387,9 @@ EXAMPLES
         use strict;
         use CGI::FormBuilder;
 
-        my @states = qw(AL AK AZ AR CA CO CT DE DC FL GA HI ID IN IA KS
-                        KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY
-                        NC ND OH OK OR PA RI SC SD TN TX UT VT WA WV WI WY);
+        my @states = qw(AL AK AZ AR CA CO CT DE DC FL GE HI ID IL IN IA KS
+                        KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY NC
+                        ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY);
 
         my $form = CGI::FormBuilder->new(
                         header => 1, method => 'POST', title => 'Order Info',
@@ -1609,7 +1620,7 @@ FREQUENTLY ASKED QUESTIONS
             my $mode = $form->cgi_param('mode');
 
         This will allow you to build a large multiscreen application easily,
-        even integrating it with modules like "CGI::Application" or if you
+        even integrating it with modules like "CGI::Application" if you
         want.
 
         You can also do this by simply defining "mode" as a field in your
@@ -1656,6 +1667,9 @@ FREQUENTLY ASKED QUESTIONS
             } elsif ($mode eq 'edit') {
                 my $form = CGI::FormBuilder->new(params => $cgi, ...);
             }
+
+        Or, since FormBuilder gives you a "cgi_param()" function, you could
+        modify your code so you use FormBuilder exclusively.
 
   How do I make it so that the values aren't shown in the form?
 
@@ -1709,9 +1723,14 @@ FREQUENTLY ASKED QUESTIONS
             my $form = CGI::FormBuilder->new(enctype => 'multipart/form-data',
                                              method  => 'POST', fields => [qw/file/]);
 
+            $form->field(name => 'file', type => 'file');
+
         And then get your file with:
 
-            my $file = $form->field('file');
+            if ($form->submitted) {
+                my $file = $form->field('file');
+                # ... save contents in file, etc ...
+            }
 
         In fact, that's a whole file upload program right there.
 
@@ -1742,20 +1761,20 @@ ACKNOWLEDGEMENTS
     This module has really taken off, thanks to very useful input and
     encouraging feedback from a number of people, including:
 
-        Andy Wardley - huge patch enabling Template Toolkit (TT2)
+        Andy Wardley  - huge patch enabling Template Toolkit (TT2)
         Mark Belanger - lots of helpful regex additions and bugfinding
         William Large - tons of debugging help and doc suggestions
-        Kevin Lubic - tons more debugging and encouragement
+        Kevin Lubic   - tons more debugging and encouragement
 
     There have also been a bunch of people who have pointed out bugs and to
     you I am appreciative as well.
 
 SEE ALSO
     the HTML::Template manpage, the Template manpage, the CGI::Minimal
-    manpage, the CGI manpage
+    manpage, the CGI manpage, the CGI::Application manpage
 
 VERSION
-    $Id: FormBuilder.pm,v 1.94 2001/12/13 22:36:00 nwiger Exp $
+    $Id: FormBuilder.pm,v 1.96 2001/12/14 22:21:18 nwiger Exp $
 
 AUTHOR
     Copyright (c) 2001 Nathan Wiger <nate@wiger.org>. All Rights Reserved.

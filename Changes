@@ -1,15 +1,24 @@
 
 RCS file: /home/nwiger/perlmod/lib/CGI/RCS/FormBuilder.pm,v
 Working file: /home/nwiger/perlmod/lib/CGI/FormBuilder.pm
-head: 1.94
+head: 1.96
 branch:
 locks: strict
 access list:
 symbolic names:
 keyword substitution: kv
-total revisions: 94;	selected revisions: 94
+total revisions: 96;	selected revisions: 96
 description:
 CGI::FormBuilder for building form-based applications
+----------------------------
+revision 1.96
+date: 2001/12/14 22:21:18;  author: nwiger;  state: Exp;  lines: +6 -5
+squashed a few silly uninitialized warnings
+----------------------------
+revision 1.95
+date: 2001/12/14 22:16:56;  author: nwiger;  state: Exp;  lines: +80 -61
+fixed a bug with mixed-case values, added arrayref capability, more docs
+added lots of tests, many more to come, this should help bugfinding
 ----------------------------
 revision 1.94
 date: 2001/12/13 22:36:00;  author: nwiger;  state: Exp;  lines: +5 -5
