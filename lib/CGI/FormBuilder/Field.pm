@@ -3,7 +3,7 @@ package CGI::FormBuilder::Field;
 
 =head1 NAME
 
-CGI::FormBuilder::Field - internally used to create a FormBuilder field
+CGI::FormBuilder::Field - Internally used to create a FormBuilder field
 
 =head1 SYNOPSIS
 
@@ -42,7 +42,7 @@ use Carp;
 use strict;
 use vars qw($VERSION @TAGATTR %VALIDATE $AUTOLOAD);
 
-$VERSION = '3.01';
+$VERSION = '3.02';
 
 use CGI::FormBuilder::Util;
 
@@ -97,7 +97,7 @@ use overload '""'   => sub { $_[0]->name },
              'eq'   => sub { $_[0]->name eq $_[1] };
 
 sub new {
-    puke "Not enough arguments for Field->new()" unless @_ >= 2;
+    puke "Not enough arguments for Field->new()" unless @_ > 1;
     my $self = shift;
 
     my $form = shift;       # need for top-level attr
@@ -126,11 +126,35 @@ sub force {
     return $self->{force} || $self->{override};
 }
 
+# grab the field_other field if other => 1 specified
+sub other {
+    my $self = shift;
+    $self->{other} = shift if @_;
+    return unless $self->{other};
+    $self->{other} = {} unless ref $self->{other};
+    $self->{other}{name} = $self->othername;
+    return wantarray ? %{$self->{other}} : $self->{other};
+}
+
+sub othername {
+    my $self = shift;
+    return $self->{_form}->othername . '_' . $self->name;
+}
+
+sub growname {
+    my $self = shift;
+    return $self->{_form}->growname . '_' . $self->name;
+}
+
 sub cgi_value {
     my $self = shift;
-    puke "Cannot set the CGI value manually" if @_;
-    debug 2, "called \$field->cgi_value";
+    debug 2, "$self->{name}: called \$field->cgi_value";
+    puke "Cannot set \$field->cgi_value manually" if @_;
     if (my @v = $self->{_form}{params}->param($self->name)) {
+        if ($self->other && $v[0] eq $self->othername) {
+            debug 1, "$self->{name}: redoing value from _other field";
+            @v = $self->{_form}{params}->param($self->othername);
+        }
         local $" = ',';
         debug 2, "$self->{name}: cgi value = (@v)";
         return wantarray ? @v : $v[0];
@@ -140,7 +164,7 @@ sub cgi_value {
 
 sub def_value {
     my $self = shift;
-    debug 2, "called \$field->def_value";
+    debug 2, "$self->{name}: called \$field->def_value";
     if (@_) {
         $self->{value} = cleanargs(@_);  # manually set
         delete $self->{_cache}{type};    # clear auto-type
@@ -157,7 +181,7 @@ sub def_value {
 *values   = \&value;
 sub value {
     my $self = shift;
-    debug 2, "called \$field->value";
+    debug 2, "$self->{name}: called \$field->value";
     if (@_) {
         $self->{value} = cleanargs(@_);  # manually set
         delete $self->{_cache}{type};    # clear auto-type
@@ -179,7 +203,7 @@ sub value {
 # The value in the <tag> may be different than in code (sticky)
 sub tag_value {
     my $self = shift;
-    debug 2, "called \$field->tag_value";
+    debug 2, "$self->{name}: called \$field->tag_value";
     if (@_) {
         # setting the tag_value manually is odd...
         $self->{tag_value} = cleanargs(@_);
@@ -205,15 +229,15 @@ sub type {
     local $^W = 0;    # -w sucks
     my $self = shift;
     $self->{type} = lc shift if @_;
-    debug 2, "called \$field->type";
 
     # catch for old way of saying type => 'static'
-    if ($self->{type} eq 'static') {
-        $self->{static} = 1;
+    if ($self->{type} =~ /^(static|disabled)$/i) {
+        $self->{lc($1)} = 1;
         delete $self->{type};   # still auto-generate a type
     }
 
     # manually set
+    debug 2, "$self->{name}: called \$field->type (current = $self->{type})";
     return lc $self->{type} if $self->{type};
 
     # The $field->type method is called so often that it really slows
@@ -247,8 +271,8 @@ sub type {
                     $type = 'radio';
                 }
             }
-        } elsif ($self->{_form}->smartness >= 2) {
-            debug 2, "$name: smartness >= 2, auto-inferring type based on value";
+        } elsif ($self->{_form}->smartness > 1) {
+            debug 2, "$name: smartness > 1, auto-inferring type based on value";
             # only autoinfer field types based on values with high smartness
             my @v = $self->def_value;   # only on manual, not dubious CGI
             if ($name =~ /passw[or]*d/i) {
@@ -273,7 +297,7 @@ sub type {
 sub label {
     my $self = shift;
     $self->{label} = shift if @_;
-    return $self->{label} if $self->{label};    # manually set
+    return $self->{label} if defined $self->{label};    # manually set
     return toname($self->name);
 }
 
@@ -287,7 +311,7 @@ sub attr {
         my %ret;
         for my $k (@TAGATTR, keys %$self) {
             my $v;
-            next if $k eq 'validate';   # don't invoke validate
+            next if $k =~ /^_/ || $k eq 'validate';   # don't invoke validate
             if ($k eq 'jsclick') {
                 # always has to be a special fucking case
                 $v = $self->{$k};
@@ -340,40 +364,54 @@ sub options {
 }
 
 # per-field messages
-
 sub message {
     my $self = shift;
     $self->{message} = shift if @_;
-    return $self->{message} if $self->{message};    # manually set
-    my $type = shift || $self->type;
-    my $et = 'form_invalid_' . ($type eq 'text' ? 'input' : $type);
-    return $self->{_form}{messages}->$et || $self->{_form}{messages}->form_invalid_default;
+    my $mess = $self->{message};
+    unless ($mess) {
+        my $type = shift || $self->type;
+        my $et = 'form_invalid_' . ($type eq 'text' ? 'input' : $type);
+        $et    = 'form_invalid_input' if $self->other;     # other fields assume text
+        $mess  = sprintf(($self->{_form}{messages}->$et
+                    || $self->{_form}{messages}->form_invalid_default), $self->label);
+    }
+    return $mess;
 }
 
 sub jsmessage {
     my $self = shift;
     $self->{jsmessage} = shift if @_;
-    return $self->{jsmessage} if $self->{jsmessage};
-    my $type = shift || $self->type;
-    my $et = 'js_invalid_' . ($type eq 'text' ? 'input' : $type);
-    return $self->{_form}{messages}->$et || $self->{_form}{messages}->js_invalid_default;
+    my $mess = $self->{jsmessage} || $self->{message};
+    unless ($mess) {
+        my $type = shift || $self->type;
+        my $et = 'js_invalid_' . ($type eq 'text' ? 'input' : $type);
+        $et    = 'js_invalid_input' if $self->other;       # other fields assume text
+        $mess  =  sprintf(($self->{_form}{messages}->$et
+                    || $self->{_form}{messages}->js_invalid_default), $self->label);
+    }
+    return $mess
+}
+
+# simple error wrapper (why wasn't this here?)
+sub error {
+    my $self = shift;
+    return $self->invalid ? $self->message : '';
 }
 
 sub jstype {
     my $self = shift;
     my $type = shift || $self->type;
-    return ($type eq 'radio' || $type eq 'checkbox') ? 'onClick' : 'onChange';
+    return ($type eq 'radio' || $type eq 'checkbox') ? 'onclick' : 'onchange';
 }
 
 sub script {
     my $self = shift;
     my $name = $self->name;
     my $pattern = $self->{validate};
-    return '' unless $self->{_form}->javascript && ($pattern || $self->required);
+    return '' unless $self->javascript && ($pattern || $self->required);
 
     debug 1, "$name: generating JavaScript validation code";
-    my $jsfunc  = '';
-    my $helptag = '';
+    my $jsfunc = '';
 
     # Special catch, since many would assume this would work
     if (ref $pattern eq 'Regexp') {
@@ -382,16 +420,14 @@ sub script {
     }
 
     # Check our hash to see if it's a special pattern
-    ($pattern, $helptag) = autodata $VALIDATE{$pattern} if $VALIDATE{$pattern};
+    $pattern = $VALIDATE{$pattern} if $VALIDATE{$pattern};
 
     # Holders for different parts of JS code
     my $close_brace = '';
-    my $idt = 0;
-    my $is_select = 0;
-    my $in = indent($idt);
+    my $in = indent(my $idt = 1);   # indent
 
     # make field name JS-safe
-    (my $jsfield = $name) =~ s/\W+/_/g;
+    my $jsfield = tovar($name);
 
     # Need some magical JavaScript crap to figure out the type of value
     # God the DOM sucks so much ass!!!! I can't believe the value element
@@ -404,34 +440,56 @@ sub script {
     # we can simply integrate the custom message with the predefined text
 
     my $type = shift || $self->type;
-    my $alertstr = sprintf $self->jsmessage, $self->label;
-    $alertstr =~ s/'/\\'/g;     # handle embedded '
+    my $alertstr = escapejs($self->jsmessage);  # handle embedded '
     $alertstr .= '\n';
 
     debug 2, "$name: type is '$type', generating JavaScript";
     if ($type eq 'select') {
 
         # Get value for field from select list
-        # Always assume it is a multiple to guarantee we get all values
-        $jsfunc .= <<EOF;
-$in    // select list: always assume it's multiple to get all values
-$in    var selected_$jsfield = 0;
-$in    for (var loop = 0; loop < form.elements['$name'].options.length; loop++) {
-$in        if (form.elements['$name'].options[loop].selected) {
-$in            var $jsfield = form.elements['$name'].options[loop].value;
-$in            selected_$jsfield++;
-EOF
-        $close_brace = <<EOF;
+        # Always assume it's multiple to guarantee we get all values
+        $jsfunc .= <<EOJS;
+    // $name: select list, always assume it's multiple to get all values
+    var $jsfield = null;
+    var selected_$jsfield = 0;
+    for (var loop = 0; loop < form.elements['$name'].options.length; loop++) {
+        if (form.elements['$name'].options[loop].selected) {
+            $jsfield = form.elements['$name'].options[loop].value;
+            selected_$jsfield++;
+EOJS
 
-$in        }
-$in    } // close for loop;
-$in    if (! selected_$jsfield) {
-$in        alertstr += '$alertstr';
-$in        invalid++;
-$in    }
-EOF
+        # Add catch for "other" if applicable
+        if ($self->other) {
+            my $oth = $self->othername;
+            $jsfunc .= <<EOJS;
+            if ($jsfield == '$oth') $jsfield = form.elements['$oth'].value;
+EOJS
+        }
+
+        $close_brace = <<EOJS;
+
+        } // if
+    } // for $name
+EOJS
+        $close_brace .= <<EOJS if $self->required;
+    if (! selected_$jsfield) {
+        alertstr += '$alertstr';
+        invalid++;
+    }
+EOJS
+        # indent the very last if/else tests so they're in the for loop
         $in = indent($idt += 2);
-        $is_select++;
+
+    } elsif ($type eq 'checkbox' && $self->options == 1) {
+
+        # Simple single-element on/off checkbox
+        $jsfunc .= <<EOJS;
+    // $name: single-element checkbox
+    var $jsfield = null;
+    if (document.getElementById('$name') != null && form.elements['$name'].checked) {
+        $jsfield = form.elements['$name'].value;
+    }
+EOJS
 
     } elsif ($type eq 'radio' || $type eq 'checkbox') {
 
@@ -439,36 +497,88 @@ EOF
         # Must cycle through all again to see which is checked. yeesh.
         # However, this only works if there are MULTIPLE checkboxes!
         # The fucking JS DOM *changes* based on one or multiple boxes!?!?!
-        # Damn damn damn I have the JavaScript DOM so damn much!!!!!!
-        $jsfunc .= <<EOF;
-$in    // radio group or checkboxes
-$in    var $jsfield = '';
-$in    if (form.elements['$name'][0]) {
-$in        for (var loop = 0; loop < form.elements['$name'].length; loop++) {
-$in            if (form.elements['$name']\[loop].checked) {
-$in                $jsfield = form.elements['$name']\[loop].value;
-$in            }
-$in        }
-$in    } else {
-$in        if (form.elements['$name'].checked) {
-$in            $jsfield = form.elements['$name'].value;
-$in        }
-$in    }
-EOF
+        # Damn damn damn I hate the JavaScript DOM so damn much!!!!!!
+
+        $jsfunc .= <<EOJS;
+    // $name: radio group or multiple checkboxes
+    var $jsfield = null;
+    var selected_$jsfield = 0;
+    for (var loop = 0; loop < form.elements['$name'].length; loop++) {
+        if (form.elements['$name']\[loop].checked) {
+            $jsfield = form.elements['$name']\[loop].value;
+            selected_$jsfield++;
+EOJS
+
+        # Add catch for "other" if applicable
+        if ($self->other) {
+            my $oth = $self->othername;
+            $jsfunc .= <<EOJS;
+            if ($jsfield == '$oth') $jsfield = form.elements['$oth'].value;
+EOJS
+        }
+
+        $close_brace = <<EOJS;
+
+        } // if
+    } // for $name
+EOJS
+        # required?
+        $close_brace .= <<EOJS if $self->required;
+    if (! selected_$jsfield) {
+        alertstr += '$alertstr';
+        invalid++;
+    }
+EOJS
+        # indent the very last if/else tests so they're in the for loop
+        $in = indent($idt += 2);
+
+    } elsif ($self->growable) {
+        # special handling for growable, have to dynamically
+        # find out how many have been created
+        $jsfunc .= <<EOJS;
+    // $name: growable text or file box
+    var $jsfield = null;
+    var entered_$jsfield = 0;
+    var i = 0;
+    while (1) {
+        var growel = document.getElementById('$jsfield'+'_'+i);
+        if (growel == null) break;  // last element
+        $jsfield = growel.value;
+        entered_$jsfield++;
+        i++;
+EOJS
+
+        $close_brace = <<EOJS;
+
+    } // while $name
+EOJS
+
+        # required?
+        $close_brace .= <<EOJS if $self->required;
+    if (! entered_$jsfield) {
+        alertstr += '$alertstr';
+        invalid++;
+    }
+EOJS
+        # indent the very last if/else tests so they're in the while loop
+        $in = indent($idt += 1);
+
     } else {
 
         # get value from text or other straight input
         # at least this part makes some sense
-        $jsfunc .= <<EOF;
-$in    // standard text, hidden, password, or textarea box
-$in    var $jsfield = form.elements['$name'].value;
-EOF
+        $jsfunc .= <<EOJS;
+    // $name: standard text, hidden, password, or textarea box
+    var $jsfield = form.elements['$name'].value;
+EOJS
+
     }
 
     # Our fields are only required if the required option is set
     # So, if not set, add a not-null check to the if below
-    my $nn = $self->required ? ''
-           : qq{($jsfield || $jsfield === 0) &&\n$in       };
+    my $notnull = $self->required 
+                     ? qq[$jsfield == null ||]                     # must have or error
+                     : qq[$jsfield != null && $jsfield != "" &&];  # only care if filled in
 
     # hashref is a grouping per-language
     if (ref $pattern eq 'HASH') {
@@ -479,29 +589,32 @@ EOF
         # JavaScript regexp
         ($pattern = $2) =~ s/\\\//\//g;
         $pattern =~ s/\//\\\//g;
-        $jsfunc .= qq($in    if ($nn (! $jsfield.match(/$pattern/)) ) {\n);
-    } elsif (ref $pattern eq 'ARRAY') {
-        # must be w/i this set of values
-        # can you figure out how this piece of Perl works? ha ha ha ha ....
-        $jsfunc .= "$in    if ($nn ($jsfield != '"
-                 . join("' && $jsfield != '", @{$pattern}) . "') ) {\n";
-    } elsif ($pattern eq 'VALUE' || ($self->required && (! $pattern || ref $pattern eq 'CODE'))) {
+        $jsfunc .= qq[${in}if ($notnull ! $jsfield.match(/$pattern/)) {\n];
+    }
+    elsif (ref $pattern eq 'ARRAY') {
+        # Must be w/i this set of values
+        # Can you figure out how this piece of Perl works? No, seriously, I forgot.
+        $jsfunc .= qq[${in}if ($notnull ($jsfield != ']
+                 . join("' && $jsfield != '", @{$pattern}) . "')) {\n";
+    }
+    elsif ($pattern eq 'VALUE' || ($self->required && (! $pattern || ref $pattern eq 'CODE'))) {
         # Not null (for required sub refs, just check for a value)
-        $jsfunc .= qq($in    if ($nn ((! $jsfield && $jsfield != 0) || $jsfield === "")) {\n);
-    } else {
-        # literal string is a literal comparison, but provide
+        $jsfunc .= qq[${in}if ($notnull $jsfield === "") {\n];
+    }
+    else {
+        # Literal string is literal code to execute, but provide
         # a warning just in case
         belch "Validation string '$pattern' may be a typo of a builtin pattern"
             if $pattern =~ /^[A-Z]+$/;
-        $jsfunc .= qq($in    if ($nn ! ($jsfield $pattern)) {\n);
+        $jsfunc .= qq[${in}if ($notnull $jsfield $pattern) {\n];
     }
 
-    # add on our alert message, which is unfortunately always generic
-    $jsfunc .= <<EOF;
-$in        alertstr += '$alertstr';
-$in        invalid++;
-$in    }$close_brace
-EOF
+    # add on our alert message, but only if it's required
+    $jsfunc .= <<EOJS;
+$in    alertstr += '$alertstr';
+$in    invalid++;
+$in}$close_brace
+EOJS
 
     return $jsfunc;
 }
@@ -521,24 +634,45 @@ sub tag {
     $attr{type} = $type;     # override
     delete $attr{value};     # useless in all tags
 
-    # Setup class for stylesheets
+    # Disable field/form
+    $attr{disabled} = 'disabled' if $self->disabled;
+
+    # Setup class for stylesheets and JS vars
     $attr{class} ||= $self->{_form}{styleclass} . $type if $self->{_form}{stylesheet};
+    my $jspre = $self->{_form}->jsprefix;
 
     my $tag   = '';
     my @value = $self->tag_value;   # sticky is different in <tag>
+    my @opt   = $self->options;
+    debug 2, "my(@opt) = \$field->options";
 
+    # Add in our "Other:" option if applicable
+    push @opt, [$self->othername, $self->{_form}{messages}->form_other_default]
+             if $self->other;
+
+    debug 2, "$self->{name}: generating $type input type";
     if ($type eq 'select') {
         # First the top-level select
         delete $attr{type};     # type="select" invalid
         $attr{multiple} = $self->multiple if $self->multiple;
+
+        # Prefix options with "-select-"
+        unshift @opt, ['', $self->{_form}{messages}->form_select_default]
+                if $self->{_form}->smartness && ! $attr{multiple};  # set above
+
+        # Special event handling for our _other field
+        if ($self->other && $self->javascript) {
+            my $n = @opt - 1;           # last element
+            my $b = $self->othername;   # box
+            # w/o newlines
+            $attr{onChange} = "if (this.selectedIndex == $n) { "
+                            . "${jspre}other_on('$b') } else { ${jspre}other_off('$b') }";
+        }
+
+        # render <select> tag
         $tag .= htmltag($type, %attr);
 
-        # Now all our options
-        my @opt = $self->options;
-        debug 2, "my (" . @opt . ") = \$field->options";
-        unshift @opt, ['', $self->{_form}->{messages}->form_select_default]
-                if $self->{_form}->smartness && ! $attr{multiple};  # set above
-        
+        belch "No options specified for field '$self->{name}' of type '$type'" unless @opt;
         for my $opt (@opt) {
             # Since our data structure is a series of ['',''] things,
             # we get the name from that. If not, then it's a list
@@ -547,7 +681,9 @@ sub tag {
             $n ||= $attr{labels}{$o} || ($self->nameopts ? toname($o) : $o);
             my %slct = ismember($o, @value) ? (selected => 'selected') : ();
             $slct{value} = $o;
-            $tag .= htmltag('option', %slct) . escapehtml($n) . '</option>';
+            $tag .= htmltag('option', %slct)
+                  . ($self->cleanopts ? escapehtml($n) : $n)
+                  . '</option>';
         }
         $tag .= '</select>';
     }
@@ -556,17 +692,14 @@ sub tag {
         my $checkbox_col = 0;
         if ($self->columns > 0) {
             $checkbox_table = 1;
-            $tag .= htmltag('table', { $self->{_form}->table, border => 0 });
+            $tag .= $self->{_form}->table(border => 0);
         }
 
-        # Get our options
-        my @opt = $self->options;
-        debug 2, "my @opt = \$field->options";
-
+        belch "No options specified for field '$self->{name}' of type '$type'" unless @opt;
         for my $opt (@opt) {
             #  Divide up checkboxes in a user-controlled manner
             if ($checkbox_table) {
-                $tag .= "<tr>\n" if $checkbox_col % $self->columns == 0;
+                $tag .= "\n<tr>" if $checkbox_col % $self->columns == 0;
                 $tag .= '<td>' . $self->{_form}->font;
             }
             # Since our data structure is a series of ['',''] things,
@@ -578,10 +711,38 @@ sub tag {
 
             # reset some attrs
             $attr{value} = $o;
-            $attr{id} = "$attr{name}_$o";
+            if (@opt == 1) {
+                # single option checkboxes do not modify id
+                $attr{id} ||= $attr{name};
+            } else {
+                # all others add the current option name
+                $attr{id} = $o eq $self->othername ? "_$attr{name}" 
+                                                   : "$attr{name}_$o";
+            }
 
-            $tag .= htmltag('input', %attr, @slct) . ' ' . 
-                       htmltag('label', for => $attr{id}) . escapehtml($n) . '</label> ';
+            # Special event handling for our _other field
+            if ($self->other && $self->javascript) {
+                my $b = $self->othername;   # box
+                if ($n eq $self->{_form}{messages}->form_other_default) {
+                    # w/o newlines
+                    $attr{onclick} = "var box = document.getElementById('$b'); "
+                                   . "box.removeAttribute('disabled');";
+                    $attr{onclick} = "${jspre}other_on('$b')";
+                } else {
+                    # w/o newlines
+                    $attr{onclick} = "var box = document.getElementById('$b'); "
+                                   . "box.setAttribute('disabled', 'disabled');";
+                    $attr{onclick} = "${jspre}other_off('$b')";
+                }
+            }
+
+            # Each radio/checkbox gets a human thingy with <label> around it
+            $tag .= htmltag('input', %attr, @slct);
+            $tag .= $checkbox_table ? ('</td><td>'.$self->{_form}->font) : ' ';
+            $tag .= htmltag('label', for => $attr{id})
+                  . ($self->cleanopts ? escapehtml($n) : $n)
+                  . '</label> ';
+
             $tag .= '<br />' if $self->linebreaks;
 
             if ($checkbox_table) {
@@ -602,20 +763,70 @@ sub tag {
         # way to handle multiple form values of the same name
         # (i.e., multiple <input> or <hidden> fields)
         @value = (undef) unless @value; # this creates a single-element array
+
+        # growable handling
+        my $count = 0;  # for tracking the size of growable fields
+        my $limit;      # for providing (optional) limits to growable fields 
+        my $at_limit;   # have we reached the limit of a growable field?
+        if ($self->growable && $self->growable ne 1) {
+            $limit = $self->growable;
+        }
+
         for my $value (@value) {
+            if ($limit && $count == $limit) {
+                belch "Number of supplied values (" . @value . ")"
+                    . " for '$attr{name}' exceeds growable limit $limit - discarding excess";
+                $at_limit = 1;
+                last;
+            }
+            
             # setup the value
             $attr{value} = $value;      # override
             delete $attr{value} unless defined $value;
 
+            if ($self->growable && $self->javascript) {
+                # the inputs in growable fields need a unique id for fb_grow()
+                $attr{id} = "$attr{name}_$count";
+                $count++;
+            }
+
             # render the tag
             $tag .= htmltag('input', %attr);
+
+            # if have options, lookup the label instead of the true value
+            for (@opt) {
+                my($o,$n) = optval($_);
+                $n ||= $attr{labels}{$o} || ($self->nameopts ? toname($o) : $o);
+                $value = $n, last if $n;
+            }
 
             # print the value out too when in a static context, EXCEPT for
             # manually hidden fields (those that the user hid themselves)
             my $tagcom = escapehtml($value);
             $tag .= $tagcom . ' ' if $self->static && $tagcom && $usertype ne 'hidden';
             debug 2, "if ", $self->static, " && $tagcom && $usertype ne 'hidden';";
-            $tag .= '<br />' if $self->linebreaks;
+
+            if ($self->growable && $self->javascript) {
+                # put linebreaks between the input tags in growable fields
+                # this puts the "Additonal [label]" button on the same line
+                # as the last input tag
+                $tag .= '<br />' unless $count == @value;
+            } else {
+                $tag .= '<br />' if $self->linebreaks;
+            }
+        }
+        # check to see if we just hit the limit
+        $at_limit = 1 if $limit && $count == $limit;
+
+        # add the "Additional [label]" button
+        if ($self->growable && $self->javascript) {
+            $tag .= ' ' . htmltag('input',
+                id      => $self->growname,
+                type    => 'button',
+                onclick => "${jspre}grow('$attr{name}')",
+                value   => sprintf($self->{_form}{messages}->form_grow_default, $self->label),
+                ( $at_limit ? ( disabled => 'disabled') : () ),
+            );
         }
 
         # special catch to make life easier (too action-at-a-distance?)
@@ -625,7 +836,20 @@ sub tag {
             debug 2, "verified enctype => 'multipart/form-data' for 'file' field";
         }
     }
-    debug 2, "generation done, got tag = $tag";
+
+    if ($self->other) {
+        # add an additional tag for our _other field
+        my %oa = $self->other;  # other attr
+        # default settings
+        $oa{type}  ||= 'text';
+        $oa{disabled} = 'disabled' if $self->javascript;   # fanciness
+        if ($self->sticky and my $v = $self->{_form}->cgi_param($self->othername)) {
+            $oa{value} = $v;
+        }
+        $tag .= ' ' . htmltag('input', %oa);
+    }
+
+    debug 2, "$self->{name}: generated tag = $tag";
     return $tag;       # always return scalar tag
 }
 
@@ -641,35 +865,35 @@ sub validate () {
     my $pattern = shift || $self->{validate};
     my $field   = $self->name;
 
-    debug 1, "called \$field->validate(@_) for field '$field'";
+    debug 1, "$self->{name}: called \$field->validate(@_) for field '$field'";
 
-    # Fail or success?
-    my $bad = 0;
+    # Check our hash to see if it's a special pattern
+    ($pattern) = autodata($VALIDATE{$pattern}) if $VALIDATE{$pattern};
 
-    # only continue if field is required or filled in
-    if ($self->required) {
-        debug 1, "$field: is required per 'required' param";
-    } else {
-        debug 1, "$field: is optional per 'required' param";
-        return 1 unless length $self->field($field) && defined $pattern;
-        debug 1, "$field: ...but is defined, so still checking";
+    # Hashref is a grouping per-language
+    if (ref $pattern eq 'HASH') {
+        $pattern = $pattern->{perl} || return 1;
     }
 
-    # loop thru, and if something isn't valid, we tag it
+    # Counter for fail or success
+    my $bad = 0;
+
+    # Loop thru, and if something isn't valid, we tag it
     my $atleastone = 0;
     $self->{invalid} ||= 0;
     for my $value ($self->value) {
         my $thisfail = 0;
-        $atleastone++;
 
-        # Check our hash to see if it's a special pattern
-        ($pattern) = autodata($VALIDATE{$pattern}) if $VALIDATE{$pattern};
-
-        # hashref is a grouping per-language
-        if (ref $pattern eq 'HASH') {
-            $pattern = $pattern->{perl} || next;
+        # only continue if field is required or filled in
+        if ($self->required) {
+            debug 1, "$field: is required per 'required' param";
+        } else {
+            debug 1, "$field: is optional per 'required' param";
+            next unless length($value) && defined($pattern);
+            debug 1, "$field: ...but is defined, so still checking";
         }
 
+        $atleastone++;
         debug 1, "$field: validating ($value) against pattern '$pattern'";
 
         if ($pattern =~ m#^m(\S)(.*)\1$# || $pattern =~ m#^(/)(.*)\1$#) {
@@ -713,16 +937,17 @@ sub validate () {
         # Just for debugging's sake
         $thisfail ? debug 2, "$field: pattern FAILED"
                   : debug 2, "$field: pattern passed";
-        $self->{invalid} = $thisfail;
     }
 
     # If not $atleastone and they asked for validation, then we
     # know that we have an error since this means no values
-    if ($bad || ! $atleastone) {
+    if ($bad || (! $atleastone && $self->required)) {
         debug 1, "$field: validation FAILED";
+        $self->{invalid} = $bad || 1;
         return;
     } else {
         debug 1, "$field: validation passed";
+        delete $self->{invalid};    # in case of previous run
         return 1;
     }
 }
@@ -739,6 +964,34 @@ sub static () {
     return $self->{static} if exists $self->{static};
     # check parent for this as well
     return $self->{_form}{static};
+}
+
+sub disabled () {
+    my $self = shift;
+    $self->{disabled} = shift if @_;
+    return $self->{disabled} if exists $self->{disabled};
+    # check parent for this as well
+    return $self->{_form}{disabled};
+}
+
+sub javascript () {
+    my $self = shift;
+    $self->{javascript} = shift if @_;
+    return $self->{javascript} if exists $self->{javascript};
+    # check parent for this as well
+    return $self->{_form}{javascript};
+}
+
+sub growable () {
+    my $self = shift;
+    $self->{growable} = shift if @_;
+    return unless $self->{growable};
+    # check to make sure we're only a text or file type
+    unless ($self->type eq 'text' || $self->type eq 'file') {
+        belch "The 'growable' option only works with 'text' or 'file' fields";
+        return;
+    }
+    return $self->{growable};
 }
 
 sub name () {
@@ -763,8 +1016,8 @@ sub AUTOLOAD {
     return $self->{$name};
 }
 
-# End of Perl code
 1;
+__END__
 
 =head1 DESCRIPTION
 
@@ -909,6 +1162,8 @@ manipulating values as if from a C<field()> call:
     $f->jsclick($code)      $form->field(jsclick => $code)
     $f->sticky(0|1)         $form->field(sticky => 0|1);
     $f->force(0|1)          $form->field(force => 0|1);
+    $f->growable(0|1)       $form->field(growable => 0|1);
+    $f->other(0|1)          $form->field(other => 0|1);
 
 =head1 SEE ALSO
 
@@ -916,7 +1171,7 @@ L<CGI::FormBuilder>
 
 =head1 REVISION
 
-$Id: Field.pm,v 1.22 2005/02/10 20:15:52 nwiger Exp $
+$Id: Field.pm,v 1.39 2005/04/15 18:33:11 nwiger Exp $
 
 =head1 AUTHOR
 

@@ -3,7 +3,7 @@ package CGI::FormBuilder::Messages;
 
 =head1 NAME
 
-CGI::FormBuilder::Messages - localized message support for FormBuilder
+CGI::FormBuilder::Messages - Localized message support for FormBuilder
 
 =head1 SYNOPSIS
 
@@ -19,7 +19,7 @@ use Carp;
 use strict;
 use vars qw($VERSION %MESSAGES $AUTOLOAD);
 
-$VERSION = '3.01';
+$VERSION = '3.02';
 
 use CGI::FormBuilder::Util;
 
@@ -29,14 +29,15 @@ use CGI::FormBuilder::Util;
     js_invalid_start      => '%s error(s) were encountered with your submission:',
     js_invalid_end        => 'Please correct these fields and try again.',
 
-    js_invalid_input      => '- You must enter a valid value for the "%s" field',
-    js_invalid_select     => '- You must choose an option for the "%s" field',
-    js_invalid_checkbox   => '- You must choose an option for the "%s" field',
-    js_invalid_radio      => '- You must choose an option for the "%s" field',
-    js_invalid_password   => '- You must enter a valid value for the "%s" field',
-    js_invalid_textarea   => '- You must fill in the "%s" field',
-    js_invalid_file       => '- You must specify a valid file for the "%s" field',
-    js_invalid_default    => '- You must enter a valid value for the "%s" field',
+    js_invalid_input      => '- Invalid entry for the "%s" field',
+    js_invalid_select     => '- Select an option from the "%s" list',
+    js_invalid_multiple   => '- Select one or more options from the "%s" list',
+    js_invalid_checkbox   => '- Check one or more of the "%s" options',
+    js_invalid_radio      => '- Choose one of the "%s" options',
+    js_invalid_password   => '- Invalid entry for the "%s" field',
+    js_invalid_textarea   => '- Please fill in the "%s" field',
+    js_invalid_file       => '- Invalid filename for the "%s" field',
+    js_invalid_default    => '- Invalid entry for the "%s" field',
 
     js_noscript           => '<p><font color="red"><b>Please enable JavaScript or '
                            . 'use a newer browser.</b></font></p>',
@@ -47,18 +48,22 @@ use CGI::FormBuilder::Util;
 
     form_invalid_text     => '<p>%s error(s) were encountered with your submission. '
                            . 'Please correct the fields %shighlighted%s below.</p>',
+    form_invalid_opentag  => '<font color="red"><b>',
+    form_invalid_closetag => '</b></font>',
     form_invalid_color    => 'red',
 
-    form_invalid_input    => 'You must enter a valid value',
-    form_invalid_select   => 'You must choose an option from this list',
-    form_invalid_checkbox => 'You must choose an option from this group',
-    form_invalid_radio    => 'You must choose an option from this group',
-    form_invalid_password => 'You must enter a valid value',
-    form_invalid_textarea => 'You must fill in this field',
-    form_invalid_file     => 'You must specify a valid filename',
-    form_invalid_default  => 'You must enter a valid value',
+    form_invalid_input    => 'Invalid entry',
+    form_invalid_select   => 'Select an option from this list',
+    form_invalid_checkbox => 'Check one or more options',
+    form_invalid_radio    => 'Choose an option',
+    form_invalid_password => 'Invalid entry',
+    form_invalid_textarea => 'Please fill this in',
+    form_invalid_file     => 'Invalid filename',
+    form_invalid_default  => 'Invalid entry',
 
+    form_grow_default     => 'Additional %s',
     form_select_default   => '-select-',
+    form_other_default    => 'Other:',
     form_submit_default   => 'Submit',
     form_reset_default    => 'Reset',
     
@@ -107,27 +112,40 @@ sub new {
     return bless \%hash, $class;
 }
 
+*messages = \&message;
 sub message {
     my $self = shift;
     my $key  = shift;
     unless ($key) {
-        return wantarray ? %$self : $self;
+        if (ref $self) {
+            return wantarray ? %$self : $self;
+        } else {
+            # requesting a byname dump
+            for my $k (sort keys %MESSAGES) {
+                printf "    %-20s\t%s\n", $k, $MESSAGES{$k};
+            }
+            exit;
+        }
     }
     $self->{$key} = shift if @_;
-    belch "No message string found for '$key'" unless $self->{$key};
+    belch "No message string found for '$key'" unless exists $self->{$key};
+    if (ref $self->{$key} eq 'ARRAY') {
+        # hack catch for external file
+        $self->{$key} = join ', ', @{$self->{$key}};
+    }
     return $self->{$key} || '';
 }
 
 sub DESTROY { 1 }
 sub AUTOLOAD {
-    # This allows direct addressing by name, for overloadable usage
+    # This allows direct addressing by name, for subclassable usage
     my $self = shift;
-    (my $name = $AUTOLOAD) =~ s/.*:://;
+    my($name) = $AUTOLOAD =~ /.*::(.+)/;
     return $self->message($name, @_);
 }
 
-# End of Perl code
 1;
+__END__
 
 =head1 DESCRIPTION
 
@@ -175,52 +193,52 @@ Alternatively, you could specify this directly as a hashref:
 Although in practice this is rarely useful, unless you just want to
 tweak one or two things.
 
-This system is easy, and there are many many messages that can be
-customized. Here is a list of the fields that can be customized,
-along with their default values.
+This system is easy, and there are many many messages that can be customized.
+Here is a list of messages, along with their default values:
 
-    js_invalid_start        %s error(s) were encountered with your submission:
-    js_invalid_end          Please correct these fields and try again.
+    form_invalid_checkbox	Check one or more options
+    form_invalid_color  	red
+    form_invalid_default	Invalid entry
+    form_invalid_file   	Invalid filename
+    form_invalid_input  	Invalid entry
+    form_invalid_opentag	<font color="red"><b>
+    form_invalid_radio  	Choose an option
+    form_invalid_select 	Select an option from this list
+    form_invalid_textarea	Please fill this in
 
-    js_invalid_input        - You must enter a valid value for the "%s" field
-    js_invalid_select       - You must choose an option for the "%s" field
-    js_invalid_checkbox     - You must choose an option for the "%s" field
-    js_invalid_radio        - You must choose an option for the "%s" field
-    js_invalid_password     - You must enter a valid value for the "%s" field
-    js_invalid_textarea     - You must fill in the "%s" field
-    js_invalid_file         - You must specify a valid file for the "%s" field
-    js_invalid_default      - You must enter a valid value for the "%s" field
+    form_invalid_text   	<p>%s error(s) were encountered with your submission.
+                            Please correct the fields %shighlighted%s below.</p>
+    form_invalid_closetag	</b></font>
+    form_invalid_password	Invalid entry
 
-    js_noscript             <p><font color="red"><b>Please enable JavaScript or
-                            use a newer browser.</b></font></p>
+    form_required_text  	<p>Fields that are %shighlighted%s are required.</p>
+    form_required_closetag	</b>
+    form_required_opentag	<b>
 
-    form_required_text      <p>Fields that are highlighted are required.</p>
-    form_required_opentag   <b>
-    form_required_closetag  </b>
+    form_confirm_text   	Success! Your submission has been received %s.
 
-    form_invalid_text       <p>%s error(s) were encountered with your submission.
-                            Please correct the fields highlighted below.</p>
-    form_invalid_opentag    <font color="red"><b>
-    form_invalid_closetag   </font></b>
+    form_select_default 	-select-
+    form_grow_default   	Additional %s
+    form_other_default  	Other:
+    form_reset_default  	Reset
+    form_submit_default 	Submit
 
-    form_invalid_input      You must enter a valid value
-    form_invalid_select     You must choose an option from this list
-    form_invalid_checkbox   You must choose an option from this group
-    form_invalid_radio      You must choose an option from this group
-    form_invalid_password   You must enter a valid value
-    form_invalid_textarea   You must fill in this field
-    form_invalid_file       You must specify a valid filename
-    form_invalid_default    You must enter a valid value
+    js_noscript         	<p><font color="red"><b>Please enable JavaScript or use a newer browser.</b></font></p>
+    js_invalid_start    	%s error(s) were encountered with your submission:
+    js_invalid_end      	Please correct these fields and try again.
 
-    form_select_default     -select-
-    form_submit_default     Submit
-    form_reset_default      Reset
+    js_invalid_checkbox 	- Check one or more of the "%s" options
+    js_invalid_default  	- Invalid entry for the "%s" field
+    js_invalid_file     	- Invalid filename for the "%s" field
+    js_invalid_input    	- Invalid entry for the "%s" field
+    js_invalid_multiple 	- Select one or more options from the "%s" list
+    js_invalid_password 	- Invalid entry for the "%s" field
+    js_invalid_radio    	- Choose one of the "%s" options
+    js_invalid_select   	- Select an option from the "%s" list
+    js_invalid_textarea 	- Please fill in the "%s" field
 
-    form_confirm_text       Success! Your submission has been received %s.
-
-    mail_results_subject    %s Submission Results
-    mail_confirm_subject    %s Submission Confirmation
-    mail_confirm_text       Your submission has been received %s.
+    mail_confirm_subject	%s Submission Confirmation
+    mail_confirm_text   	Your submission has been received %s, and will be processed shortly.
 
 The C<js_> tags are used in JavaScript alerts, whereas the C<form_> tags
 are used in HTML and templates managed by FormBuilder.
@@ -228,13 +246,12 @@ are used in HTML and templates managed by FormBuilder.
 In some of the messages, you will notice a C<%s> C<printf> format. This
 is because these messages will include certain details for you. For example,
 the C<js_invalid_start> tag will print the number of errors if you include
-the C<%s> format tag. Of course, you this is optional, so if you leave it
-out then you won't get the number of errors.
+the C<%s> format tag. Of course, this is optional, and you can leave it out.
 
 The best way to get an idea of how these work is to experiment a little.
 It should become obvious really quickly.
 
-=head1 SUBCLASSING
+=head1 SUBCLASSING MESSAGES
 
 In addition, this module can be used as a base class which you can override to
 create arbitrarily complicated message handling routines. For each message
@@ -271,7 +288,7 @@ L<CGI::FormBuilder>
 
 =head1 REVISION
 
-$Id: Messages.pm,v 1.7 2005/02/10 20:15:52 nwiger Exp $
+$Id: Messages.pm,v 1.16 2005/04/12 21:38:59 nwiger Exp $
 
 =head1 AUTHOR
 

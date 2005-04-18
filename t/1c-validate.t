@@ -7,7 +7,17 @@ $DEBUG = $ENV{DEBUG} || 0;
 use Test;
 
 # use a BEGIN block so we print our plan before CGI::FormBuilder is loaded
-BEGIN { plan tests => 11 }
+BEGIN { 
+    my $numtests = 11;
+
+    plan tests => $numtests;
+
+    # success if we said NOTEST
+    if ($ENV{NOTEST}) {
+        ok(1) for 1..$numtests;
+        exit;
+    }
+}
 
 # Need to fake a request or else we stall
 $ENV{REQUEST_METHOD} = 'GET';

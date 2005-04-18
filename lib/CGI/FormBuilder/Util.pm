@@ -3,7 +3,7 @@ package CGI::FormBuilder::Util;
 
 =head1 NAME
 
-CGI::FormBuilder::Util - utility functions for FormBuilder
+CGI::FormBuilder::Util - Utility functions for FormBuilder
 
 =head1 SYNOPSIS
 
@@ -27,20 +27,22 @@ I said that, though.
 
 =cut
 
-use Carp;
 use strict;
 use vars qw($VERSION @ISA @EXPORT $DEBUG @OURATTR %OURATTR);
 
-$VERSION = '3.01';
+# Don't "use" or it collides with our basename()
+require File::Basename;
+
+$VERSION = '3.02';
 
 # Place functions you want to export by default in the
 # @EXPORT array. Any other functions can be requested
 # explicitly if you place them in the @EXPORT_OK array.
 use Exporter;
 @ISA = qw(Exporter);
-@EXPORT = qw(debug belch puke indent escapeurl escapehtml
+@EXPORT = qw(debug belch puke indent escapeurl escapehtml escapejs
              autodata optalign optsort optval cleanargs
-             htmlattr htmltag toname ismember);
+             htmlattr htmltag toname tovar ismember basename);
 $DEBUG = 0;
 
 # To clean up the HTML, instead of just allowing the HTML tags that
@@ -49,12 +51,14 @@ $DEBUG = 0;
 # specified in the generation of HTML tags, and also means that this
 # module doesn't go out of date when the HTML spec changes next week.
 @OURATTR = qw(
-    attr body checknum comment debug delete doctype fieldattr fields fieldtype
-    font force header invalid javascript jsname jsfunc jshead keepextras label
-    labels linebreaks nameopts options override params radionum required
-    reset selectnum smartness sortopts static sticky submit table
-    template title validate values messages columns render submitname
-    resetname sessionidname submittedname stylesheet styleclass
+    attr body checknum cleanopts columns cookies comment debug delete doctype
+    errorname fields fieldattr fieldsubs fieldtype fieldopts font force growable growname
+    header idprefix inputname invalid javascript jsname jsprefix jsfunc jshead keepextras
+    label labels labelname lalign linebreaks messages nameopts other othername options
+    override page pages pagename params render required reset resetname rowname
+    selectnum sessionidname sessionid smartness sortopts static sticky stylesheet
+    styleclass submit submitname submittedname table template title
+    validate values
 );
 
 # trick for speedy lookup
@@ -87,19 +91,27 @@ A modified C<warn> that prints out a better message with a newline added.
 =cut
 
 sub belch (@) {
-    my($pkg,$file,$line,$func) = caller(1);
+    my $i=1;
+    my($pkg,$file,$line,$func);
+    while (my @stk = caller($i++)) {
+        ($pkg,$file,$line,$func) = @stk;
+    }
     warn "[$func] Warning: ", @_, " at $file line $line\n";
 }
 
 =head2 puke($string)
 
-A modified C<die> that prints out a full stack trace, including newlines.
+A modified C<die> that prints out a useful message.
 
 =cut
 
 sub puke (@) {
-    my($pkg,$file,$line,$func) = caller(1);
-    warn "[$func] Fatal: ", @_, " at $file line $line\n";
+    my $i=1;
+    my($pkg,$file,$line,$func);
+    while (my @stk = caller($i++)) {
+        ($pkg,$file,$line,$func) = @stk;
+    }
+    die "[$func] Fatal: ", @_, " at $file line $line\n";
 }
 
 =head2 escapeurl($string)
@@ -137,6 +149,18 @@ sub escapehtml ($) {
         # dispatch to HTML::Entities
         return HTML::Entities::encode($toencode);
     }
+}
+
+=head2 escapejs($string)
+
+Returns a string suitable for including in JavaScript. Minimal processing.
+
+=cut
+
+sub escapejs ($) {
+    my $toencode = shift;
+    $toencode =~ s#'#\\'#g;
+    return $toencode;
 }
 
 =head2 htmltag($name, %attr)
@@ -191,7 +215,7 @@ sub htmlattr ($;@) {
 
         $html{$key} = $val;
     }
-    # "double-name" elements with an id for easier DOM scripting
+    # "double-name" fields with an id for easier DOM scripting
     # do not override explictly set id attributes
     $html{id} = $html{name} if exists $html{name} and not exists $html{id};
 
@@ -217,6 +241,21 @@ sub toname ($) {
     $name =~ s!\.\w+$!!;                # lose trailing ".suf"
     $name =~ s![^a-zA-Z0-9.-/]+! !g;    # strip non-alpha chars
     $name =~ s!\b(\w)!\u$1!g;           # convert _ to space/upper
+    return $name;
+}
+
+=head2 tovar($string)
+
+Turns a string into a variable name. Basically just strips C<\W>,
+and prefixes "fb_" on the front of it.
+
+=cut
+
+sub tovar ($) {
+    my $name = shift;
+    $name =~ s#\W+#_#g;
+    $name =~ tr/_//s;   # squish __ accidentally
+    $name =~ s/_$//;    # trailing _ on "[Yo!]"
     return $name;
 }
 
@@ -324,6 +363,10 @@ sub optalign ($) {
     # "options" are the options for our select list
     my @opt = ();
     if (my $ref = ref $opt) {
+        if ($ref eq 'CODE') {
+            # exec to get options
+            $opt = &$opt;
+        }
         # we turn any data into ( ['key', 'val'], ['key', 'val'] )
         # have to check sub-data too, hence why this gets a little nasty
         @opt = ($ref eq 'HASH')
@@ -381,12 +424,26 @@ Useless outside of B<FormBuilder>.
 
 sub optval ($) {
     my $opt = shift;
-    my($o,$n) = (ref $opt eq 'ARRAY') ? (@{$opt}) : ($opt);
-    return wantarray ? ($o,$n) : $o;
+    my($o,$n,$a) = (ref $opt eq 'ARRAY') ? (@{$opt}) : ($opt);
+    return wantarray ? ($o,$n,$a) : $o;
 }
 
-# End of Perl code
+=head2 basename
+
+Returns the script name or $0 hacked up to the first dir
+
+=cut
+
+sub basename () {
+    # Windows sucks so bad it's amazing to me.
+    my $prog = File::Basename::basename($ENV{SCRIPT_NAME} || $0);
+    $prog =~ s/\?.*//;     # lose ?p=v
+    belch "Script basename() undefined somehow" unless $prog;
+    return $prog;
+}
+
 1;
+__END__
 
 =head1 SEE ALSO
 
@@ -394,7 +451,7 @@ L<CGI::FormBuilder>
 
 =head1 REVISION
 
-$Id: Util.pm,v 1.9 2005/02/10 20:15:52 nwiger Exp $
+$Id: Util.pm,v 1.26 2005/04/06 18:46:32 nwiger Exp $
 
 =head1 AUTHOR
 

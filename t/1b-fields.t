@@ -7,7 +7,17 @@ $DEBUG = $ENV{DEBUG} || 0;
 use Test;
 
 # use a BEGIN block so we print our plan before CGI::FormBuilder is loaded
-BEGIN { plan tests => 22 }
+BEGIN { 
+    my $numtests = 22;
+
+    plan tests => $numtests;
+
+    # success if we said NOTEST
+    if ($ENV{NOTEST}) {
+        ok(1) for 1..$numtests;
+        exit;
+    }
+}
 
 # Fake a submission request
 $ENV{REQUEST_METHOD} = 'GET';
@@ -172,9 +182,11 @@ ok(do {
                     validate => {email => 'EMAIL'},
                     required => [qw/name/],
                     sticky => 0,
+                    action => 'TEST', title => 'TEST',
                );
-    $form->field(name => 'color', options => [qw/red green blue/],
-                 nameopts => 1, multiple => 1);
+    $form->field(name => 'color', options => [qw(red> green& blue")],
+                 multiple => 1, cleanopts => 0);
+    $form->field(name => 'name', options => [qw(lower UPPER)], nameopts => 1);
 
     # Just return the form rendering
     # This should really go in 00generate.t, but the framework is too tight
@@ -184,12 +196,24 @@ function validate (form) {
     var alertstr = '';
     var invalid  = 0;
 
-    // standard text, hidden, password, or textarea box
-    var name = form.elements['name'].value;
-    if ( ((! name && name != 0) || name === "")) {
-        alertstr += '- You must enter a valid value for the "Name" field\n';
+    // name: radio group or multiple checkboxes
+    var name = null;
+    var selected_name = 0;
+    for (var loop = 0; loop < form.elements['name'].length; loop++) {
+        if (form.elements['name'][loop].checked) {
+            name = form.elements['name'][loop].value;
+            selected_name++;
+            if (name == null || name === "") {
+                alertstr += '- Choose one of the "Name" options\n';
+                invalid++;
+            }
+        } // if
+    } // for name
+    if (! selected_name) {
+        alertstr += '- Choose one of the "Name" options\n';
         invalid++;
     }
+
     if (invalid > 0 || alertstr != '') {
         if (! invalid) invalid = 'The following';   // catch for programmer error
         alert(''+invalid+' error(s) were encountered with your submission:'+'\n\n'+alertstr+'\n'+'Please correct these fields and try again.');
@@ -201,28 +225,28 @@ function validate (form) {
     return true;  // all checked ok
 }
 //-->
-</script><noscript><p><font color="red"><b>Please enable JavaScript or use a newer browser.</b></font></p></noscript><p>Fields that are <b>highlighted</b> are required.</p><form action="01process.t" method="GET" onSubmit="return validate(this);"><input id="_submitted" name="_submitted" type="hidden" value="2" /><input id="_sessionid" name="_sessionid" type="hidden" value="" /><table border="0">
-<tr valign="middle"><td align="left"><b>Name</b></td><td align="left"><input id="name" name="name" type="text" /></td></tr>
-<tr valign="middle"><td align="left">Favorite Color</td><td align="left"><input id="color_red" name="color" type="checkbox" value="red" /> <label for="color_red">Red</label> <input id="color_green" name="color" type="checkbox" value="green" /> <label for="color_green">Green</label> <input id="color_blue" name="color" type="checkbox" value="blue" /> <label for="color_blue">Blue</label> </td></tr>
-<tr valign="middle"><td align="center" colspan="2"><input id="_reset" name="_reset" type="reset" value="Reset" /><input id="_submit" name="_submit" type="submit" value="Submit" /></td></tr>
+</script><noscript><p><font color="red"><b>Please enable JavaScript or use a newer browser.</b></font></p></noscript><p>Fields that are <b>highlighted</b> are required.</p><form action="TEST" method="GET" onsubmit="return validate(this);"><input id="_submitted" name="_submitted" type="hidden" value="2" /><table border="0">
+<tr valign="middle"><td><b>Name</b></td><td><input id="name_lower" name="name" type="radio" value="lower" /> <label for="name_lower">Lower</label> <input id="name_UPPER" name="name" type="radio" value="UPPER" /> <label for="name_UPPER">UPPER</label> </td></tr>
+<tr valign="middle"><td>Favorite Color</td><td><input id="color_red&gt;" name="color" type="checkbox" value="red&gt;" /> <label for="color_red&gt;">red></label> <input id="color_green&amp;" name="color" type="checkbox" value="green&amp;" /> <label for="color_green&amp;">green&</label> <input id="color_blue&quot;" name="color" type="checkbox" value="blue&quot;" /> <label for="color_blue&quot;">blue"</label> </td></tr>
+<tr valign="middle"><td align="center" colspan="2"><input id="_submit" name="_submit" type="submit" value="Submit" /></td></tr>
 </table></form>
 });
 
 #13
 ok(do {
     # check individual fields as static
-    my $form = CGI::FormBuilder->new(debug => $DEBUG, fields => [qw/name name_2 color/]);
+    my $form = CGI::FormBuilder->new(debug => $DEBUG, fields => [qw/name name_2 color/], action => 'TEST');
     $form->field(name => 'name', static => 1);
     $form->field(name => 'name_2', type => 'static');
 
     # Just return the form rendering
     # This should really go in 00generate.t, but the framework is too tight
     $form->render;
-}, qq{<form action="01process.t" method="GET"><input id="_submitted" name="_submitted" type="hidden" value="2" /><input id="_sessionid" name="_sessionid" type="hidden" value="" /><table border="0">
-<tr valign="middle"><td align="left">Name</td><td align="left"><input id="name" name="name" type="hidden" value="Pete Peteson" />Pete Peteson </td></tr>
-<tr valign="middle"><td align="left">Name 2</td><td align="left"><input id="name_2" name="name_2" type="hidden" /></td></tr>
-<tr valign="middle"><td align="left">Color</td><td align="left"><input id="color" name="color" type="text" /></td></tr>
-<tr valign="middle"><td align="center" colspan="2"><input id="_reset" name="_reset" type="reset" value="Reset" /><input id="_submit" name="_submit" type="submit" value="Submit" /></td></tr>
+}, qq{<form action="TEST" method="GET"><input id="_submitted" name="_submitted" type="hidden" value="2" /><table border="0">
+<tr valign="middle"><td>Name</td><td><input id="name" name="name" type="hidden" value="Pete Peteson" />Pete Peteson </td></tr>
+<tr valign="middle"><td>Name 2</td><td><input id="name_2" name="name_2" type="hidden" /></td></tr>
+<tr valign="middle"><td>Color</td><td><input id="color" name="color" type="text" /></td></tr>
+<tr valign="middle"><td align="center" colspan="2"><input id="_submit" name="_submit" type="submit" value="Submit" /></td></tr>
 </table></form>
 });
 
@@ -231,11 +255,14 @@ ok(do {
     # test of proper CGI precendence when manually setting values
     my $form = CGI::FormBuilder->new(
                     debug => $DEBUG,
-                    fields => [qw/name email blank/],
+                    fields => [qw/name email blank notpresent/],
                     values => {blank => 'DEF', name => 'DEF'}
                );
-    if (defined($form->field('blank')) && ! $form->field('blank') 
-        && $form->field('name') eq 'Pete Peteson') {
+    if (defined($form->field('blank'))
+        && ! $form->field('blank') 
+        && $form->field('name') eq 'Pete Peteson'
+        && ! defined($form->field('notpresent'))
+    ) {
         1;
     } else {
         0;
@@ -249,6 +276,7 @@ ok(do {
                     debug => $DEBUG,
                     fields => [qw/name email blank/],
                     keepextras => 0,    # should still get value
+                    action => 'TEST',
                );
     if (! $form->field('extra') && 
         $form->cgi_param('extra') eq 'junk') {
@@ -258,9 +286,9 @@ ok(do {
     }
 }, 1);
 
-# 16
+#16
 ok(do{
-    my $form = CGI::FormBuilder->new(debug => $DEBUG, fields => [qw/name color hid1 hid2/]);
+    my $form = CGI::FormBuilder->new(debug => $DEBUG, fields => [qw/name color hid1 hid2/], action => 'TEST');
     $form->field(name => 'name', static => 1, type => 'text');
     $form->field(name => 'hid1', type => 'hidden', value => 'Val1a');
     $form->field(name => 'hid1', type => 'hidden', value => 'Val1b');   # should replace Val1a
@@ -270,13 +298,13 @@ ok(do{
     # Just return the form rendering
     # This should really go in 00generate.t, but the framework is too tight
     $form->confirm;
-}, qq{Success! Your submission has been received LOCALTIME.<form action="01process.t" method="GET"><input id="_submitted" name="_submitted" type="hidden" value="2" /><input id="_sessionid" name="_sessionid" type="hidden" value="" /><input id="hid1" name="hid1" type="hidden" value="Val1b" /><input id="hid2" name="hid2" type="hidden" value="Val2" /><table border="0">
-<tr valign="middle"><td align="left">Name</td><td align="left"><input id="name" name="name" type="hidden" value="Pete Peteson" />Pete Peteson </td></tr>
-<tr valign="middle"><td align="left">Color</td><td align="left"><input id="color" name="color" type="hidden" value="blew" />blew </td></tr>
+}, qq{Success! Your submission has been received LOCALTIME.<form action="TEST" method="GET"><input id="_submitted" name="_submitted" type="hidden" value="2" /><input id="hid1" name="hid1" type="hidden" value="Val1b" /><input id="hid2" name="hid2" type="hidden" value="Val2" /><table border="0">
+<tr valign="middle"><td>Name</td><td><input id="name" name="name" type="hidden" value="Pete Peteson" />Pete Peteson </td></tr>
+<tr valign="middle"><td>Color</td><td><input id="color" name="color" type="hidden" value="blew" />blew </td></tr>
 </table></form>
 });
 
-# 17
+#17
 ok(do{
     my $form = CGI::FormBuilder->new(debug => $DEBUG, fields => [qw/name color dress_size taco:punch/]);
     $form->field(name => 'blank', value => 175, force => 1);

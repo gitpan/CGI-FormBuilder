@@ -35,11 +35,11 @@ CGI::FormBuilder - Easily generate and process stateful forms
 
     if ($form->submitted && $form->validate) {
         # Get form fields as hashref
-        my $fields = $form->fields;
+        my $field = $form->fields;
 
         # Do something to update your data (you would write this)
-        do_data_update($fields->{name}, $fields->{email},
-                       $fields->{phone}, $fields->{gender});
+        do_data_update($field->{name},  $field->{email},
+                       $field->{phone}, $field->{gender});
 
         # Show confirmation screen
         print $form->confirm;
@@ -52,38 +52,50 @@ CGI::FormBuilder - Easily generate and process stateful forms
 
 use Carp;
 use strict;
-use vars qw($VERSION $AUTOLOAD %DEFOPTS %REARRANGE);
+use vars qw($VERSION $AUTOLOAD %DEFAULT %REARRANGE);
 
 use CGI::FormBuilder::Util;
 use CGI::FormBuilder::Field;
 use CGI::FormBuilder::Messages;
 
-$VERSION = '3.01';
+$VERSION = '3.02';
 
 # Default options for FormBuilder
-%DEFOPTS = (
+%DEFAULT = (
     sticky     => 1,
     method     => 'GET',
-    submit     => 'Submit',
-    reset      => 'Reset',
-    submitname => '_submit',
-    resetname  => '_reset',
+    submit     => 1,
+    reset      => 0,
+    header     => 0,
     body       => { bgcolor => 'white' },
     text       => '',
     table      => { border => 0 },
     tr         => { valign => 'middle' },
-    td         => { align  => 'left' },
+    td         => { },
     jsname     => 'validate',
+    jsprefix   => 'fb_',              # prefix for JS tags
     sessionidname => '_sessionid',
     submittedname => '_submitted',
+    pagename   => '_page',
     template     => '',               # default template
     debug      => 0,                  # can be 1 or 2
     javascript => 'auto',             # 0, 1, or 'auto'
+    cookies    => 1,
+    cleanopts  => 1,
     render     => 'render',           # render sub name
     smartness  => 1,                  # can be 1 or 2
     selectnum  => 5,
     stylesheet => 0,                  # use stylesheet stuff?
     styleclass => 'fb_',              # prefix for style
+    # I don't see any reason why these are variables
+    submitname => '_submit',
+    resetname  => '_reset',
+    rowname    => '_row',
+    labelname  => '_label',
+    inputname  => '_input',
+    errorname  => '_error',
+    othername  => '_other',
+    growname   => '_grow',
     doctype    => <<EOD,              # stolen from CGI.pm
 <?xml version="1.0" encoding="iso-8859-1"?>
 <!DOCTYPE html
@@ -102,17 +114,69 @@ EOD
     selectnum   selectnum
     sortopts    sortopts
     nameopts    nameopts
+    cleanopts   cleanopts
     sticky      sticky
+    disabled    disabled
 );
 
 *redo = \&new;
 sub new {
     local $^W = 0;      # -w sucks
     my $self = shift;
-    my %opt = cleanargs(@_);
 
-    # old options
-    $opt{td}{align} = delete $opt{lalign} if $opt{lalign};
+    # A single arg is a source; others are opt => val pairs
+    my %opt;
+    if (@_ == 1) {
+        %opt = (ref $_[0] eq 'HASH') ? %{$_[0]} : (source => shift());
+    } else {
+        %opt = cleanargs(@_);
+    }
+
+    # Pre-check for an external source
+    if (my $src = delete $opt{source}) {
+
+        # check for engine type
+        my $mod;
+        my %sopt;     # opts returned from parsing
+        my $ref = ref $src;
+        unless ($ref) {
+            # string filename; redo format (ala $self->{template})
+            $src = {
+                type   => 'File',
+                source => $src
+            };
+            $ref = 'HASH';  # tricky
+            debug 2, "rewrote 'source' option since found filename";
+        }
+
+        if ($ref eq 'HASH') {
+            # grab module
+            $mod = delete $src->{type} || 'HTML';
+
+            # user can give 'Their::Complete::Module' or an 'IncludedTemplate'
+            $mod = join '::', __PACKAGE__, 'Source', $mod unless $mod =~ /::/;
+            debug 1, "loading $mod for 'source' option";
+
+            eval "require $mod";
+            puke "Bad source module $mod: $@" if $@;
+
+            my $sob  = $mod->new(%$src);
+            %sopt = $sob->parse;
+        } elsif ($ref eq 'CODE') {
+            # subroutine wrapper
+            %sopt = &{$src->{source}}($self);
+        } elsif (UNIVERSAL::can($src->{source}, 'parse')) {
+            # instantiated object
+            %sopt = $src->{source}->parse($self);
+        } elsif ($ref) {
+            puke "Unsupported operand to 'template' option - must be \\%hash, \\&sub, or \$object w/ parse()";
+        }
+
+        # per-instance variables win
+        while (my($k,$v) = each %sopt) {
+            $opt{$k} = $v unless exists $opt{$k};
+        }
+    }
 
     if (ref $self) {
         # cloned/original object
@@ -123,7 +187,7 @@ sub new {
     } else {
         debug 1, "constructing new FormBuilder object";
         # damn deep copy this is SO damn annoying
-        while (my($k,$v) = each %DEFOPTS) {
+        while (my($k,$v) = each %DEFAULT) {
             next if exists $opt{$k};
             if (ref $v eq 'HASH') {
                 $opt{$k} = { %$v };
@@ -174,10 +238,20 @@ sub new {
     }
 
     # Catch the intersection of required and validate
-    if ($self->{required} && $self->{validate}) {
+    if (ref $self->{required}) {
         # ok, will handle itself automatically below
     } elsif ($self->{required}) {
-        # ok, validate will default to values
+        # catches for required => 'ALL'|'NONE'
+        if ($self->{required} eq 'NONE') {
+            delete $self->{required};   # that's it
+        }
+        elsif ($self->{required} eq 'ALL') {
+            $self->{required} = [ @{$self->{fields}} ];
+        }
+        elsif ($self->{required}) {
+            # required => 'single_field' catch
+            $self->{required} = { $self->{required} => 1 };
+        }
     } elsif ($self->{validate}) {
         # construct a required list of all validated fields
         $self->{required} = [ keys %{$self->{validate}} ];
@@ -187,17 +261,18 @@ sub new {
     # replace it with a list of objects, which stringify to field names
     my @ftmp  = ();
     for (@{$self->{fields}}) {
-        my %fprop = ();     # holds field properties
-        $fprop{name}  = $_;
+        my %fprop = %{delete($self->{fieldopts}{$_}) || {}}; # field properties
 
         if (ref $_ eq 'CGI::FormBuilder::Field') {
             # is an existing Field object, so update its properties
             $_->field(%fprop);
         } else {
             # init a new one
+            $fprop{name} = "$_";
             $_ = $self->newfield(%fprop);
         }
         debug 2, "push \@(@ftmp), $_";
+        $self->{fieldrefs}{"$_"} = $_;
         push @ftmp, $_;
     }
 
@@ -212,6 +287,8 @@ sub new {
     return $self;
 }
 
+*param  = \&field;
+*params = \&field;
 *fields = \&field;
 sub field {
     local $^W = 0;      # -w sucks
@@ -234,9 +311,36 @@ sub field {
 
     # no name - return ala $cgi->param
     unless ($args{name}) {
+        # sub fields
         # return an array of the names in list context, and a
         # hashref of name/value pairs in a scalar context
         if (wantarray) {
+            # pre-scan for any "order" arguments, reorder, delete
+            for my $redo (grep { $_->order } @{$self->{fields}}) {
+                next if $redo->order eq 'auto';   # like javascript
+                # kill existing order
+                for (my $i=0; $i < @{$self->{fields}}; $i++) {
+                    if ($self->{fields}[$i] eq $redo) {
+                        debug 2, "reorder: removed $redo from \$fields->[$i]";
+                        splice(@{$self->{fields}}, $i, 1);
+                    }
+                }
+                # put it in its new place
+                debug 2, "reorder: moving $redo to $redo->{order}";
+                if ($redo->order <= 1) {
+                    # start
+                    unshift @{$self->{fields}}, $redo;
+                } elsif ($redo->order >= @{$self->{fields}}) {
+                    # end
+                    push @{$self->{fields}}, $redo;
+                } else {
+                    # middle
+                    splice(@{$self->{fields}}, $redo->order - 1, 0, $redo);
+                }
+                # kill subsequent reorders (unnecessary)
+                delete $redo->{order};
+            }
+
             # list of all field objects
             debug 2, "return (@{$self->{fields}})";
             return @{$self->{fields}};
@@ -248,15 +352,9 @@ sub field {
 
     # have name, so redispatch to field member
     debug 2, "searching fields for '$args{name}'";
-    for (@{$self->{fields}}) {
-        debug 2, "checking $_";
-        # serial search not that much slower unless dozens of
-        # fields, plus then we know it's already been blessed
-        if ($_ eq $args{name}) {
-            debug 2, "found $_ eq $args{name}";
-            delete $args{name};         # segfault??
-            return $_->field(%args);    # set args, get value back
-        }
+    if (my $f = $self->{fieldrefs}{$args{name}}) {
+        delete $args{name};         # segfault??
+        return $f->field(%args);    # set args, get value back
     }
 
     # non-existent field, and no args, so assume we're checking for it
@@ -265,6 +363,7 @@ sub field {
     # if we're still in here, we need to init a new field
     # push it onto our mail fields array, just like initfields()
     my $f = $self->newfield(%args);
+    $self->{fieldrefs}{"$f"} = $f;
     push @{$self->{fields}}, $f;
     return $f->value;
 }
@@ -277,18 +376,14 @@ sub newfield {
 
     # extract our per-field options from rearrange
     while (my($from,$to) = each %REARRANGE) {
-        next unless exists $self->{$from};
-        next if $args{$to};     # manually set
+        next unless exists  $self->{$from};
+        next if     defined $args{$to};     # manually set
         my $tval;
         my $ref = ref $self->{$from};
         if ($ref && $ref eq 'HASH') {
             $tval = $self->{$from}{$args{name}}; 
         } elsif ($ref && $ref eq 'ARRAY') {
             $tval = ismember($args{name}, @{$self->{$from}}) ? 1 : 0;
-        } elsif ($self->{$from} eq 'NONE') {
-            $tval = 0;
-        } elsif ($self->{$from} eq 'ALL') {
-            $tval = 1;
         } else {
             $tval = $self->{$from};
         }
@@ -310,33 +405,36 @@ sub newfield {
     return $f;   # already set args above ^^^
 }
 
-sub basename {
-    my $prog = $ENV{SCRIPT_NAME} || $0;
-    # Thanks to Randy Kobes for this patch fixing $0 on Win32
-    my($basename) = ($^O =~ /Win32/i)
-                         ? ($prog =~ m!.*\\(.*)\??!)
-                         : ($prog =~ m!.*/(.*)\??!);
-    return $basename;
-}
-
 sub header {
     my $self = shift;
     $self->{header} = shift if @_;
-    return $self->{header} ? "Content-Type: text/html; charset=ISO-8859-1\n\n" : '';
+    return unless $self->{header};
+    my %head;
+    if ($self->{cookies} && defined(my $sid = $self->sessionid)) {
+        require CGI::Cookie;
+        $head{'-cookie'} = CGI::Cookie->new(-name  => $self->{sessionidname},
+                                            -value => $sid);
+    }
+    # Forcibly require - no extra time in normal case, and if 
+    # using Apache::Request this needs to be loaded anyways.
+    require CGI;
+    return  CGI::header(%head);    # CGI.pm MOD_PERL fanciness
 }
 
 sub title {
     my $self = shift;
     $self->{title} = shift if @_;
     return $self->{title} if exists $self->{title};
-    return toname($self->basename);
+    return toname(basename);
 }
 
+*script_name = \&action;
 sub action {
+    local $^W = 0;  # -w sucks (still)
     my $self = shift;
     $self->{action} = shift if @_;
     return $self->{action} if exists $self->{action};
-    return $ENV{SCRIPT_NAME} || $self->basename;
+    return basename . $ENV{PATH_INFO};
 }
 
 sub font {
@@ -347,8 +445,13 @@ sub font {
 
     # Catch for allowable hashref or string
     my $ret;
-    if ($self->{font} && ! ref $self->{font}) {
+    my $ref = ref $self->{font} || '';
+    if (! $ref) {
+        # string "arial,helvetica"
         $ret = { face => $self->{font} };
+    } elsif ($ref eq 'ARRAY') {
+        # hack for array [arial,helvetica] from conf
+        $ret = { face => join ',', @{$self->{font}} };
     } else {
         $ret = $self->{font};
     }
@@ -359,14 +462,27 @@ sub font {
 sub start {
     my $self = shift;
     my %attr = htmlattr('form', %$self);
+
     $attr{action} ||= $self->action;
     $attr{method} ||= $self->method;
+    $attr{disabled} = 'disabled' if $self->disabled;
     $attr{class}  ||= $self->{styleclass} . 'form' if $self->{stylesheet};
+
+    # Bleech, there's no better way to do this...?
+    belch "You should really call \$form->script BEFORE \$form->start"
+        unless $self->{_didscript};
+
     return $self->version . htmltag('form', %attr);
 }
 
 sub end {
     return '</form>';
+}
+
+# Need to wrap this or else AUTOLOAD whines (OURATTR missing)
+sub disabled {
+    my $self = shift;
+    @_ ? $self->{disabled} = shift : $self->{disabled};
 }
  
 # These return attr in wantarray (unusual) since it helps in render()
@@ -379,28 +495,59 @@ sub body {
 
 sub table {
     my $self = shift;
-    $self->{table} = shift if @_;
-    return '' unless $self->{table};   # 0 or unset
+    # single hashref kills everything; a list is temporary
+    $self->{table} = shift if @_ == 1;
+    return unless $self->{table};
     $self->{table} = {} if $self->{table} == 1;
-    $self->{table}{class} ||= $self->{styleclass} . 'table' if $self->{stylesheet};
-    return wantarray ? htmlattr('table', $self->{table})
-                     : htmltag('table', $self->{table});
+    my %attr = %{$self->{table}};
+
+    # if still have args, it's a temp hash
+    if (@_) {
+        while (my $k = shift) {
+            $attr{$k} = shift;
+        }
+    }
+
+    return unless $self->{table};   # 0 or unset
+    $attr{class} ||= $self->{styleclass} . 'table' if $self->{stylesheet};
+    return wantarray ? htmlattr('table', %attr)
+                     : htmltag('table',  %attr);
 }
 
 sub tr {
     my $self = shift;
-    $self->{tr} = shift if @_;
-    $self->{tr}{class} ||= $self->{styleclass} . 'tr' if $self->{stylesheet};
-    return wantarray ? htmlattr('tr', $self->{tr})
-                     : htmltag('tr', $self->{tr});
+    # single hashref kills everything; a list is temporary
+    $self->{tr} = shift if @_ == 1;
+    my %attr = %{$self->{tr}};
+
+    # if still have args, it's a temp hash
+    if (@_) {
+        while (my $k = shift) {
+            $attr{$k} = shift;
+        }
+    }
+
+    $attr{class} ||= $self->{styleclass} . 'tr' if $self->{stylesheet};
+    return wantarray ? htmlattr('tr', %attr)
+                     : htmltag('tr',  %attr);
 }
 
 sub td {
     my $self = shift;
-    $self->{td} = shift if @_;
-    $self->{td}{class} ||= $self->{styleclass} . 'td' if $self->{stylesheet};
-    return wantarray ? htmlattr('td', $self->{td})
-                     : htmltag('td', $self->{td});
+    # single hashref kills everything; a list is temporary
+    $self->{tr} = shift if @_ == 1;
+    my %attr = %{$self->{td}};
+
+    # if still have args, it's a temp hash
+    if (@_) {
+        while (my $k = shift) {
+            $attr{$k} = shift;
+        }
+    }
+
+    $attr{class} ||= $self->{styleclass} . 'td' if $self->{stylesheet};
+    return wantarray ? htmlattr('td', %attr)
+                     : htmltag('td',  %attr);
 }
 
 sub submitted {
@@ -418,13 +565,38 @@ sub submitted {
         debug 2, "\$form->submitted() is true, returning $sr";
         return $sr;
     }
-    return;
+    return 0;
 }
 
+# This creates a modified self_url, just including fields (no sessionid, etc)
+sub query_string {
+    my $self = shift;
+    my @qstr = ();
+    for my $f ($self->fields, $self->keepextras) {
+        # get all values, but ONLY from CGI
+        push @qstr, join('=', escapeurl($f), escapeurl($_)) for $self->cgi_param($f);
+    }
+    return join '&', @qstr;
+}
+
+sub self_url {
+    my $self = shift;
+    return join '?', $self->action, $self->query_string;
+}
+
+# must forcibly return scalar undef for CGI::Session easiness
 sub sessionid {
     my $self = shift;
-    return unless $self->sessionidname;
-    return $self->{params}->param($self->sessionidname) || '';
+    $self->{sessionid} = shift if @_;
+    return $self->{sessionid} if $self->{sessionid};
+    return undef unless $self->{sessionidname};
+    my %cookies;
+    if ($self->{cookies}) {
+        require CGI::Cookie;
+        %cookies = CGI::Cookie->fetch;
+    }
+    return $cookies{"$self->{sessionidname}"}
+        || $self->{params}->param($self->{sessionidname}) || undef;
 }
 
 sub statetags {
@@ -434,49 +606,61 @@ sub statetags {
     # get _submitted
     my $smnam = $self->submittedname;
     my $smtag = $self->{name} ? "${smnam}_$self->{name}" : $smnam;
-    my $smv   = $self->{params}->param($smnam) + 1;
-    push @state, { name => $smtag, value => $smv, type => 'hidden' };
+    my $smval = $self->{params}->param($smnam) + 1;
+    push @state, { name => $smtag, value => $smval, type => 'hidden' };
 
     # and how about _sessionid
-    push @state, { name => $self->sessionidname, value => $self->sessionid,
-                   type => 'hidden' };
+    if (defined(my $sid = $self->sessionid)) {
+        push @state, { name => $self->{sessionidname}, value => $sid, type => 'hidden' };
+    }
+
+    # and what page (hooks for ::Multi)
+    if (defined $self->{page}) {
+        push @state, { name => $self->pagename, value => $self->{page}, type => 'hidden' };
+    }
 
     return join '', map { htmltag('input', $_) } @state;
 }
 
 *keepextra = \&keepextras;
 sub keepextras {
-    my $self = shift;
-    my @keep = ();
+    local $^W = 0;      # -w sucks
+    my $self  = shift;
+    my @keep  = ();
 
     # which ones do they want?
-    $self->{keepextras} = shift, return if @_;
+    $self->{keepextras} = shift if @_;
     return '' unless $self->{keepextras};
 
     # If we set keepextras, then this means that any extra fields that
     # we've set that are *not* in our fields() will be added to the form
-    my @just_these = ();
-    if (my $ref = ref $self->{keepextras}) {
-        if ($ref eq 'ARRAY') {
-            @just_these = @{$self->{keepextras}};
-        } else {
-            puke "Unsupported data structure type '$ref' passed to 'keepextras' option";
+    my $ref = ref $self->{keepextras} || '';
+    if ($ref eq 'ARRAY') {
+        @keep = @{$self->{keepextras}};
+    } elsif ($ref) {
+        puke "Unsupported data structure type '$ref' passed to 'keepextras' option";
+    } else {
+        # Set to "1", so must go thru all params, skipping 
+        # leading underscore fields and form fields
+        for my $p ($self->{params}->param) {
+            next if $p =~ /^_/  || $self->{fieldrefs}{$p};
+            push @keep, $p;
         }
     }
 
-    # Go thru all params, skipping leading underscore fields and form fields
-    for my $p ($self->{params}->param) {
-        next if @just_these && ! ismember($p, @just_these);
-        next if $p =~ /^_/  || $self->field($p);
+    # In array context, we just return names we've resolved
+    return @keep if wantarray;
+
+    # Make sure to get all values
+    my $html = '';
+    for my $p (@keep) {
         for my $v ($self->{params}->param($p)) {
-            # make sure to get all values
             debug 1, "keepextras: saving hidden param $p = $v";
-            push @keep, { name => $p, type => 'hidden', value => $v };
+            $html .= htmltag('input', name => $p, type => 'hidden', value => $v);
         }
     }
-    return join '', map { htmltag('input', $_) } @keep;
+    return $html;
 }
-
 
 sub javascript {
     my $self = shift;
@@ -501,17 +685,96 @@ sub javascript {
     return 1;
 }
 
+sub jsname {
+    my $self = shift;
+    return $self->{name}
+           ? "$self->{jsname}_$self->{name}" : $self->{jsname};
+}
+
 sub script {
     local $^W = 0;
     my $self = shift;
+
+    # kludge for warning
+    $self->{_didscript} = 1;
 
     # no state is kept and no args are allowed
     puke "No args allowed for \$form->script" if @_;
     return '' unless $self->javascript;
 
     # get validate() function name
-    my $jsname = $self->{name} ? "$self->{jsname}_$self->{name}" : $self->{jsname};
+    my $jsname = $self->jsname   || puke "Must have 'jsname' if 'javascript' is on";
+	my $jspre  = $self->jsprefix || '';
     my $jsfunc = '';
+    my $jsmisc = '';    # for fb_grow() and fb_other()
+
+    # add code to grow growable fields, if there are any
+    if (my @growable = grep { $_->growable } $self->field) {
+		my $grow = $self->growname;
+        $jsmisc .= <<EOJS;
+var ${jspre}counter = new Object;  // for assigning unique ids; keyed by field name
+var ${jspre}limit   = new Object;  // for limiting the size of growable fields
+function ${jspre}grow (baseID) {
+    // inititalize the counter for this ID
+    if (isNaN(${jspre}counter[baseID])) ${jspre}counter[baseID] = 1;
+
+    // don't go past the growth limit for this field
+    if (${jspre}counter[baseID] >= ${jspre}limit[baseID]) return;
+
+    var base = document.getElementById(baseID + '_' + (${jspre}counter[baseID] - 1));
+
+    // we are inserting after the last field
+    insertPoint = base.nextSibling;
+
+    // line break
+    base.parentNode.insertBefore(document.createElement('br'), insertPoint);
+
+    var dup = base.cloneNode(true);
+
+    dup.setAttribute('id', baseID + '_' + ${jspre}counter[baseID]);
+    base.parentNode.insertBefore(dup, insertPoint);
+
+    // add some padding space between the field and the "add field" button
+    base.parentNode.insertBefore(document.createTextNode(' '), insertPoint);
+
+    ${jspre}counter[baseID]++;
+
+    // disable the "add field" button if we are at the limit
+    if (${jspre}counter[baseID] >= ${jspre}limit[baseID]) {
+        var addButton = document.getElementById('$grow' + '_' + baseID);
+        addButton.setAttribute('disabled', 'disabled');
+    }    
+}
+
+EOJS
+        # initialize growable counters
+        for (@growable) {
+            my $count = scalar(my @v = $_->values);
+            $jsmisc .= "${jspre}counter['$_'] = $count;\n" if $count > 0;
+            # assume that values of growable > 1 provide limits
+            my $limit = $_->growable;
+            if ($limit && $limit ne 1) {
+                $jsmisc .= "${jspre}limit['$_'] = $limit;\n";
+            }
+        }
+    }
+
+    # code to enable/disable the "other" box
+    if (my @otherable = grep { $_->other } $self->field) {
+        $jsmisc .= <<EOJS;
+// turn on/off any "other"fields
+function ${jspre}other_on (othername) {
+    var box = document.getElementById(othername);
+    box.removeAttribute('disabled');
+}
+
+function ${jspre}other_off (othername) {
+    var box = document.getElementById(othername);
+    box.setAttribute('disabled', 'disabled');
+}
+
+EOJS
+    }
 
     # custom user jsfunc option for w/i validate()
     $jsfunc .= $self->jsfunc;
@@ -520,24 +783,25 @@ sub script {
     for ($self->field) {
         $jsfunc .= $_->script;
     }
-
+    
     # skip out if we have nothing useful
-    return '' unless $jsfunc || $self->jshead;
+    return '' unless $jsfunc || $jsmisc || $self->jshead;
 
     # prefix with opening code
-    $jsfunc = $self->jshead . <<EOJ1 . $jsfunc;
+    if ($jsfunc) {
+        $jsfunc = <<EOJ1 . $jsfunc;
 function $jsname (form) {
     var alertstr = '';
     var invalid  = 0;
 
 EOJ1
 
-    # Finally, close our JavaScript if it was opened, wrapping in <script> tags
-    # We do a regex trick to turn "%s" into "+invalid+"
-    (my $alertstart = $self->{messages}->js_invalid_start) =~ s/%s/'+invalid+'/g;
-    (my $alertend   = $self->{messages}->js_invalid_end)   =~ s/%s/'+invalid+'/g;
+        # Finally, close our JavaScript if it was opened, wrapping in <script> tags
+        # We do a regex trick to turn "%s" into "+invalid+"
+        (my $alertstart = $self->{messages}->js_invalid_start) =~ s/%s/'+invalid+'/g;
+        (my $alertend   = $self->{messages}->js_invalid_end)   =~ s/%s/'+invalid+'/g;
 
-    $jsfunc .= <<EOJS;
+        $jsfunc .= <<EOJS;
     if (invalid > 0 || alertstr != '') {
         if (! invalid) invalid = 'The following';   // catch for programmer error
         alert('$alertstart'+'\\n\\n'+alertstr+'\\n'+'$alertend');
@@ -550,15 +814,17 @@ EOJ1
 }
 EOJS
 
-    # setup our form onSubmit
-    # needs to be ||= so user can overrride w/ own tag
-    # XXX action at a distance, I really don't like this...
-    $self->{onSubmit} ||= "return $jsname(this);";
+        # Must set our onsubmit to call validate()
+        # Unfortunately, this introduces the requirement that script()
+        # must be generated/called before start() in our template engines.
+        # Fortunately, that usually happens anyways. Still sucks.
+        $self->{onsubmit} ||= "return $jsname(this);";
+    }
 
     # set <script> now to the expanded javascript
     return '<script language="JavaScript1.3" type="text/javascript">'
          . "<!-- hide from old browsers\n"
-         . $jsfunc 
+         . $self->jshead . $jsmisc . $jsfunc 
          . "//-->\n</script>";
 }
 
@@ -571,9 +837,10 @@ sub noscript {
 }
 
 sub submit {
+    local $^W = 0;        # -w sucks
     my $self = shift;
     $self->{submit} = shift if @_;
-    return '' if $self->static || ! $self->{submit};
+    return '' if ! $self->{submit} || $self->static || $self->disabled;
 
     # handle the submit button(s)
     # logic is a little complicated - if set but to a false value,
@@ -583,25 +850,35 @@ sub submit {
     if (ref $self->{submit} eq 'ARRAY') {
         # multiple buttons + JavaScript - dynamically set the _submit value
         my @oncl = $self->{javascript}
-                       ? (onClick => "this.form.$sn.value = this.value;") : ();
+                       ? (onclick => "this.form.$sn.value = this.value;") : ();
         for my $s (autodata $self->{submit}) {
-            push @submit, { name => $sn, type => 'submit', value => $s, @oncl };
+            push @submit, { name => $sn, id => "$self->{name}$sn",
+                            type => 'submit', value => $s, @oncl };
         }
     } else {
         # show the text on the button
-        push @submit, { name => $sn, type => 'submit', value => $self->{submit} };
+        my $submit = $self->{submit} eq 1 ? $self->{messages}->form_submit_default
+                                          : $self->{submit}; 
+        push @submit, { name => $sn, id => "$self->{name}$sn",
+                        type => 'submit', value => $submit };
     }
     return join '', map { htmltag('input', $_) } @submit;
 }
 
 sub reset {
+    local $^W = 0;        # -w sucks
     my $self = shift;
     $self->{reset} = shift if @_;
-    return '' if $self->static || ! $self->{reset};
+    return '' if ! $self->{reset} || $self->static || $self->disabled;
 
     # similar to submit(), but a little simpler ;-)
-    my $reset = { type => 'reset', name => $self->resetname, value => $self->{reset} };
-    return htmltag('input', $reset);
+    my $reset = $self->{reset} eq 1 ? $self->{messages}->form_reset_default
+                                    : $self->{reset}; 
+    my $rn = $self->resetname;
+    return htmltag('input', type  => 'reset',
+                            id    => "$self->{name}$rn",
+                            name  => $rn,
+                            value => $reset);
 }
 
 sub text {
@@ -616,9 +893,10 @@ sub text {
         $inv++ if $_->invalid;  # failed validate()
     }
 
-    unless ($self->static) {
+    unless ($self->static || $self->disabled) {
         # only show either invalid or required text
         return $self->{text} . sprintf($self->{messages}->form_invalid_text,
+                                       $inv,
                                        $self->{messages}->form_invalid_opentag,
                                        $self->{messages}->form_invalid_closetag) if $inv;
         return $self->{text} . sprintf($self->{messages}->form_required_text,
@@ -634,7 +912,15 @@ sub cgi_param {
 }
 
 sub tmpl_param {
-    puke "To interface with tmpl_param(), you must now create your own object";
+    my $self = shift;
+    if (my $key  = shift) {
+        return @_ ? $self->{tmplvar}{$key} = shift
+                  : $self->{tmplvar}{$key};
+    } else {
+        # return hash or key/value pairs    
+        my $hr = $self->{tmplvar} || {};
+        return wantarray ? %$hr : $hr;
+    }
 }
 
 sub version {
@@ -798,8 +1084,6 @@ sub confirm {
 sub render {
     local $^W = 0;        # -w sucks
     my $self = shift;
-    my $sub  = $self->{render};
-
     debug 1, "starting \$form->render(@_)";
 
     # any arguments are used to make permanent changes to the $form
@@ -834,27 +1118,28 @@ sub render {
     } elsif ($ref eq 'CODE') {
         # subroutine wrapper
         return &{$self->{template}}($self);
-    } elsif (UNIVERSAL::can($self->{template}, $sub)) {
+    } elsif (UNIVERSAL::can($self->{template}, 'render')) {
         # instantiated object
-        return $self->{template}->$sub($self);
+        return $self->{template}->render($self);
     } elsif ($ref) {
         puke "Unsupported operand to 'template' option - must be \\%hash, \\&sub, or \$object w/ render()";
     }
 
     # load user-specified rendering module if supplied
     if ($mod) {
-        # user can give 'Their::Complete::Module' or an 'IncludedTemplate'
+        # user can give 'Their::Complete::Module' or an 'IncludedAdapter'
         $mod = join '::', __PACKAGE__, 'Template', $mod unless $mod =~ /::/;
         debug 1, "loading $mod for 'template' option";
 
+        # load module
         eval "require $mod";
         puke "Bad template engine $mod: $@" if $@;
 
-        # dispatch to user sub
-        debug 2, "return &{$mod\::$sub}($self)";
+        # create new object
+        my $tmpl = $mod->new(%opt);
 
-        no strict 'refs';
-        return &{"$mod\::$sub"}($self, %opt);
+        # dispatch to engine render
+        return $tmpl->render($self);
 
     } else {
 
@@ -866,13 +1151,14 @@ sub render {
         $self->{doctype} = '<html>' if $::TESTING;
 
         # Opening CGI/title gunk 
-        if ($self->header) {
-            $html .= $self->header;
+        my $hd = $self->header;
+        if (defined $hd) {
+            $html .= $hd;
             $html .= $self->doctype . '<head>';
             $html .= '<title>' . $self->title . '</title>' if $self->title;
 
             # stylesheet path if specified
-            if ($self->stylesheet && $self->stylesheet =~ /\D/) {
+            if ($self->stylesheet && $self->stylesheet ne 1) {
                 $html .= htmltag('link', { rel => 'stylesheet', href => $self->stylesheet });
             }
         }
@@ -885,7 +1171,8 @@ sub render {
 
         # Opening HTML if so requested
         my $font = $self->font;
-        if ($self->header) {
+        my $fcls = $font ? '</font>' : '';
+        if (defined $hd) {
             $html .= "</head>\n";
             $html .= $self->body;
             $html .= $font;
@@ -905,29 +1192,42 @@ sub render {
 
         # Get table stuff and reused calls
         my $table = $self->table;
-        my $tr    = $self->tr;
-        my $td    = $self->td;
         $html .= $table . "\n";     # want newline regardless
 
-        my %ta = $self->td;
-        $ta{align} = 'left';    # force input tags left
-        my $lh = htmltag('td', %ta);
-
         # Render regular fields in table
+        my %la = $self->{lalign} ? (align => $self->{lalign}) : ();
         for my $field (@unhidden) {
             debug 2, "render: attacking normal field '$field'";
+            next if $field->static > 1 && ! $field->tag_value;  # skip missing static vals
+
             if ($table) {
-                $html .= $tr . $td . $font;
-                $html .= $self->{messages}->form_required_opentag  if $field->required;
+                my($trid, $tdid, $inid, $erid);
+                if ($self->{name}) {
+                    # add id's to all elements
+                    $trid = "$self->{name}_$field$self->{rowname}";
+                    $tdid = "$self->{name}_$field$self->{labelname}";
+                    $inid = "$self->{name}_$field$self->{inputname}";
+                    $erid = "$self->{name}_$field$self->{errorname}";
+                }
+                $html .= $self->tr(id => $trid)
+                       . $self->td(id => $tdid, %la) . $font;
+                if ($field->invalid) {
+                    $html .= $self->{messages}->form_invalid_opentag;
+                } elsif ($field->required && ! $field->static) {
+                    $html .= $self->{messages}->form_required_opentag;
+                }
                 $html .= $field->label;
-                $html .= $self->{messages}->form_required_closetag if $field->required;
-                $html .= '</font>' if $font;
-                $html .= '</td>' . $lh . $font;
+                if ($field->invalid) {
+                    $html .= $self->{messages}->form_invalid_closetag;
+                } elsif ($field->required && ! $field->static) {
+                    $html .= $self->{messages}->form_required_closetag;
+                }
+                $html .= $fcls . '</td>' . $self->td(id => $inid) . $font;
                 $html .= $field->tag;
                 $html .= ' ' . $field->comment if $field->comment;  # "if" to control ' '
-                $html .= '</font>' if $font;
-                $html .= '</td>';
-                $html .= $lh . $field->message . '</td>' if $field->invalid;
+                $html .= $fcls . '</td>';
+                $html .= $self->td(id => $erid) . $font . $field->message . $fcls . '</td>'
+                      if $field->invalid;
                 $html .= "</tr>\n";
             } else {
                 $html .= $field->label . ' ' . $field->tag . ' ';
@@ -939,9 +1239,7 @@ sub render {
         my $buttons = $self->reset . $self->submit;
         if ($buttons) {
             if ($table) {
-                $ta{colspan} = 2;
-                $ta{align} = 'center';
-                $html .= $self->tr . htmltag('td', %ta) . $font;
+                $html .= $self->tr . $self->td(colspan => 2, align => 'center') . $font;
             }
             $html .= $buttons;
             if ($table) {
@@ -953,8 +1251,8 @@ sub render {
         # Properly nest closing tags
         $html .= '</table>' if $table;
         $html .= '</form>';     # should be $form->end
-        $html .= '</font>'  if $font && $self->header;
-        $html .= "</body></html>" if $self->header;
+        $html .= '</font>'  if $font && defined $hd;
+        $html .= "</body></html>" if defined $hd;
         $html .= "\n";
 
         return $html;
@@ -978,12 +1276,15 @@ sub mail () {
         }
     }
     unless ($mailer) {
-        belch "Cannot find a sendmail-compatible mailer to use; mail aborting";
+        belch "Cannot find a sendmail-compatible mailer; use mailer => '/path/to/mailer'";
         return;
     }
     unless ($args{to}) {
         belch "Missing required 'to' argument; cannot continue without recipient";
         return;
+    }
+    if ($args{from}) {
+        $mailer .= " -f $args{from}";
     }
 
     debug 1, "opening new mail to $args{to}";
@@ -1068,23 +1369,31 @@ sub DESTROY { 1 }
 # This is used to access all options after new(), by name
 sub AUTOLOAD {
     # This allows direct addressing by name
+    local $^W = 0;
     my $self = shift;
     my($name) = $AUTOLOAD =~ /.*::(.+)/;
 
-    debug 3, "-> dispatch to \$form->{$name} = @_";
-    $self->{$name} = shift if @_;
+    # If fieldsubs => 1 set, then allow grabbing fields directly
+    if ($self->{fieldsubs} && $self->{fieldrefs}{$name}) {
+        return $self->field(name => $name, @_);
+    }
 
-    # Try to catch outdated $form->$fieldname usage
-    if ((! exists($self->{$name}) || @_)
-      && ! $CGI::FormBuilder::Util::OURATTR{$name}) {
-        belch "Possible outdated field access via \$form->$name()"
+    debug 3, "-> dispatch to \$form->{$name} = @_";
+    $self->{$name} = shift if @_ % 2 == 1;   # uneven arg list only
+
+    # Try to catch  $form->$fieldname usage
+    if ((! exists($self->{$name}) || @_) && ! $CGI::FormBuilder::Util::OURATTR{$name}) {
+        if ($self->{fieldsubs}) {
+            return $self->field(name => $name, @_);
+        } else {
+            belch "Possible field access via \$form->$name() - see 'fieldsubs' option"
+        }
     }
 
     return $self->{$name};
 }
 
 1;
-
 __END__
 
 =head1 DESCRIPTION
@@ -1098,8 +1407,7 @@ You should also consider joining the mailing list by sending an email to:
 
     fbusers-subscribe@formbuilder.org
 
-For a fast description of all available options, search for the string 
-"quick" in this document.
+There are some pretty smart people on the list that can help you out.
 
 =head2 Overview
 
@@ -1117,31 +1425,139 @@ modules simply substitute Perl for HTML code:
 
 The problem is, that doesn't really gain you anything - you still
 have just as much code. Modules like C<CGI.pm> are great for
-decoding parameters, but they don't save you much time when trying
-to generate and process forms.
+decoding parameters, but not for generating and processing whole forms.
 
-The goal of C<CGI::FormBuilder> (B<"FormBuilder">) is to provide an easy
-way for you to generate and process entire CGI form-based applications.
+The goal of CGI::FormBuilder (B<FormBuilder>) is to provide an easy way
+for you to generate and process entire CGI form-based applications.
 Its main features are:
 
-=over
+- Viewing fields as entities (instead of just params), where the
+HTML representation, CGI values, validation, and so on are properties
+of each field.
 
-- Lots of builtin "intelligence", giving about a 4:1 ratio of the
-code it generates versus what you have to write.
+- Lots of built-in "intelligence" (such as automatic field typing),
+giving you about a 4:1 ratio of the code it generates versus what you
+have to write.
 
-- Automatic field typing based on the number of options, as well
-as auto-naming and auto-layout.
+- Full-blown regex validation for fields, even including JavaScript
+code generation.
 
-- Full-blown regex validation for form fields, including some builtin
-patterns and even JavaScript code generation.
+- Pluggable support for external template engines, such as C<HTML::Template>,
+C<Text::Template>, C<Template Toolkit>, and C<CGI::FastTemplate>.
 
-- Native HTML generation that is XHTML compliant and pretty nice
-looking, honestly.
+=head2 Quick Reference
 
-- Builtin support for C<HTML::Template>, C<Text::Template>, and
-C<Template Toolkit> so you can tweak the HTML any way you want.
+For the incredibly impatient, here's the quickest reference you can get:
 
-=back
+    # Create form
+    my $form = CGI::FormBuilder->new(
+
+       # Important options
+       fields     => \@array | \%hash,   # define form fields
+       header     => 0 | 1,              # send Content-type?
+       method     => 'POST' | 'GET',     # default is GET
+       name       => $string,            # namespace (recommended)
+       reset      => 0 | $str,           # "Reset" button
+       submit     => 0 | $str | \@array, # "Submit" button(s)
+       text       => $text,              # printed above form
+       title      => $title,             # printed up top
+       required   => \@array | 'ALL' | 'NONE',  # required fields?
+       values     => \%hash | \@array,   # from DBI, session, etc
+       validate   => \%hash,             # automatic field validation
+
+       # Lesser-used options
+       action     => $script,            # not needed (loops back)
+       cookies    => 0 | 1,              # use cookies for sessionid?
+       debug      => 0 | 1 | 2 | 3,      # gunk into error_log?
+       fieldsubs  => 0 | 1,              # allow $form->$field()
+       javascript => 0 | 1,              # generate JS validate() code?
+       keepextras => 0 | 1 | \@array,    # keep non-field params?
+       params     => $object,            # instead of CGI.pm
+       sticky     => 0 | 1,              # keep CGI values "sticky"?
+       messages   => $filename | \%hash | $object,  # locale 
+       template   => $filename | \%hash | $object,  # custom HTML
+
+       # Formatting options
+       body       => \%attr,             # {background => 'black'}
+       disabled   => 0 | 1,              # display as grayed-out?
+       font       => $font | \%attr,     # 'arial,helvetica'
+       jsfunc     => $jscode,            # JS code into validate()
+       jshead     => $jscode,            # JS code into <head>
+       linebreaks => 0 | 1,              # put breaks in form?
+       selectnum  => $threshold,         # for auto-type generation
+       smartness  => 0 | 1 | 2,          # tweak "intelligence"
+       static     => 0 | 1 | 2,          # show non-editable form?
+       styleclass => $string,            # prefix for class= ("fb_")
+       stylesheet => 0 | 1 | $path,      # turn on style class=
+       table      => 0 | 1 | \%attr,     # wrap form in <table>?
+       td         => \%attr,             # <td> options
+       tr         => \%attr,             # <tr> options
+
+       # These are deprecated and you should use field() instead
+       fieldtype  => 'type',
+       fieldattr  => \%attr,
+       labels     => \%hash,
+       options    => \%hash,
+       sortopts   => 'NAME' | 'NUM' | 1 | \&sub,
+
+       # external source file (see CGI::FormBuilder::Source::File)
+       source     => $file,
+    );
+
+    # Tweak fields
+    $form->field(
+
+       # Important options
+       name       => $name,          # name of field (required)
+       label      => $string,        # shown in front of <input>
+       type       => $type,          # normally auto-determined
+       multiple   => 0 | 1,          # allow multiple values?
+       options    => \@options | \%options,   # radio/select/checkbox
+       value      => $value | \@values,       # default value
+
+       # Lesser-used options
+       force      => 0 | 1,          # override CGI value?
+       growable   => 0 | 1 | $limit, # expand text/file inputs?
+       jsclick    => $jscode,        # instead of onclick
+       jsmessage  => $string,        # on JS validation failure
+       message    => $string,        # other validation failure
+       other      => 0 | 1,          # create "Other:" input?
+       required   => 0 | 1,          # must fill field in?
+       validate   => '/regex/',      # validate user input
+
+       # Formatting options
+       cleanopts  => 0 | 1,          # HTML-escape options?
+       columns    => 0 | $width,     # wrap field options at $width
+       comment    => $string,        # printed after field
+       disabled   => 0 | 1,          # display as grayed-out?
+       labels     => \%hash,         # deprecated (use "options")
+       linebreaks => 0 | 1,          # insert breaks in options?
+       nameopts   => 0 | 1,          # auto-name options?
+       sortopts   => 'NAME' | 'NUM' | 1 | \&sub,   # sort options?
+
+       # Change size, maxlength, or any other HTML attr
+       $htmlattr  => $htmlval,
+    );
+
+    # Check for submission
+    if ($form->submitted && $form->validate) {
+
+        # Get single value
+        my $value = $form->field('name');
+
+        # Get list of fields
+        my @field = $form->field;
+
+        # Get hashref of key/value pairs
+        my $field = $form->field;
+        my $value = $field->{name};
+
+    }
+
+    # Print form
+    print $form->render(any_opt_from_new => $some_value);
+
+That's it. Keep reading.
 
 =head2 Walkthrough
 
@@ -1178,7 +1594,7 @@ entered is valid:
 
 We now get a whole bunch of JavaScript validation code, and the
 appropriate hooks are added so that the form is validated by the
-browser C<onSubmit> as well.
+browser C<onsubmit> as well.
 
 Now, we also want to validate our form on the server side, since
 the user may not be running JavaScript. All we do is add the
@@ -1346,6 +1762,14 @@ a list of fields for your form:
                     fields => [qw(first_name birthday favorite_car)]
                );
 
+As of 3.02, you can also now initialize B<FormBuilder> from an external file:
+
+    my $form = CGI::FormBuilder->new(
+                    source => 'myform.conf'   # form and field options
+               );
+
+For details on the external file format, see L<CGI::FormBuilder::Source::File>.
+
 Any of the options below, in addition to being specified to C<new()>, can
 also be manipulated directly with a method of the same name. For example,
 to change the C<header> and C<stylesheet> options, either of these works:
@@ -1374,53 +1798,6 @@ conditionals:
         $form->header(1);
         $form->stylesheet('/path/to/style.css');
     }
-
-Here is a quick list of C<new()> options, organized by use:
-
-    my $form = CGI::FormBuilder->new(
-                    # important options
-                    fields     => \@array | \%hash,
-                    header     => 0 | 1,
-                    method     => 'POST' | 'GET',
-                    name       => $string,
-                    reset      => 0 | $string,
-                    submit     => 0 | $string | \@array,
-                    text       => $text,
-                    required   => \@array | 'ALL' | 'NONE',
-                    values     => \%hash | \@array,
-                    validate   => \%hash,
-
-                    # lesser-used options
-                    action     => $script,
-                    debug      => 0 | 1 | 2 | 3,
-                    keepextras => 0 | 1 | \@array,
-                    params     => $object,
-                    messages   => $filename | \%hash | $object,
-                    sticky     => 0 | 1,
-                    template   => $filename | \%hash | $object | \&sub,
-                    title      => $title,
-
-                    # formatting options
-                    body       => \%attr,
-                    fieldtype  => 'type',
-                    fieldattr  => \%attr,
-                    font       => $font | \%attr,
-                    javascript => 0 | 1,
-                    jshead     => $jscode,
-                    jsfunc     => $jscode,
-                    labels     => \%hash,     # use field() instead
-                    linebreaks => 0 | 1,
-                    options    => \%hash,     # use field() instead
-                    selectnum  => $threshold,
-                    smartness  => 0 | 1 | 2,
-                    sortopts   => 'NAME' | 'NUM' | 1 | \&sub,
-                    static     => 0 | 1,      # use confirm() instead
-                    styleclass => $string,
-                    stylesheet => 0 | 1 | $path,
-                    table      => 0 | 1 | \%attr,
-                    td         => \%attr,     # use a template or
-                    tr         => \%attr,     # stylesheet instead
-                );
 
 The following is a description of each option, in alphabetical order:
 
@@ -1463,10 +1840,25 @@ You can then override it on a per-field basis using the C<field()> method.
 
 =item fieldattr => \%attr
 
-Even more flexible than C<fieldtype>, this option allows you to 
-specify I<any> HTML attribute and have it be the default for all
-fields. This used to be good for stylesheets, but now that there
-is a C<stylesheet> option, this is fairly useless.
+This option allows you to specify I<any> HTML attribute and have it be
+the default for all fields. This used to be good for stylesheets, but
+now that there is a C<stylesheet> option, this is fairly useless.
+
+=item fieldsubs => 0 | 1
+
+This allows autoloading of field names so you can directly access
+them as:
+
+    $form->$fieldname(opt => 'val');
+
+Instead of:
+
+    $form->field(name => $fieldname, opt => 'val');
+
+Warning: If present, it will hide any attributes of the same name.
+For example, if you define "name" field, you won't be able to 
+change your form's name dynamically. Also, you cannot use this
+format to create new fields. Use with caution.
 
 =item font => $font | \%attr
 
@@ -1496,26 +1888,19 @@ templates or embedding forms in other HTML.
 If set to 1, JavaScript is generated in addition to HTML, the
 default setting.
 
-=item jshead => $jscode
-
-If using JavaScript, you can also specify some JavaScript code
-that will be included verbatim in the <head> section of the
-document. I'm not very fond of this one, what you probably
-want is the next option.
-
 =item jsfunc => $jscode
 
-Just like C<jshead>, only this is stuff that will go into the
-C<validate> JavaScript function. As such, you can use it to
-add extra JavaScript validate code verbatim. If something fails,
-you should do two things:
+This is verbatime JavaScript that will go into the C<validate>
+JavaScript function. It is useful for adding your own verbatim code,
+while still getting all the automatic hooks. If something fails, you
+should do two things:
 
-    1. append to the JavaScript variable "alertstr"
-    2. increment the JavaScript variable "invalid"
+    1. append to the JavaScript string "alertstr"
+    2. increment the JavaScript number "invalid"
 
 For example:
 
-    my $jsfunc = <<EOJS;
+    my $jsfunc = <<'EOJS';   # note single quote (see Hint)
       if (form.password.value == 'password') {
         alertstr += "Moron, you can't use 'password' for your password!\\n";
         invalid++;
@@ -1529,19 +1914,25 @@ is invoked. I find this option can be incredibly useful. Most often,
 I use it to bypass validation on certain submit modes. The submit
 button that was clicked is C<form._submit.value>:
 
-    my $jsfunc = <<EOJS;
+    my $jsfunc = <<'EOJS';   # note single quotes (see Hint)
       if (form._submit.value == 'Delete') {
-        if (confirm("Really DELETE this entry?")) return true;
-        return false;
+         if (confirm("Really DELETE this entry?")) return true;
+         return false;
       } else if (form._submit.value == 'Cancel') {
-        // skip validation since we're cancelling
-        return true;
+         // skip validation since we're cancelling
+         return true;
       }
     EOJS
 
-Important: When you're quoting, remember that Perl will expand "\n"
-itself. So, if you want a literal newline, you must double-escape
-it, as shown above.
+Hint: To prevent accidental expansion of embedding strings and escapes,
+you should put your C<HERE> string in single quotes, as shown above.
+
+=item jshead => $jscode
+
+If using JavaScript, you can also specify some JavaScript code
+that will be included verbatim in the <head> section of the
+document. I'm not very fond of this one, what you probably
+want is the previous option.
 
 =item keepextras => 0 | 1 | \@array
 
@@ -1603,9 +1994,17 @@ For details on this option, please refer to L<CGI::FormBuilder::Messages>.
 =item name => $string
 
 This names the form. It is optional, but when used, it renames several
-key variables and functions according to the name of the form. This
-allows you to (a) use multiple forms in a sequential application and
-(b) display multiple forms inline in one document. If you're trying
+key variables and functions according to the name of the form. In addition,
+it also adds the following DOM C<id> tags to each row of the table:
+
+    <tr id="${form}_${field}_row">
+        <td id="${form}_${field}_label">Label</td>
+        <td id="${form}_${field}_input"><input tag></td>
+        <td id="${form}_${field}_error">Error</td><!-- if invalid -->
+    </tr>
+
+These changes allow you to (a) use multiple forms in a sequential application
+and/or (b) display multiple forms inline in one document. If you're trying
 to build a complex multi-form app and are having problems, try naming
 your forms.
 
@@ -1737,10 +2136,18 @@ C<2>. It defaults to C<1>.
 If specified to C<new()>, this has the same effect as the same-named
 option to C<field()>, only it applies to all fields.
 
-=item static => 0 | 1
+=item source => $filename
+
+You can use this option to initialize B<FormBuilder> from an external
+configuration file. This allows you to separate your field code from
+your form layout, which is pretty cool. See L<CGI::FormBuilder::Source::File>
+for details on the format of the external file.
+
+=item static => 0 | 1 | 2
 
 If set to 1, then the form will be output with static hidden fields.
-Defaults to 0. Normally not useful; use C<confirm()> instead.
+If set to 2, then in addition fields without values will be omitted.
+Defaults to 0.
 
 =item sticky => 0 | 1
 
@@ -1968,7 +2375,7 @@ I'll add it.
 =back
 
 Note that any other options specified are passed to the C<< <form> >>
-tag verbatim. For example, you could specify C<onSubmit> or C<enctype>
+tag verbatim. For example, you could specify C<onsubmit> or C<enctype>
 to add the respective attributes.
 
 =head2 render()
@@ -2035,36 +2442,8 @@ this case you'll need to access it via C<field()> to get them all:
 
     my @colors = $form->field('color');
 
-Here is a quick list of C<field()> options, organized by use:
-
-    my $value = $form->field(
-                    # important options
-                    name       => $name,
-                    label      => $string,
-                    multiple   => 0 | 1,
-                    options    => \@options | \%options,
-                    type       => $type,
-                    value      => $value | \@values,
-
-                    # lesser-used options
-                    force      => 0 | 1,
-                    jsclick    => $jscode,    # instead of onClick
-                    required   => 0 | 1,      # in new() more useful
-                    validate   => '/regex/',  # in new() more useful
-
-                    # formatting options
-                    columns    => 0 | $width,
-                    comment    => $string,
-                    labels     => \%hash,     # use data to "options"
-                    linebreaks => 0 | 1,
-                    nameopts   => 0 | 1,
-                    sortopts   => 'NAME' | 'NUM' | 1 | &sub,
-
-                    # change size, maxlength, or any HTML attr
-                    $htmlattr  => $htmlval,
-                );
-
-The C<name> option is listed first, and then the rest are in order:
+The C<name> option is described first, and the remaining options
+are in order:
 
 =over
 
@@ -2102,6 +2481,19 @@ The above would yield something like this:
 The comment is rendered verbatim, meaning you can use HTML links
 or code in it if you want.
 
+=item cleanopts => 0 | 1
+
+If set to 1 (the default), field options are escaped to make sure
+any special chars don't screw up the HTML. Set to 0 if you want to
+include verbatim HTML in your options, and know what you're doing.
+
+=item cookies => 0 | 1
+
+Controls whether to generate a cookie if C<sessionid> has been set.
+This also requires that C<header> be set as well, since the cookie
+is wrapped in the header. Defaults to 1, meaning it will automatically
+work if you turn on C<header>.
+
 =item force => 0 | 1
 
 This is used in conjunction with the C<value> option to forcibly
@@ -2109,12 +2501,25 @@ override a field's value. See below under the C<value> option for
 more details. For compatibility with C<CGI.pm>, you can also call
 this option C<override> instead, but don't tell anyone.
 
+=item growable => 0 | 1 | $limit
+
+This option adds a button and the appropriate JavaScript code to 
+your form to allow the additional copies of the field to be added
+by the client filling out the form. Currently, this only works with
+C<text> and C<file> field types.
+
+If you set C<growable> to a positive integer greater than 1, that
+will become the limit of growth for that field. You won't be able
+to add more than C<$limit> extra inputs to the form, and FormBuilder 
+will issue a warning if the CGI params come in with more than the
+allowed number of values.
+
 =item jsclick => $jscode
 
 This is a cool abstraction over directly specifying the JavaScript
 action. This turns out to be extremely useful, since if a field
 type changes from C<select> to C<radio> or C<checkbox>, then the
-action changes from C<onChange> to C<onClick>. Why?!?!
+action changes from C<onchange> to C<onclick>. Why?!?!
 
 So if you said:
 
@@ -2125,11 +2530,27 @@ So if you said:
 This would generate the following code, depending on the number
 of C<@cards>:
 
-    <select name="credit_card" onChange="recalc_total();"> ...
+    <select name="credit_card" onchange="recalc_total();"> ...
 
-    <radio name="credit_card" onClick="recalc_total();"> ...
+    <radio name="credit_card" onclick="recalc_total();"> ...
 
 You get the idea.
+
+=item jsmessage => $string
+
+You can use this to specify your own custom message for the field,
+which will be printed if it fails validation. The C<jsmessage>
+option affects the JavaScript popup box, and the C<message> option
+affects what is printed out if the server-side validation fails.
+If C<message> is specified but not C<jsmessage>, then C<message>
+will be used for JavaScript as well.
+
+    $form->field(name      => 'cc',
+                 label     => 'Credit Card',
+                 message   => 'Invalid credit card number',
+                 jsmessage => 'The card number in "%s" is invalid');
+
+The C<%s> will be filled in with the field's C<label>.
 
 =item label => $string
 
@@ -2181,6 +2602,14 @@ Similar to the top-level "linebreaks" option, this one will put
 breaks in between options, to space things out more. This is
 useful with radio and checkboxes especially.
 
+=item message => $string
+
+Like C<jsmessage>, this customizes the output error string if
+server-side validation fails for the field. The C<message>
+option will also be used for JavaScript messages if it is
+specified but C<jsmessage> is not. See above under C<jsmessage>
+for details.
+
 =item multiple => 0 | 1
 
 If set to 1, then the user is allowed to choose multiple
@@ -2191,7 +2620,7 @@ to automatically being figured out based on number of values.
 =item nameopts => 0 | 1
 
 If set to 1, then options for select lists will be automatically
-named just like the fields. So, if you specified a list like:
+named using the same algorithm as field labels. For example:
 
     $form->field(name     => 'department', 
                  options  => qw[(molecular_biology
@@ -2215,7 +2644,27 @@ the same way as the names for the fields. This is designed as
 a simpler alternative to using custom C<options> data structures
 if your data is regular enough to support it.
 
-=item options => \@options | \%options
+=item other => 0 | 1 | \%attr
+
+If set, this automatically creates an "other" field to the right
+of the main field. This is very useful if you want to present a
+present list, but then also allow the user to enter their own
+entry:
+
+    $form->field(name    => 'vote_for_president',
+                 options => [qw(Bush Kerry)],
+                 other   => 1);
+
+That would generate HTML somewhat like this:
+
+    Vote For President:  [ ] Bush [ ] Kerry [ ] Other: [______]
+
+If the "other" button is checked, then the box becomes editable
+so that the user can write in their own text. This "other" box
+will be subject to the same validation as the main field, to
+make sure your data for that field is consistent.
+
+=item options => \@options | \%options | \&sub
 
 This takes an arrayref of options. It also automatically results
 in the field becoming a radio (if < 5) or select list (if >= 5),
@@ -2271,9 +2720,9 @@ As would, in fact, this code:
     );
     $form->field(name => 'opinion', options => \%opt);
 
-You get the idea. The goal is to give you as much flexibility
-as possible when constructing your data structures, and this
-module figures it out correctly.
+Finally, you can specify a C<\&sub> which must return either
+an C<\@arrayref> or C<\%hashref> of data, which is then expanded
+using the same algorithm.
 
 =item required => 0 | 1
 
@@ -2387,12 +2836,9 @@ to all fields.
 
 =head2 cgi_param()
 
-The above C<field()> function does a bunch of special stuff. 
-For one thing, it will only return fields which you have I<explicitly>
-defined in your form. Excess parameters will be silently ignored.
-Also, it will incorporate defaults you give it, meaning you may
-get a value back even though the user didn't enter one in the
-form (see above).
+The above C<field()> method will only return fields which you have
+I<explicitly> defined in your form. Excess parameters will be silently
+ignored, to help ensure users can't mess with your form. 
 
 But, you may have some times when you want extra params so that
 you can maintain state, but you don't want it to appear in your
@@ -2407,23 +2853,54 @@ form parameters.
 This call simply redispatches to C<CGI.pm>'s C<param()> method,
 so consult those docs for more information.
 
-=head2 confirm()
+=head2 tmpl_param()
 
-The purpose of this function is to print out a static confirmation
-screen showing a short message along with the values that were
-submitted. It is actually just a special wrapper around C<render()>,
-twiddling a couple options.
+This allows you to manipulate template parameters directly.
+Extending the above example:
 
-If you're using templates, you probably want to specify a separate
-success template, such as:
+    my $form = CGI::FormBuilder->new(template => 'some.tmpl');
 
-    if ($form->submitted && $form->validate) {
-        print $form->confirm(template => 'success.tmpl');
-    } else {
-        print $form->render(template => 'fillin.tmpl');
-    }
+    my $company = $form->cgi_param('company');
+    $form->tmpl_param(company => $company);
 
-So that you don't get the same screen twice.
+Then, in your template:
+
+    Hello, <tmpl_var company> employee!
+    <p>
+    Please fill out this form:
+    <tmpl_var form-start>
+    <!-- etc... -->
+
+For really precise template control, you can actually create your
+own template object and then pass it directly to B<FormBuilder>.
+See L<CGI::FormBuilder::Template> for more details.
+
+=head2 sessionid()
+
+This gets and sets the sessionid, which is stored in the special
+form field C<_sessionid>. By default no session ids are generated
+or used. Rather, this is intended to provide a hook for you to 
+easily integrate this with a session id module like C<CGI::Session>.
+
+Since you can set the session id via the C<_sessionid> field, you
+can pass it as an argument when first showing the form:
+
+    http://mydomain.com/forms/update_info.cgi?_sessionid=0123-091231
+
+This would set things up so that if you called:
+
+    my $id = $form->sessionid;
+
+This would get the value C<0123-091231> in your script. Conversely,
+if you generate a new sessionid on your own, and wish to include it
+automatically, simply set is as follows:
+
+    $form->sessionid($id);
+
+If the sessionid is set, and C<header> is set, then B<FormBuilder>
+will also automatically generate a cookie for you.
+
+See L</"EXAMPLES"> for C<CGI::Session> example.
 
 =head2 submitted()
 
@@ -2490,30 +2967,23 @@ pass your validation requirements in via the C<validate>
 option to the C<new()> function, and just call the C<validate()>
 function with no arguments.
 
-=head2 sessionid()
+=head2 confirm()
 
-This gets and sets the sessionid, which is stored in the special
-form field C<_sessionid>. By default no session ids are generated
-or used. Rather, this is intended to provide a hook for you to 
-easily integrate this with a session id module like C<Apache::Session>.
+The purpose of this function is to print out a static confirmation
+screen showing a short message along with the values that were
+submitted. It is actually just a special wrapper around C<render()>,
+twiddling a couple options.
 
-Since you can set the session id via the C<_sessionid> field, you
-can pass it as an argument when first showing the form:
+If you're using templates, you probably want to specify a separate
+success template, such as:
 
-    http://mydomain.com/forms/update_info.cgi?_sessionid=0123-091231
+    if ($form->submitted && $form->validate) {
+        print $form->confirm(template => 'success.tmpl');
+    } else {
+        print $form->render(template => 'fillin.tmpl');
+    }
 
-This would set things up so that if you called:
-
-    my $id = $form->sessionid;
-
-This would get the value C<0123-091231> in your script. Conversely,
-if you generate a new sessionid on your own, and wish to include it
-automatically, simply set is as follows:
-
-    $form->sessionid($id);
-
-This will cause it to be automatically carried through subsequent
-forms.
+So that you don't get the same screen twice.
 
 =head2 mailconfirm()
 
@@ -2555,6 +3025,40 @@ given as the C<text> argument via email verbatim to the C<to> address.
 In addition, if you're not running C<sendmail> you can specify the
 C<mailer> parameter to give the path of your mailer. This option
 is accepted by the above functions as well.
+
+=head1 COMPATIBILITY
+
+The following methods are provided to make B<FormBuilder> behave more
+like other modules, when desired.
+
+=head2 header()
+
+Returns a C<CGI.pm> header, but only if C<< header => 1 >> is set.
+
+=head2 param()
+
+This is an alias for C<field()>, provided for compatibility. However,
+while C<field()> I<does> act "compliantly" for easy use in C<CGI::Session>,
+C<Apache::Request>, etc, it is I<not> 100% the same. As such, I recommend
+you use C<field()> in your code, and let receiving objects figure the
+C<param()> thing out when needed:
+
+    my $sess = CGI::Session->new(...);
+    $sess->save_param($form);   # will see param()
+
+=head2 query_string()
+
+This returns a query string similar to C<CGI.pm>, but B<ONLY> containing
+form fields and any C<keepextras>, if specified. Other params are ignored.
+
+=head2 self_url()
+
+This returns a self url, similar to C<CGI.pm>, but again B<ONLY> with
+form fields.
+
+=head2 script_name()
+
+An alias for C<< $form->action >>.
 
 =head1 EXAMPLES
 
@@ -2819,6 +3323,35 @@ the next part.
 
 With the exception of the database code, that's the whole application.
 
+=head2 Ex6: Session Management
+
+This creates a session via C<CGI::Session>, and ties it in with B<FormBuilder>:
+
+    #!/usr/bin/perl -w
+
+    use CGI::Session;
+    use CGI::FormBuilder;
+
+    my $form = CGI::FormBuilder->new(fields => \@fields);
+
+    # Initialize session
+    my $session = CGI::Session->new('driver:File',
+                                    $form->sessionid,
+                                    { Directory=>'/tmp' });
+
+    if ($form->submitted && $form->validate) {
+        # Automatically save all parameters
+        $session->save_param($form);
+    }
+
+    # Ensure we have the right sessionid (might be new)
+    $form->sessionid($session->id);
+
+    print $form->render;
+
+Yes, it's pretty much that easy. See L<CGI::FormBuilder::Multi> for
+how to tie this into a multi-page form.
+
 =head1 FREQUENTLY ASKED QUESTIONS (FAQ)
 
 There are a couple questions and subtle traps that seem to poke people
@@ -3057,36 +3590,6 @@ And then get to your file the same way as C<CGI.pm>:
 
 In fact, that's a whole file upload program right there.
 
-=head1 NOTES
-
-Parameters beginning with a leading underscore are reserved for
-future use by this module. Use at your own peril.
-
-The output of the HTML generated natively may change slightly from
-release to release. If you need precise control, use a template.
-
-Every attempt has been made to make this module taint-safe (-T).
-However, due to the way tainting works, you may run into the
-message "Insecure dependency" or "Insecure $ENV{PATH}". If so,
-make sure you are setting you C<$ENV{PATH}> at the top of your
-script. This is actually a good habit regardless.
-
-=head1 SUPPORT
-
-For support, please start by visiting the FormBuilder website at:
-
-    www.formbuilder.org
-
-This site has numerous tutorials and other documentation to help you
-use FormBuilder to its full potential. If you can't find the answer
-there, then join the mailing list by emailing:
-
-    fbusers-subscribe@formbuilder.org
-
-To submit patches, please first join the mailing list and post your
-question or issue. That way we can have a discussion about the best
-way to address it.
-
 =head1 REFERENCES
 
 This really doesn't belong here, but unfortunately many people are
@@ -3144,6 +3647,23 @@ And this code:
 Except that the latter doesn't require that we first create 
 C<@fields> and C<%validate> variables.
 
+=head1 NOTES
+
+Parameters beginning with a leading underscore are reserved for
+future use by this module. Use at your own peril.
+
+The C<field()> method has the alias C<param()> for compatibility
+with other modules, allowing you to pass a C<$form> around just
+like a C<$cgi> object.
+
+The output of the HTML generated natively may change slightly from
+release to release. If you need precise control, use a template.
+
+Every attempt has been made to make this module taint-safe (-T).
+However, due to the way tainting works, you may run into the
+message "Insecure dependency" or "Insecure $ENV{PATH}". If so,
+make sure you are setting C<$ENV{PATH}> at the top of your script.
+
 =head1 ACKNOWLEDGEMENTS
 
 This module has really taken off, thanks to very useful input, bug
@@ -3172,24 +3692,27 @@ reports, and encouraging feedback from a number of people, including:
     Koos Pol
     Shawn Poulson
     Dan Collis Puro
+    David Siegal
     Stephan Springl
     Ryan Tate
     John Theus
     Remi Turboult
     Andy Wardley
+    Raphael Wegmann
+    Emanuele Zeppieri
 
 Thanks!
 
 =head1 SEE ALSO
 
-L<CGI::FormBuilder::Field>, L<CGI::FormBuilder::Template>, 
-L<CGI::FormBuilder::Messages>, L<CGI::FormBuilder::Util>,
-L<HTML::Template>, L<Text::Template>, Template Toolkit,
-L<CGI>, L<CGI::Application>
+L<CGI::FormBuilder::Template>, L<CGI::FormBuilder::Messages>, 
+L<CGI::FormBuilder::Source::File>, L<CGI::FormBuilder::Field>, 
+L<CGI::FormBuilder::Util>, L<HTML::Template>, L<Text::Template>, 
+Template Toolkit, L<CGI>, L<CGI::Application>
 
 =head1 REVISION
 
-$Id: FormBuilder.pm,v 1.25 2005/02/10 20:15:52 nwiger Exp $
+$Id: FormBuilder.pm,v 1.58 2005/04/06 18:46:32 nwiger Exp $
 
 =head1 AUTHOR
 
