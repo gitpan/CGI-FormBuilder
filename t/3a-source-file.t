@@ -590,7 +590,7 @@ validate:
 
 messages:
     form_invalid_text:  You fucked up. Check it:
-    form_required_text: Don\'t fuck up, it causes me work. Fuck,try again, ok?
+    form_required_text: Don\'t fuck up,it causes me work. Fuck,try again,   ok?
     js_invalid_input:   - Enter shit in the "%s" field
 
 required: ALL
@@ -697,7 +697,7 @@ function validate (form) {
 }
 //-->
 </script><noscript><p><font color="red"><b>Please enable JavaScript or use a newer browser.</b></font></p></noscript></head>
-<body bgcolor="white"><h3>Finalize Your Order</h3>Don't fuck up, it causes me work. Fuck, try again, ok?<form action="TEST" method="POST" onsubmit="return validate(this);"><input id="_submitted" name="_submitted" type="hidden" value="1" /><table border="0">
+<body bgcolor="white"><h3>Finalize Your Order</h3>Don't fuck up it causes me work. Fuck try again ok?<form action="TEST" method="POST" onsubmit="return validate(this);"><input id="_submitted" name="_submitted" type="hidden" value="1" /><table border="0">
 <tr valign="middle"><td><b>First Name</b></td><td><input id="first_name" name="first_name" type="text" /></td></tr>
 <tr valign="middle"><td><b>Last Name</b></td><td><input id="last_name" name="last_name" type="text" /></td></tr>
 <tr valign="middle"><td><b>Email</b></td><td><input id="email" name="email" type="text" value="pete@peteson.com" /></td></tr>

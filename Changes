@@ -12,6 +12,22 @@ COMPATIBILITY
     In order to allow the second form, you must specify the "fieldsubs"
     option to "new()".
 
+VERSION 3.0201
+    This is a bugfix release that patches the following problems:
+        - missing $form->name accessor
+        - $form->confirm displaying wrong value for radio groups
+        - $form->new(messages => $file) not reading file (tries to bless directly)
+        - added $form->field(delete => 1) option
+        - redone messages joiner on array passing (internals thing)
+
+    The changed files are:
+        CGI/FormBuilder.pm
+        CGI/FormBuilder/Field.pm
+        CGI/FormBuilder/Messages.pm
+
+    All other sub-modules shipped are identical to the 3.02 versions; those
+    modules retain the same version and signature.
+
 VERSION 3.02
   Multi-Page Form Support
     A new module, "CGI::FormBuilder::Multi", has been added to handle the
