@@ -1,5 +1,5 @@
 
-# Copyright (c) 2005 Nathan Wiger <nate@sun.com>. All Rights Reserved.
+# Copyright (c) 2005 Nathan Wiger <nate@wiger.org>. All Rights Reserved.
 # Use "perldoc CGI::FormBuilder::Source::File" to read full documentation.
 
 package CGI::FormBuilder::Source::File;
@@ -21,17 +21,17 @@ CGI::FormBuilder::Source::File - Initialize FormBuilder from external file
 
 use Carp;
 use strict;
-use vars qw($VERSION);
 
-$VERSION = '3.02';
+our $VERSION = '3.03';
 
+use 5.006; # or later
 use CGI::FormBuilder::Util;
 
 # Begin "real" code
 sub new {
     my $mod = shift;
     my $class = ref($mod) || $mod;
-    my %opt = cleanargs(@_);
+    my %opt = arghash(@_);
     return bless \%opt, $class;
 }
 
@@ -432,11 +432,11 @@ L<CGI::FormBuilder>, L<Text::FormBuilder>
 
 =head1 REVISION
 
-$Id: File.pm,v 1.8 2005/03/09 22:54:51 nwiger Exp $
+$Id: File.pm,v 1.23 2006/02/24 01:42:29 nwiger Exp $
 
 =head1 AUTHOR
 
-Copyright (c) 2005 Nathan Wiger <nate@sun.com>. All Rights Reserved.
+Copyright (c) 2005-2006 Nathan Wiger <nate@wiger.org>. All Rights Reserved.
 
 This module is free software; you may copy this under the terms of
 the GNU General Public License, or the Artistic License, copies of

@@ -20,9 +20,8 @@ CGI::FormBuilder::Template::Text - FormBuilder interface to Text::Template
 
 use Carp;
 use strict;
-use vars qw($VERSION);
 
-$VERSION = '3.02';
+our $VERSION = '3.03';
 
 use CGI::FormBuilder::Util;
 use Text::Template;
@@ -292,11 +291,11 @@ L<CGI::FormBuilder>, L<CGI::FormBuilder::Template>, L<Text::Template>
 
 =head1 REVISION
 
-$Id: Text.pm,v 1.17 2005/03/14 19:31:56 nwiger Exp $
+$Id: Text.pm,v 1.32 2006/02/24 01:42:29 nwiger Exp $
 
 =head1 AUTHOR
 
-Copyright (c) 2000-2005 Nathan Wiger <nate@sun.com>. All Rights Reserved.
+Copyright (c) 2000-2006 Nathan Wiger <nate@wiger.org>. All Rights Reserved.
 
 Text::Template support is due to huge contributions by Jonathan Buhacoff.
 Thanks man.

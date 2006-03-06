@@ -31,9 +31,8 @@ CGI::FormBuilder::Template::Fast - FormBuilder interface to CGI::FastTemplate
 
 use Carp;
 use strict;
-use vars qw($VERSION);
 
-$VERSION = '3.02';
+our $VERSION = '3.03';
 
 use CGI::FormBuilder::Util;
 use CGI::FastTemplate;
@@ -78,15 +77,16 @@ sub render {
         my @value = $field->tag_value;
 
         # assign this field's variables
-        $self->{engine}->assign({
+        my $ref = {
             NAME     => $field->name,
             FIELD    => $field->tag,
             VALUE    => $value[0],       # the VALUE tag can only hold first value!
             LABEL    => $field->label,
-            COMMENT  => $field->comment,
-            ERROR    => $field->error,
             REQUIRED => ($field->required ? 'required' : 'optional'),
-        });
+            ERROR    => $field->error,
+            COMMENT  => $field->comment,
+        };
+        $self->{engine}->assign($ref);
 
         # TODO: look for special templates based on field name or type?
         if ($field->invalid) {
@@ -191,9 +191,9 @@ L<CGI::FormBuilder>, L<CGI::FormBuilder::Template>, L<CGI::FastTemplate>
 
 =head1 AUTHOR
 
-Copyright (c) 2005 Peter Eichman <peichman@cpan.org>. All Rights Reserved.
+Copyright (c) 2005-2006 Peter Eichman <peichman@cpan.org>. All Rights Reserved.
 
-Maintained as part of C<CGI::FormBuilder> by Nathan Wiger <nate@sun.com>. 
+Maintained as part of C<CGI::FormBuilder> by Nathan Wiger <nate@wiger.org>. 
 
 This module is free software; you may copy this under the terms of
 the GNU General Public License, or the Artistic License, copies of

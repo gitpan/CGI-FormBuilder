@@ -20,9 +20,8 @@ CGI::FormBuilder::Template::TT2 - FormBuilder interface to Template Toolkit
 
 use Carp;
 use strict;
-use vars qw($VERSION);
 
-$VERSION = '3.02';
+our $VERSION = '3.03';
 
 use CGI::FormBuilder::Util;
 use Template;
@@ -227,7 +226,7 @@ is processed.
         template => {
              type => 'TT2',
              template => 'form.tmpl',
-             variable => 'form'
+             variable => 'form',
              engine   => {
                   INCLUDE_PATH => '/usr/local/tt2/templates',
              },
@@ -247,11 +246,11 @@ L<CGI::FormBuilder>, L<CGI::FormBuilder::Template>, L<Template>
 
 =head1 REVISION
 
-$Id: TT2.pm,v 1.17 2005/03/14 19:31:56 nwiger Exp $
+$Id: TT2.pm,v 1.33 2006/02/24 01:42:29 nwiger Exp $
 
 =head1 AUTHOR
 
-Copyright (c) 2000-2005 Nathan Wiger <nate@sun.com>. All Rights Reserved.
+Copyright (c) 2000-2006 Nathan Wiger <nate@wiger.org>. All Rights Reserved.
 
 Template Tookit support is largely due to a huge patch from Andy Wardley.
 

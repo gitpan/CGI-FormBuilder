@@ -16,9 +16,8 @@ CGI::FormBuilder::Template::HTML - FormBuilder interface to HTML::Template
 
 use Carp;
 use strict;
-use vars qw($VERSION);
 
-$VERSION = '3.02';
+our $VERSION = '3.03';
 
 use CGI::FormBuilder::Util;
 use HTML::Template;
@@ -209,7 +208,7 @@ while you have control over the specifics of the C<< <input> >> tag.
 A sample expansion may create HTML like the following:
 
     Email:
-    <input type="text" name="email" value="nate@wiger">
+    <input type="text" name="email" value="nate@wiger.org">
     <font size="-1"><i>You must enter a valid value</i></font>
 
 Note, though, that this will only get the I<first> value in the case
@@ -359,11 +358,11 @@ L<CGI::FormBuilder>, L<CGI::FormBuilder::Template>, L<HTML::Template>
 
 =head1 REVISION
 
-$Id: HTML.pm,v 1.18 2005/03/14 19:31:56 nwiger Exp $
+$Id: HTML.pm,v 1.32 2006/02/24 01:42:29 nwiger Exp $
 
 =head1 AUTHOR
 
-Copyright (c) 2000-2005 Nathan Wiger <nate@sun.com>. All Rights Reserved.
+Copyright (c) 2000-2006 Nathan Wiger <nate@wiger.org>. All Rights Reserved.
 
 This module is free software; you may copy this under the terms of
 the GNU General Public License, or the Artistic License, copies of

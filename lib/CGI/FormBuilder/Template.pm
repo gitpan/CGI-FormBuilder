@@ -1,5 +1,5 @@
 
-# Copyright (c) 2005 Nathan Wiger <nate@sun.com>. All Rights Reserved.
+# Copyright (c) 2005 Nathan Wiger <nate@wiger.org>. All Rights Reserved.
 # Use "perldoc CGI::FormBuilder::Template" to read full documentation.
 
 package CGI::FormBuilder::Template;
@@ -46,10 +46,9 @@ CGI::FormBuilder::Template - Template adapters for FormBuilder
 =cut
 
 use strict;
-use vars qw($VERSION);
 
-$VERSION = '3.02';
-die __PACKAGE__, " is not a real module, please read the docs\n"; 
+our $VERSION = '3.03';
+warn __PACKAGE__, " is not a real module, please read the docs\n"; 
 1;
 __END__
 
@@ -190,11 +189,11 @@ L<CGI::FormBuilder::Template::Fast>
 
 =head1 REVISION
 
-$Id: Template.pm,v 1.15 2005/03/11 19:39:56 nwiger Exp $
+$Id: Template.pm,v 1.30 2006/02/24 01:42:29 nwiger Exp $
 
 =head1 AUTHOR
 
-Copyright (c) 2000-2005 Nathan Wiger <nate@sun.com>. All Rights Reserved.
+Copyright (c) 2000-2006 Nathan Wiger <nate@wiger.org>. All Rights Reserved.
 
 This module is free software; you may copy this under the terms of
 the GNU General Public License, or the Artistic License, copies of

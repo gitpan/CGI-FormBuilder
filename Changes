@@ -12,23 +12,53 @@ COMPATIBILITY
     In order to allow the second form, you must specify the "fieldsubs"
     option to "new()".
 
-VERSION 3.0202
-    This is a bugfix release that patches the following problems:
-        - missing $form->name accessor
-        - $form->confirm displaying wrong value for radio groups
-        - $form->new(messages => $file) not reading file (tries to bless directly)
-        - added $form->field(delete => 1) option
-        - disabling field comment on static fields
-        - fixing $form->field(disabled => 0)
-        - redone messages joiner on array passing (internals thing)
+VERSION 3.03
+  Subclassable Fields
+    Each field is now rendered by its own class, named for the field type.
+    For example, text fields are rendered by
+    "CGI::FormBuilder::Field::text". This allows you to create custom field
+    types and plugging them in by creating your own
+    "CGI::FormBuilder::Field::whatever_you_want" module. Thanks to Peter
+    Eichman for his contributions to this scheme.
 
-    The changed files are:
-        CGI/FormBuilder.pm
-        CGI/FormBuilder/Field.pm
-        CGI/FormBuilder/Messages.pm
+  Messages Localization
+    All messages are now handled in a similar way to field types: They are
+    delegated to "CGI::FormBuilder::Messages::locale" where "locale" is the
+    appropriate string such as "en_US" or "da_DK". A number of localizations
+    are included as part of the standard distribution.
 
-    All other sub-modules shipped are identical to the 3.02 versions; those
-    modules retain the same version and signature.
+    There are two ways to use these messages: Either the 'auto' messages
+    mode or by specifying a specific locale:
+
+        my $form = CGI::FormBuilder->new(messages => 'auto');   # check client
+        my $form = CGI::FormBuilder->new(messages => ':da_DK'); # specified
+
+    You can create your own messages by copying "_example.pm" and modifying
+    it for your language. When using messages in this way, the HTTP Charset
+    is changed to "utf-8".
+
+  Select optgroup support
+    By using the "field()" option "optgroups", you can now cause select
+    fields to automatically generate optgroup tags:
+
+        $form->field(name => 'browser', options => \@opt, optgroups => 1);
+
+    See the documentation on "optgroups" for more details.
+
+  Data::FormValidator Support
+    Thanks to another great patch from Peter Eichman, "Data::FormValidator"
+    is supported as a validation option to "new()", just by passing it in as
+    an object. See the documentation on "validate" for more information.
+
+  Option sorting by LABELNAME or LABELNUM
+    You can now sort options by "LABELNAME" or "LABELNUM", similar to the
+    value-based sorting of "NAME" and "NUM". See the documentation for more
+    details.
+
+  XHTML Compliance
+    Generated code now validates against <http://validator.w3.org>. This
+    includes stuff like lowercase "get" and "post" methods, lowercase
+    "onchange" and "onsubmit" actions, and so on.
 
 VERSION 3.02
   Multi-Page Form Support

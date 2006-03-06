@@ -32,8 +32,7 @@ $ENV{QUERY_STRING}   = 'ticket=111&user=pete&replacement=TRUE&action=Unsubscribe
 
 use CGI::FormBuilder;
 use CGI::FormBuilder::Multi;
-
-my $h = "Content-Type: text/html; charset=ISO-8859-1\r\n\r\n";
+use CGI::FormBuilder::Test;
 
 # separate forms
 my $form1 = {
@@ -72,15 +71,7 @@ my $form3 = {
     header => 1,
 };
 
-my $html3 = $h . <<EOH;
-<html><head><title>Tres Tacos</title></head>
-<body bgcolor="white"><h3>Tres Tacos</h3><form action="/page.pl" id="p3" method="Post" name="p3"><input id="_submitted_p3" name="_submitted_p3" type="hidden" value="2" /><input id="_page" name="_page" type="hidden" value="3" /><table border="0">
-<tr id="p3_replacement_row" valign="middle"><td id="p3_replacement_label">MikeZ is Da"Bomb"</td><td id="p3_replacement_input"><input checked="checked" id="replacement_TRUE" name="replacement" type="radio" value="TRUE" /> <label for="replacement_TRUE">TRUE</label> <input id="replacement_FALSE" name="replacement" type="radio" value="FALSE" /> <label for="replacement_FALSE">FALSE</label> <input id="replacement_MAYBE" name="replacement" type="radio" value="MAYBE" /> <label for="replacement_MAYBE">MAYBE</label> </td></tr>
-<tr id="p3_ticket_row" valign="middle"><td id="p3_ticket_label">Ticket</td><td id="p3_ticket_input"><input id="ticket" name="ticket" type="text" value="-1million" /> master mister</td></tr>
-<tr id="p3_action_row" valign="middle"><td id="p3_action_label"> JackSUN </td><td id="p3_action_input"><input id="action" misc="ellaneous" name="action" type="password" value="Unsubscribe" /></td></tr>
-<tr valign="middle"><td align="center" colspan="2"><input id="p3_submit" name="_submit" type="submit" value="Submit" /></td></tr>
-</table></form></body></html>
-EOH
+my $html3 = outfile(3);
 
 my $multi = CGI::FormBuilder::Multi->new(
                  $form1, $form2, $form3,
@@ -89,6 +80,7 @@ my $multi = CGI::FormBuilder::Multi->new(
                  method => 'Post',
                  action => '/page.pl',
                  debug  => $DEBUG,
+                 columns => 1,
 
                  navbar => 0,
             );
@@ -139,6 +131,7 @@ ok($form->field('extra'), 'junk');  #32
 ok($multi->page(3), 3);     #33
 ok($form = $multi->form);   #34
 
+# Try to bootstrap CGI::Session and skip otherwise
 my $session;
 eval <<'EOE';
 use Cwd;
@@ -146,16 +139,29 @@ my $pwd = cwd;
 require CGI::Session;
 $session = CGI::Session->new("driver:File", undef, {Directory => $pwd});
 EOE
+
+# Placeholders so code can continue
 $session ||= new Stub;
 $NOSESSION = $@ ? 'skip: CGI::Session not installed here' : 0;
 
 skip($NOSESSION, $form->sessionid($session->id), $session->id);     #35
-my($c) = $form->header =~ /Set-Cookie: (\S+)/;
+
+# Trick ourselves into producing a header w/ cookie
+my $c;
+{ local $TESTING = 0; ($c) = $form->header =~ /Set-Cookie: (\S+)/; }
 skip($NOSESSION, $c, '_sessionid='.$session->id.';');               #36
-skip($NOSESSION, $session->save_param($form));                      #37
-skip($NOSESSION, $session->param('ticket'), $form->field('ticket'));#38
-skip($NOSESSION, $session->param('name'), $form->field('name'));    #39
-ok($form->field(name => 'name', value => 'Tater Salad', force => 1));   #40
-skip($NOSESSION, $session->param('name', $form->field('name')));    #41
-skip($NOSESSION, $session->param('name'), $form->field('name'));    #42
+
+# Empty return value?
+$session->save_param($form) unless $NOSESSION;
+
+skip($NOSESSION, $session->param('ticket'), $form->field('ticket'));#37
+
+skip($NOSESSION, $session->param('name'), $form->field('name'));    #38
+
+# reset name forcibly
+ok($form->field(name => 'name', value => 'Tater Salad', force => 1));   #39
+skip($NOSESSION, $session->param('name', $form->field('name')));    #40
+skip($NOSESSION, $session->param('name'), 'Tater Salad');    #41
+
+skip($NOSESSION, $session->param('email'), undef);      #42
 

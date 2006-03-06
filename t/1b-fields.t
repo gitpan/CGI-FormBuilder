@@ -4,11 +4,17 @@ use strict;
 use vars qw($TESTING $DEBUG);
 $TESTING = 1;
 $DEBUG = $ENV{DEBUG} || 0;
+
 use Test;
 
 # use a BEGIN block so we print our plan before CGI::FormBuilder is loaded
+my @pm;
 BEGIN { 
-    my $numtests = 22;
+    # try to load all the .pm's except templates from MANIFEST
+    open(M, "<MANIFEST") || warn "Can't open MANIFEST ($!) - skipping imports";
+    chomp(@pm = grep !/Template/, grep /\.pm$/, <M>);
+
+    my $numtests = 22 + @pm;
 
     plan tests => $numtests;
 
@@ -19,15 +25,31 @@ BEGIN {
     }
 }
 
+my $n = 0;
+for (@pm) {
+    close(STDERR);
+    eval "package blah$n; require '$_'; package main;";
+    ok(!$@);
+    $n++;
+}
+
 # Fake a submission request
 $ENV{REQUEST_METHOD} = 'GET';
 $ENV{QUERY_STRING}   = 'ticket=111&user=pete&replacement=TRUE&action=Unsubscribe&name=Pete+Peteson&email=pete%40peteson.com&extra=junk&_submitted=1&blank=&two=&two=';
 
 use CGI::FormBuilder;
+use CGI::FormBuilder::Test;
+
+# jump to a test if specified for debugging (goto eek!)
+my $t = shift;
+if ($t) {
+    eval sprintf("goto T%2.2d", $t);
+    die;
+}
 
 # Now manually try a whole bunch of things
 #1
-ok(do {
+T01: ok(do {
     my $form = CGI::FormBuilder->new(debug => $DEBUG, fields => [qw/user name email/]);
     if ($form->submitted) {
         1;
@@ -35,9 +57,10 @@ ok(do {
         0;
     }
 }, 1);
+exit if $t;
 
 #2
-ok(do {
+T02: ok(do {
     my $form = CGI::FormBuilder->new(debug => $DEBUG, fields   => [qw/user name email/],
                                      validate => { email => 'EMAIL' } );
     if ($form->submitted && $form->validate) {
@@ -46,9 +69,10 @@ ok(do {
         0;
     }
 }, 1);
+exit if $t;
 
 #3
-ok(do {
+T03: ok(do {
     # this should fail since we are saying our email should be a netmask
     my $form = CGI::FormBuilder->new(debug => $DEBUG, fields => [qw/user name email/],
                                      validate => { email => 'NETMASK' } );
@@ -58,9 +82,10 @@ ok(do {
         1;
     }
 }, 1);
+exit if $t;
 
 #4
-ok(do {
+T04: ok(do {
     # this should also fail since the submission key will be _submitted_magic,
     # and our query_string only has _submitted in it
     my $form = CGI::FormBuilder->new(debug => $DEBUG, fields => [qw/user name email/],
@@ -71,9 +96,10 @@ ok(do {
         1;
     }
 }, 1);
+exit if $t;
 
 #5
-ok(do {
+T05: ok(do {
     # CGI should override default values
     my $form = CGI::FormBuilder->new(debug => $DEBUG, fields => [qw/user name email/],
                                      values => { user => 'jim' } );
@@ -83,9 +109,10 @@ ok(do {
         0;
     }
 }, 1);
+exit if $t;
 
 #6
-ok(do {
+T06: ok(do {
     # test a similar thing, by with mixed-case values
     my $form = CGI::FormBuilder->new(debug => $DEBUG, fields => [qw/user name email Addr/],
                                      values => { User => 'jim', ADDR => 'Hello' } );
@@ -95,9 +122,10 @@ ok(do {
         0;
     }
 }, 1);
+exit if $t;
 
 #7
-ok(do {
+T07: ok(do {
     # test a similar thing, by with mixed-case values
     my $form = CGI::FormBuilder->new(debug => $DEBUG, fields => { User => 'jim', ADDR => 'Hello' } );
     if ($form->submitted && ! $form->field('Addr') && $form->field('ADDR') eq 'Hello') {
@@ -106,9 +134,10 @@ ok(do {
         0;
     }
 }, 1);
+exit if $t;
 
 #8
-ok(do {
+T08: ok(do {
     my $form = CGI::FormBuilder->new(debug => $DEBUG, fields => []);   # no fields!
     if ($form->submitted) {
         if ($form->field('name') || $form->field('extra')) {
@@ -124,9 +153,10 @@ ok(do {
             0;
     }
 }, 1);
+exit if $t;
 
 #9
-ok(do {
+T09: ok(do {
     # test if required does what v1.97 thinks it should (should fail)
     my $form = CGI::FormBuilder->new(debug => $DEBUG, fields => { user => 'nwiger', pass => '' },
                                      validate => { user => 'USER' },
@@ -137,9 +167,10 @@ ok(do {
         1;
     }
 }, 1);
+exit if $t;
 
 #10
-ok(do {
+T10: ok(do {
     # YARC (yet another 'required' check)
     my $form = CGI::FormBuilder->new(
                     debug => $DEBUG,
@@ -153,9 +184,10 @@ ok(do {
         0;
     }
 }, 1);
+exit if $t;
 
 #11
-ok(do {
+T11: ok(do {
     # test of proper CGI precendence when manually setting values
     my $form = CGI::FormBuilder->new(
                     debug => $DEBUG,
@@ -171,9 +203,10 @@ ok(do {
         0;
     }
 }, 1);
+exit if $t;
 
 #12
-ok(do {
+T12: ok(do {
     # see if our checkboxes work how we want them to
     my $form = CGI::FormBuilder->new(
                     debug => $DEBUG,
@@ -181,7 +214,7 @@ ok(do {
                     labels => {color => 'Favorite Color'},
                     validate => {email => 'EMAIL'},
                     required => [qw/name/],
-                    sticky => 0,
+                    sticky => 0, columns => 1,
                     action => 'TEST', title => 'TEST',
                );
     $form->field(name => 'color', options => [qw(red> green& blue")],
@@ -191,67 +224,27 @@ ok(do {
     # Just return the form rendering
     # This should really go in 00generate.t, but the framework is too tight
     $form->render;
-}, q{<script language="JavaScript1.3" type="text/javascript"><!-- hide from old browsers
-function validate (form) {
-    var alertstr = '';
-    var invalid  = 0;
-
-    // name: radio group or multiple checkboxes
-    var name = null;
-    var selected_name = 0;
-    for (var loop = 0; loop < form.elements['name'].length; loop++) {
-        if (form.elements['name'][loop].checked) {
-            name = form.elements['name'][loop].value;
-            selected_name++;
-            if (name == null || name === "") {
-                alertstr += '- Choose one of the "Name" options\n';
-                invalid++;
-            }
-        } // if
-    } // for name
-    if (! selected_name) {
-        alertstr += '- Choose one of the "Name" options\n';
-        invalid++;
-    }
-
-    if (invalid > 0 || alertstr != '') {
-        if (! invalid) invalid = 'The following';   // catch for programmer error
-        alert(''+invalid+' error(s) were encountered with your submission:'+'\n\n'+alertstr+'\n'+'Please correct these fields and try again.');
-        // reset counters
-        alertstr = '';
-        invalid  = 0;
-        return false;
-    }
-    return true;  // all checked ok
-}
-//-->
-</script><noscript><p><font color="red"><b>Please enable JavaScript or use a newer browser.</b></font></p></noscript><p>Fields that are <b>highlighted</b> are required.</p><form action="TEST" method="GET" onsubmit="return validate(this);"><input id="_submitted" name="_submitted" type="hidden" value="2" /><table border="0">
-<tr valign="middle"><td><b>Name</b></td><td><input id="name_lower" name="name" type="radio" value="lower" /> <label for="name_lower">Lower</label> <input id="name_UPPER" name="name" type="radio" value="UPPER" /> <label for="name_UPPER">UPPER</label> </td></tr>
-<tr valign="middle"><td>Favorite Color</td><td><input id="color_red&gt;" name="color" type="checkbox" value="red&gt;" /> <label for="color_red&gt;">red></label> <input id="color_green&amp;" name="color" type="checkbox" value="green&amp;" /> <label for="color_green&amp;">green&</label> <input id="color_blue&quot;" name="color" type="checkbox" value="blue&quot;" /> <label for="color_blue&quot;">blue"</label> </td></tr>
-<tr valign="middle"><td align="center" colspan="2"><input id="_submit" name="_submit" type="submit" value="Submit" /></td></tr>
-</table></form>
-});
+}, outfile(12));
+exit if $t;
 
 #13
-ok(do {
+T13: ok(do {
     # check individual fields as static
-    my $form = CGI::FormBuilder->new(debug => $DEBUG, fields => [qw/name name_2 color/], action => 'TEST');
+    my $form = CGI::FormBuilder->new(debug => $DEBUG, 
+                                    fields => [qw/name email color/],
+                                    action => 'TEST',
+                                    columns => 1);
     $form->field(name => 'name', static => 1);
-    $form->field(name => 'name_2', type => 'static');
+    $form->field(name => 'email', type => 'static');
 
     # Just return the form rendering
     # This should really go in 00generate.t, but the framework is too tight
     $form->render;
-}, qq{<form action="TEST" method="GET"><input id="_submitted" name="_submitted" type="hidden" value="2" /><table border="0">
-<tr valign="middle"><td>Name</td><td><input id="name" name="name" type="hidden" value="Pete Peteson" />Pete Peteson </td></tr>
-<tr valign="middle"><td>Name 2</td><td><input id="name_2" name="name_2" type="hidden" /></td></tr>
-<tr valign="middle"><td>Color</td><td><input id="color" name="color" type="text" /></td></tr>
-<tr valign="middle"><td align="center" colspan="2"><input id="_submit" name="_submit" type="submit" value="Submit" /></td></tr>
-</table></form>
-});
+}, outfile(13));
+exit if $t;
 
 #14
-ok(do {
+T14: ok(do {
     # test of proper CGI precendence when manually setting values
     my $form = CGI::FormBuilder->new(
                     debug => $DEBUG,
@@ -268,9 +261,10 @@ ok(do {
         0;
     }
 }, 1);
+exit if $t;
 
 #15
-ok(do {
+T15: ok(do {
     # test of proper CGI precendence when manually setting values
     my $form = CGI::FormBuilder->new(
                     debug => $DEBUG,
@@ -285,27 +279,29 @@ ok(do {
         0;
     }
 }, 1);
+exit if $t;
 
 #16
-ok(do{
-    my $form = CGI::FormBuilder->new(debug => $DEBUG, fields => [qw/name color hid1 hid2/], action => 'TEST');
+T16: ok(do{
+    my $form = CGI::FormBuilder->new(debug  => $DEBUG, 
+                                     fields => [qw/name color hid1 hid2/],
+                                     action => 'TEST',
+                                     columns => 1);
     $form->field(name => 'name', static => 1, type => 'text');
     $form->field(name => 'hid1', type => 'hidden', value => 'Val1a');
     $form->field(name => 'hid1', type => 'hidden', value => 'Val1b');   # should replace Val1a
     $form->field(name => 'hid2', type => 'hidden', value => 'Val2');
-    $form->field(name => 'color', value => 'blew');
+    $form->field(name => 'color', value => 'blew', options => [qw(read blew yell)]);
+    $form->field(name => 'Tummy', value => [qw(lg xxl)], options => [qw(sm med lg xl xxl xxxl)]);
 
     # Just return the form rendering
     # This should really go in 00generate.t, but the framework is too tight
     $form->confirm;
-}, qq{Success! Your submission has been received LOCALTIME.<form action="TEST" method="GET"><input id="_submitted" name="_submitted" type="hidden" value="2" /><input id="hid1" name="hid1" type="hidden" value="Val1b" /><input id="hid2" name="hid2" type="hidden" value="Val2" /><table border="0">
-<tr valign="middle"><td>Name</td><td><input id="name" name="name" type="hidden" value="Pete Peteson" />Pete Peteson </td></tr>
-<tr valign="middle"><td>Color</td><td><input id="color" name="color" type="hidden" value="blew" />blew </td></tr>
-</table></form>
-});
+}, outfile(16));
+exit if $t;
 
 #17
-ok(do{
+T17: ok(do{
     my $form = CGI::FormBuilder->new(debug => $DEBUG, fields => [qw/name color dress_size taco:punch/]);
     $form->field(name => 'blank', value => 175, force => 1);
     $form->field(name => 'user', value => 'bob');
@@ -316,9 +312,10 @@ ok(do{
         0;
     }
 }, 1);
+exit if $t;
 
 #18
-ok(do{
+T18: ok(do{
     my $form = CGI::FormBuilder->new(
                         debug => $DEBUG,
                         smartness  => 0,
@@ -326,7 +323,7 @@ ok(do{
                    );
 
     $form->field(name => 'blank', value => 'aoe', type => 'text'); 
-    $form->field(name => 'extra', value => '24', type => 'unspecified', override => 1);
+    $form->field(name => 'extra', value => '24', type => 'hidden', override => 1);
     $form->field(name => 'two', value => 'one');
 
     my @v = $form->field('two');
@@ -337,9 +334,10 @@ ok(do{
         0;
     }
 }, 1);
+exit if $t;
 
 #19
-ok(do{
+T19: ok(do{
     my $form = CGI::FormBuilder->new(debug => $DEBUG);
     $form->fields([qw/one two three/]);
     my @v;
@@ -349,24 +347,26 @@ ok(do{
         0;
     }
 }, 1);
+exit if $t;
 
 #20
-ok(do{
+T20: ok(do{
     my $form = CGI::FormBuilder->new(
                     debug => $DEBUG,
                     fields => [qw/one two three/],
-                    fieldtype => 'TOMATO',
+                    fieldtype => 'TextAREA',
                );
     $form->field(name => 'added_later', label => 'Yo');
     my $ok = 1;
     for ($form->fields) {
-        $ok = 0 unless $_->render =~ /tomato/i;
+        $ok = 0 unless $_->render =~ /textarea/i;
     }
     $ok;
 }, 1);
+exit if $t;
 
 #21
-ok(do{
+T21: ok(do{
     my $form = CGI::FormBuilder->new(
                     debug => $DEBUG,
                     fields => [qw/a b c/],
@@ -380,9 +380,10 @@ ok(do{
     }
     $ok;
 }, 1);
+exit if $t;
 
 #22
-ok(do{
+T22: ok(do{
     my $form = CGI::FormBuilder->new(
                     fields  => [qw/name user/],
                     required => 'ALL',
@@ -398,4 +399,5 @@ ok(do{
     }
     $ok;
 }, 1);
+exit if $t;
 

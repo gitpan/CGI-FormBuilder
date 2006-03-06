@@ -1,5 +1,5 @@
 
-# Copyright (c) 2005 Nathan Wiger <nate@sun.com>. All Rights Reserved.
+# Copyright (c) 2005 Nathan Wiger <nate@wiger.org>. All Rights Reserved.
 # Use "perldoc CGI::FormBuilder::Multi" to read full documentation.
 
 package CGI::FormBuilder::Multi;
@@ -94,13 +94,11 @@ CGI::FormBuilder::Multi - Create multi-page FormBuilder forms
 
 =cut
 
-use Carp;
 use strict;
-use vars qw($VERSION %DEFOPTS);
 
-$VERSION = '3.02';
+our $VERSION = '3.03';
 
-%DEFOPTS = (
+our %DEFAULT = (
     pagename => '_page',
     navbar   => 0,
 );
@@ -121,7 +119,7 @@ sub new {
     puke "Must specify at least one form to ::Multi" unless @forms;
 
     # Remaining options are form opts
-    my %opt  = cleanargs(@_);
+    my %opt  = arghash(@_);
 
     # Check for CGI params
     # This is duplicated code straight out of FormBuilder.pm,
@@ -134,7 +132,7 @@ sub new {
 
     # Options for me
     my %me;
-    while (my($k,$v) = each %DEFOPTS) {
+    while (my($k,$v) = each %DEFAULT) {
         $me{$k} = exists $opt{$k} ? delete $opt{$k} : $v;
     }
     $me{forms} = \@forms;
@@ -345,11 +343,11 @@ L<CGI::FormBuilder>
 
 =head1 REVISION
 
-$Id: Multi.pm,v 1.8 2005/03/09 18:43:23 nwiger Exp $
+$Id: Multi.pm,v 1.25 2006/02/24 01:42:29 nwiger Exp $
 
 =head1 AUTHOR
 
-Copyright (c) 2005 Nathan Wiger <nate@sun.com>. All Rights Reserved.
+Copyright (c) 2005-2006 Nathan Wiger <nate@wiger.org>. All Rights Reserved.
 
 This module is free software; you may copy this under the terms of
 the GNU General Public License, or the Artistic License, copies of

@@ -28,41 +28,45 @@ I said that, though.
 =cut
 
 use strict;
-use vars qw($VERSION @ISA @EXPORT $DEBUG @OURATTR %OURATTR);
 
 # Don't "use" or it collides with our basename()
 require File::Basename;
 
-$VERSION = '3.02';
+our $VERSION = '3.03';
 
 # Place functions you want to export by default in the
 # @EXPORT array. Any other functions can be requested
 # explicitly if you place them in the @EXPORT_OK array.
 use Exporter;
-@ISA = qw(Exporter);
-@EXPORT = qw(debug belch puke indent escapeurl escapehtml escapejs
-             autodata optalign optsort optval cleanargs
-             htmlattr htmltag toname tovar ismember basename);
-$DEBUG = 0;
+use base 'Exporter';
+our @EXPORT = qw(
+    debug belch puke indent escapeurl escapehtml escapejs
+    autodata optalign optsort optval arglist arghash
+    htmlattr htmltag toname tovar ismember basename rearrange
+);
+our $DEBUG = 0;
 
 # To clean up the HTML, instead of just allowing the HTML tags that
 # we interpret are "valid", instead we yank out all the options and
 # stuff that we use internally. This allows arbitrary tags to be
 # specified in the generation of HTML tags, and also means that this
 # module doesn't go out of date when the HTML spec changes next week.
-@OURATTR = qw(
-    attr body checknum cleanopts columns cookies comment debug delete doctype
-    errorname fields fieldattr fieldsubs fieldtype fieldopts font force growable growname
-    header idprefix inputname invalid javascript jsname jsprefix jsfunc jshead keepextras
-    label labels labelname lalign linebreaks messages nameopts other othername options
-    override page pages pagename params render required reset resetname rowname
-    selectnum sessionidname sessionid smartness sortopts static sticky stylesheet
-    styleclass submit submitname submittedname table template title
-    validate values
+our @OURATTR = qw(
+    attr autofill autofillshow body buttonname checknum cleanopts
+    columns cookies comment debug delete dtd errorname fields
+    fieldattr fieldsubs fieldtype fieldname fieldopts font force
+    growable growname header idprefix inputname invalid javascript
+    jsmessage jsname jsprefix jsfunc jshead keepextras labels labelname
+    lalign linebreaks message messages nameopts newline other othername
+    optgroups options override page pages pagename params render required
+    reset resetname rowname selectname selectnum sessionidname sessionid
+    smartness source sortopts static sticky stylesheet styleclass submit
+    submitname submittedname table
+    template validate values
 );
 
 # trick for speedy lookup
-%OURATTR = map { $_ => 1 } @OURATTR;
+our %OURATTR = map { $_ => 1 } @OURATTR;
 
 =head2 debug($level, $string)
 
@@ -81,6 +85,7 @@ sub debug ($;@) {
     return unless $DEBUG >= $_[0];  # first arg is debug level
     my $l = shift;  # using $_[0] directly above is just a little faster...
     my($func) = (caller(1))[3];
+    $func =~ s/(.*)::/$1->/;
     warn "[$func] (debug$l) ", @_, "\n";
 }
 
@@ -96,6 +101,7 @@ sub belch (@) {
     while (my @stk = caller($i++)) {
         ($pkg,$file,$line,$func) = @stk;
     }
+    $func =~ s/(.*)::/$1->/;
     warn "[$func] Warning: ", @_, " at $file line $line\n";
 }
 
@@ -111,6 +117,7 @@ sub puke (@) {
     while (my @stk = caller($i++)) {
         ($pkg,$file,$line,$func) = @stk;
     }
+    $func =~ s/(.*)::/$1->/;
     die "[$func] Fatal: ", @_, " at $file line $line\n";
 }
 
@@ -211,13 +218,15 @@ sub htmlattr ($;@) {
         next if ($OURATTR{$key} || $key =~ /^_/
                                 || ($key eq 'text'     && $name ne 'body')
                                 || ($key eq 'multiple' && $name ne 'select')
-                                || ($key eq 'type'     && $name eq 'select'));
+                                || ($key eq 'type'     && $name eq 'select')
+                                || ($key eq 'label'    && ($name ne 'optgroup' && $name ne 'option'))
+                                || ($key eq 'title'    && $name eq 'form'));
 
         $html{$key} = $val;
     }
     # "double-name" fields with an id for easier DOM scripting
     # do not override explictly set id attributes
-    $html{id} = $html{name} if exists $html{name} and not exists $html{id};
+    $html{id} = tovar($html{name}) if exists $html{name} and not exists $html{id};
 
     return wantarray ? %html : \%html; 
 }
@@ -304,37 +313,43 @@ sub autodata ($) {
     return $data;   # return as-is
 }
 
-=head2 cleanargs(@_)
+=head2 arghash(@_)
 
 This returns a hash of options passed into a sub:
 
     sub field {
         my $self = shift;
-        my %opt  = cleanargs(@_);
+        my %opt  = arghash(@_);
     }
 
-It does some minor sanity checks as well.
+It will return a hashref in scalar context.
 
 =cut
 
-sub cleanargs (;@) {
-    return $_[0] if ref $_[0];  # assume good data struct verbatim
+sub arghash (;@) {
+    return $_[0] if ref $_[0];        # assume good struct verbatim
 
     belch "Odd number of arguments passed into ", (caller(1))[3]
        if @_ % 2 != 0;
 
-=for dummies_sorry_this_is_too_slow
+    return wantarray ? @_ : { @_ };   # assume scalar hashref
+}
 
-    # strip off any leading '-opt' crap
-    my @args;
-    while (@_) {
-        (my $k = shift) =~ s/^-//;
-        push @args, $k, shift;
-    }
+=head2 arglist(@_)
+
+This returns a list of args passed into a sub:
+
+    sub value {
+        my $self = shift;
+        $self->{value} = arglist(@_);
+
+It will return an arrayref in scalar context.
 
 =cut
 
-    return wantarray ? @_ : { @_ };   # assume scalar hashref
+sub arglist (;@) {
+    return $_[0] if ref $_[0];        # assume good struct verbatim
+    return wantarray ? @_ : [ @_ ];   # assume scalar arrayref
 }
 
 =head2 indent($num)
@@ -370,7 +385,8 @@ sub optalign ($) {
         # we turn any data into ( ['key', 'val'], ['key', 'val'] )
         # have to check sub-data too, hence why this gets a little nasty
         @opt = ($ref eq 'HASH')
-                  ? map { [$_, $opt->{$_}] } keys %{$opt}
+                  ? map { (ref $opt->{$_} eq 'ARRAY')
+                            ? [$_, $opt->{$_}[0]] : [$_, $opt->{$_}] } keys %{$opt}
                   : map { (ref $_ eq 'HASH')  ? [ %{$_} ] : $_ } autodata $opt;
     } else {
         # this code should not be reached, but is here for safety
@@ -396,15 +412,19 @@ sub optsort ($@) {
 
     debug 2, "optsort($sort) called for field";
 
-    # Currently we can only sort on the value, which sucks if the value
-    # and label are substantially different. This is caused by the fact
+    # Currently any CODEREF can only sort on the value, which sucks if the
+    # value and label are substantially different. This is caused by the fact
     # that options as specified by the user only have one element, not two
     # as hashes or generated options do. This should really be an option,
-    # since sometimes you want the values sorted too. Patches welcome.
+    # since sometimes you want the labels sorted too. Patches welcome.
     if ($sort eq 'alpha' || $sort eq 'name' || $sort eq 'NAME' || $sort eq 1) {
         @opt = sort { (autodata($a))[0] cmp (autodata($b))[0] } @opt;
     } elsif ($sort eq 'numeric' || $sort eq 'num' || $sort eq 'NUM') {
         @opt = sort { (autodata($a))[0] <=> (autodata($b))[0] } @opt;
+    } elsif ($sort eq 'LABELNAME' || $sort eq 'LABEL') {
+        @opt = sort { (autodata($a))[1] cmp (autodata($b))[1] } @opt;
+    } elsif ($sort eq 'LABELNUM') {
+        @opt = sort { (autodata($a))[1] <=> (autodata($b))[1] } @opt;
     } elsif (ref $sort eq 'CODE') {
         @opt = sort { eval &{$sort}((autodata($a))[0], (autodata($b))[0]) } @opt;
     } else {
@@ -424,8 +444,29 @@ Useless outside of B<FormBuilder>.
 
 sub optval ($) {
     my $opt = shift;
-    my($o,$n,$a) = (ref $opt eq 'ARRAY') ? (@{$opt}) : ($opt);
-    return wantarray ? ($o,$n,$a) : $o;
+    my @ary = (ref $opt eq 'ARRAY') ? @{$opt} : ($opt);
+    return wantarray ? @ary : $ary[0];
+}
+
+=head2 rearrange($ref, $name)
+
+Rearranges arguments designed to be per-field from the global inheritor.
+
+=cut
+
+sub rearrange {
+    my $from = shift;
+    my $name = shift;
+    my $ref  = ref $from;
+    my $tval;
+    if ($ref && $ref eq 'HASH') {
+        $tval = $from->{$name}; 
+    } elsif ($ref && $ref eq 'ARRAY') {
+        $tval = ismember($name, @$from) ? 1 : 0;
+    } else {
+        $tval = $from;
+    }
+    return $tval;
 }
 
 =head2 basename
@@ -451,11 +492,11 @@ L<CGI::FormBuilder>
 
 =head1 REVISION
 
-$Id: Util.pm,v 1.26 2005/04/06 18:46:32 nwiger Exp $
+$Id: Util.pm,v 1.51 2006/02/24 01:42:29 nwiger Exp $
 
 =head1 AUTHOR
 
-Copyright (c) 2000-2005 Nathan Wiger <nate@sun.com>. All Rights Reserved.
+Copyright (c) 2000-2006 Nathan Wiger <nate@wiger.org>. All Rights Reserved.
 
 This module is free software; you may copy this under the terms of
 the GNU General Public License, or the Artistic License, copies of
