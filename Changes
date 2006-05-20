@@ -12,6 +12,16 @@ COMPATIBILITY
     In order to allow the second form, you must specify the "fieldsubs"
     option to "new()".
 
+VERSION 3.0301
+    This is a bugfix release to repair these main items:
+
+        - optgroups bugfix for complex arrays
+        - removal of HTML::Entities support due to utf8 issues
+        - new es_ES Messages module with better translations
+        - a patch from Mark Hedges to enable plugin modules for mailresults()
+
+    The rest of the features remain the same as below.
+
 VERSION 3.03
   Subclassable Fields
     Each field is now rendered by its own class, named for the field type.
@@ -360,8 +370,7 @@ VERSION 3.00
     overdue.
 
 AUTHOR
-    Copyright (c) 2000-2005 Nathan Wiger, Sun Microsystems <nate@sun.com>.
-    All Rights Reserved.
+    Copyright (c) 2000-2006 Nate Wiger <nate@wiger.org> All Rights Reserved.
 
     This module is free software; you may copy this under the terms of the
     GNU General Public License, or the Artistic License, copies of which

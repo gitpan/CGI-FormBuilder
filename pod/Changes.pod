@@ -15,6 +15,17 @@ autoload style of getting to fields:
 In order to allow the second form, you must specify the C<fieldsubs>
 option to C<new()>.
 
+=head1 VERSION 3.0301
+
+This is a bugfix release to repair these main items:
+
+    - optgroups bugfix for complex arrays
+    - removal of HTML::Entities support due to utf8 issues
+    - new es_ES Messages module with better translations
+    - a patch from Mark Hedges to enable plugin modules for mailresults()
+
+The rest of the features remain the same as below.
+
 =head1 VERSION 3.03
 
 =head2 Subclassable Fields
@@ -390,7 +401,7 @@ overdue.
 
 =head1 AUTHOR
 
-Copyright (c) 2000-2005 Nathan Wiger, Sun Microsystems <nate@sun.com>.
+Copyright (c) 2000-2006 Nate Wiger <nate@wiger.org>
 All Rights Reserved.
 
 This module is free software; you may copy this under the terms of

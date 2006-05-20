@@ -137,25 +137,18 @@ sub escapeurl ($) {
 =head2 escapehtml($string)
 
 Returns an HTML-escaped string suitable for embedding in HTML tags.
-This dispatches to C<HTML::Entities::encode()> if available.
 
 =cut
 
 sub escapehtml ($) {
     my $toencode = shift;
     return '' unless defined $toencode;
-    eval { require  HTML::Entities };
-    if ($@) {
-        # not found; use very basic built-in HTML escaping
-        $toencode =~ s!&!&amp;!g;
-        $toencode =~ s!<!&lt;!g;
-        $toencode =~ s!>!&gt;!g;
-        $toencode =~ s!"!&quot;!g;
-        return $toencode;
-    } else {
-        # dispatch to HTML::Entities
-        return HTML::Entities::encode($toencode);
-    }
+    # use very basic built-in HTML escaping
+    $toencode =~ s!&!&amp;!g;
+    $toencode =~ s!<!&lt;!g;
+    $toencode =~ s!>!&gt;!g;
+    $toencode =~ s!"!&quot;!g;
+    return $toencode;
 }
 
 =head2 escapejs($string)
@@ -496,7 +489,7 @@ $Id: Util.pm,v 1.51 2006/02/24 01:42:29 nwiger Exp $
 
 =head1 AUTHOR
 
-Copyright (c) 2000-2006 Nathan Wiger <nate@wiger.org>. All Rights Reserved.
+Copyright (c) 2000-2006 Nate Wiger <nate@wiger.org>. All Rights Reserved.
 
 This module is free software; you may copy this under the terms of
 the GNU General Public License, or the Artistic License, copies of

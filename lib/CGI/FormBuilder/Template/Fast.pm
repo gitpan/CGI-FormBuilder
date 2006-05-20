@@ -193,7 +193,7 @@ L<CGI::FormBuilder>, L<CGI::FormBuilder::Template>, L<CGI::FastTemplate>
 
 Copyright (c) 2005-2006 Peter Eichman <peichman@cpan.org>. All Rights Reserved.
 
-Maintained as part of C<CGI::FormBuilder> by Nathan Wiger <nate@wiger.org>. 
+Maintained as part of C<CGI::FormBuilder> by Nate Wiger <nate@wiger.org>. 
 
 This module is free software; you may copy this under the terms of
 the GNU General Public License, or the Artistic License, copies of

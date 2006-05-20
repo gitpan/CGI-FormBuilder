@@ -1,7 +1,6 @@
 #!/bin/sh
 cd `dirname $0`/..
-cd lib
-for f in ../t/*.t
+for f in t/*.t
 do
     echo "**** $f ****"
     $f "$@"

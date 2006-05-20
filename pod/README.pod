@@ -120,7 +120,7 @@ For details on installation, please read the file C<INSTALL>.
 
 =head1 AUTHOR
 
-Copyright (c) 2000-2005 Nathan Wiger, Sun Microsystems <nate@sun.com>.
+Copyright (c) 2000-2006 Nate Wiger <nate@wiger.org>
 All Rights Reserved.
 
 This module is free software; you may copy this under the terms of

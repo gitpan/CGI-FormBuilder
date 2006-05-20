@@ -146,6 +146,7 @@ sub tag {
         # we get the name from that. If not, then it's a list
         # of regular old data that we toname() if nameopts => 1
         my($o,$n,$g) = optval($opt);
+        debug 2, "optval($opt) = ($o,$n,$g)";
 
         # Must use defined() or else labels of "0" are lost
         unless (defined($n)) {
@@ -157,17 +158,24 @@ sub tag {
 
         # If we asked for optgroups => 1, then we add an our
         # <optgroup> each time our $lastgroup changes
-        if ($optgroups && $g && $g ne $lastgroup) {
-            $lastgroup = $g;
-            $tag .= "  </optgroup>\n" if $didgroup;
-            if (UNIVERSAL::isa($optgroups, 'HASH')) {
-                # lookup by name
-                $g = exists $optgroups->{$g} ? $optgroups->{$g} : $g;
-            } elsif ($self->nameopts) {
-                $g = toname($g);
+        if ($optgroups) {
+            if ($g && $g ne $lastgroup) {
+                # close previous optgroup and start a new one
+                $tag .= "  </optgroup>\n" if $didgroup;
+                $lastgroup = $g;
+                if (UNIVERSAL::isa($optgroups, 'HASH')) {
+                    # lookup by name
+                    $g = exists $optgroups->{$g} ? $optgroups->{$g} : $g;
+                } elsif ($self->nameopts) {
+                    $g = toname($g);
+                }
+                $tag .= '  ' . htmltag('optgroup', label => $g) . "\n";
+                $didgroup++;
+            } elsif (!$g && $lastgroup) {
+                # finished an optgroup but next option is not in one
+                $tag .= "  </optgroup>\n" if $didgroup;
+                $didgroup = 0;  # reset counter
             }
-            $tag .= '  ' . htmltag('optgroup', label => $g) . "\n";
-            $didgroup++;
         }
 
         my %slct = ismember($o, @value) ? (selected => 'selected') : ();
@@ -213,7 +221,7 @@ $Id: select.pm,v 1.16 2006/02/24 01:42:29 nwiger Exp $
 
 =head1 AUTHOR
 
-Copyright (c) 2005-2006 Nathan Wiger <nate@wiger.org>. All Rights Reserved.
+Copyright (c) 2005-2006 Nate Wiger <nate@wiger.org>. All Rights Reserved.
 
 This module is free software; you may copy this under the terms of
 the GNU General Public License, or the Artistic License, copies of

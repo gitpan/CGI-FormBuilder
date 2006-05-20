@@ -13,7 +13,7 @@ sub modcheck () {
          'Text::Template     1.43  (for CGI::FormBuilder::Template::Text)',
          'Template           2.08  (for CGI::FormBuilder::Template::TT2)',
          'CGI::FastTemplate  1.09  (for CGI::FormBuilder::Template::Fast)',
-         'HTML::Entities     1.23  (for multibyte HTML character escapes)') {
+    ) {
         my($mod,$ver) = split;
         eval "use $mod $ver";
         if ($@) {

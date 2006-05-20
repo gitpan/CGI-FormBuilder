@@ -1,4 +1,8 @@
-#!/usr/bin/perl -I.
+#!/usr/bin/perl -Ilib -I../lib
+
+# Copyright (c) 2000-2006 Nathan Wiger <nate@wiger.org>.
+# All Rights Reserved. If you're reading this, you're bored.
+# 3a-source-file.t - test C::FB::Source::File support
 
 use strict;
 use vars qw($TESTING $DEBUG);
@@ -148,7 +152,7 @@ values:
 
 method: put
 title:  Econ 101
-header: 1
+header
 name: econ
 font: arial,helvetica,courier
 stylesheet: 1

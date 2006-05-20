@@ -1,4 +1,8 @@
-#!/usr/bin/perl -I.
+#!/usr/bin/perl -Ilib -I../lib
+
+# Copyright (c) 2000-2006 Nathan Wiger <nate@wiger.org>.
+# All Rights Reserved. If you're reading this, you're bored.
+# 2b-template-text.t - test Text::Template support
 
 use strict;
 use vars qw($TESTING $DEBUG $SKIP);

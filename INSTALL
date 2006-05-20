@@ -23,8 +23,7 @@ DESCRIPTION
     Note: This is true for CPAN modules and is not specific to FormBuilder.
 
 AUTHOR
-    Copyright (c) 2000-2005 Nathan Wiger, Sun Microsystems <nate@sun.com>.
-    All Rights Reserved.
+    Copyright (c) 2000-2006 Nate Wiger <nate@wiger.org> All Rights Reserved.
 
     This module is free software; you may copy this under the terms of the
     GNU General Public License, or the Artistic License, copies of which

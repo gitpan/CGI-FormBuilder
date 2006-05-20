@@ -250,7 +250,7 @@ $Id: TT2.pm,v 1.33 2006/02/24 01:42:29 nwiger Exp $
 
 =head1 AUTHOR
 
-Copyright (c) 2000-2006 Nathan Wiger <nate@wiger.org>. All Rights Reserved.
+Copyright (c) 2000-2006 Nate Wiger <nate@wiger.org>. All Rights Reserved.
 
 Template Tookit support is largely due to a huge patch from Andy Wardley.
 

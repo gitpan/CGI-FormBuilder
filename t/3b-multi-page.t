@@ -1,4 +1,8 @@
-#!/usr/bin/perl -I.
+#!/usr/bin/perl -Ilib -I../lib
+
+# Copyright (c) 2000-2006 Nathan Wiger <nate@wiger.org>.
+# All Rights Reserved. If you're reading this, you're bored.
+# 3b-multi-page.t - test C::FB::Multi support
 
 package Stub;
 sub new { return bless {}, shift }

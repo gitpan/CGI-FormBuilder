@@ -1,4 +1,8 @@
-#!/usr/bin/perl -I.
+#!/usr/bin/perl -Ilib -I../lib
+
+# Copyright (c) 2000-2006 Nathan Wiger <nate@wiger.org>.
+# All Rights Reserved. If you're reading this, you're bored.
+# 2d-template-fast.t - test CGI::FastTemplate support
 
 use strict;
 use vars qw($TESTING $DEBUG $SKIP);

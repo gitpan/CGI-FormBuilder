@@ -295,7 +295,7 @@ $Id: Text.pm,v 1.32 2006/02/24 01:42:29 nwiger Exp $
 
 =head1 AUTHOR
 
-Copyright (c) 2000-2006 Nathan Wiger <nate@wiger.org>. All Rights Reserved.
+Copyright (c) 2000-2006 Nate Wiger <nate@wiger.org>. All Rights Reserved.
 
 Text::Template support is due to huge contributions by Jonathan Buhacoff.
 Thanks man.

@@ -1,5 +1,5 @@
 
-# Copyright (c) 2005 Nathan Wiger <nate@wiger.org>. All Rights Reserved.
+# Copyright (c) 2005 Nate Wiger <nate@wiger.org>. All Rights Reserved.
 # Use "perldoc CGI::FormBuilder::Messages" to read full documentation.
 
 package CGI::FormBuilder::Messages::locale;
@@ -103,7 +103,7 @@ $Id: no_NO.pm,v 1.16 2006/02/24 01:42:29 nwiger Exp $
 
 =head1 AUTHOR
 
-Copyright (c) 2005-2006 Nathan Wiger <nate@wiger.org>, Steinar Fremme
+Copyright (c) 2005-2006 Nate Wiger <nate@wiger.org>, Steinar Fremme
 <steinar@fremme.no>. All Rights Reserved.
 
 This module is free software; you may copy this under the terms of

@@ -1,6 +1,7 @@
-#!/usr/bin/perl -I.
+#!/usr/bin/perl -Ilib -I../lib
 
-# Copyright (c) 2000-2005 Nathan Wiger <nate@sun.com>. All Rights Reserved
+# Copyright (c) 2000-2006 Nathan Wiger <nate@wiger.org>.
+# All Rights Reserved. If you're reading this, you're bored.
 # 1a-generate.t - test FormBuilder generation of forms
 
 use strict;
@@ -360,17 +361,33 @@ EOJS
             browser => {
                 selectname => 1,
                 options => [
-                    [ns4 => 'Netscape 4', 'moz'],
-                    [ns6 => 'Netscape 6', 'moz'],
-                    [moz => 'Mozilla 1.0', 'moz'],
-                    [fox => 'FireFox 1.5', 'moz'],
-                    [ie4 => 'Internet Exploder 4', 'ie'],
-                    [ie5 => 'Internet Exploder 5', 'ie'],
-                    [ie6 => 'Internet Exploder 6', 'ie'],
+                    [ '', '' ],
+                    [ '1', 'C', '' ],
+                    [ '10', 'D1', '' ],
+                    [ '9', 'D2', '' ],
+                    [ '7', 'Option 1', 'D3' ],
+                    [ '8', 'Option 2', 'D3' ],
+                    [ '2', 'H', '' ],
+                    [ '3', 'I', '' ],
+                    [ '4', 'Option 1', 'J' ],
+                    [ '40', 'Option 2', 'J' ],
+                    [ '29', 'A', 'S' ],
+                    [ '27', 'C', 'S' ],
+                    [ '12', 'E', 'S' ],
+                    [ '14', 'F', 'S' ],
+                    [ '13', 'G', 'S' ],
+                    [ '30', 'O', 'S' ],
+                    [ '28', 'P', 'S' ],
+                    [ '6', 'T', '' ],
+                    [ '22', 'V A', '' ],
+                    [ '16', 'Option 1', 'V1' ],
+                    [ '17', 'Option 2', 'V2' ],
+                    [ '18', 'Option 3', 'V2' ],
+                    [ '5', 'W', '' ]
                 ],
                 optgroups => {
-                    moz => 'MoZillA',
-                    ie  => 'Expl0iTER',
+                    J => 'Jerky',
+                    S  => 'Shoddy',
                 },
             },
             select2 => {
