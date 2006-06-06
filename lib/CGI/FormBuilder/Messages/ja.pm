@@ -19,7 +19,7 @@ CGI::FormBuilder::Messages::ja_JP - Japanese messages for FormBuilder
 use strict;
 use utf8;
 
-our $VERSION = '3.03';
+our $VERSION = '3.0302';
 
 # Simply create a hash of messages for this language
 our %MESSAGES = (

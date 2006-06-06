@@ -58,7 +58,8 @@ sticky: 0
 fields:
     Upper:
         type: password
-    Case
+    Case: 
+        value: 3
 values:
     Upper: 1
     Case: 0

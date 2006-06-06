@@ -18,7 +18,7 @@ CGI::FormBuilder::Field::file - FormBuilder class for file fields
 
 use strict;
 
-our $VERSION = '3.03';
+our $VERSION = '3.0302';
 
 # hidden and password fields are rendered exactly like text fields
 

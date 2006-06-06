@@ -19,7 +19,7 @@ CGI::FormBuilder::Messages::no_NO - Norwegian messages for FormBuilder
 use strict;
 use utf8;
 
-our $VERSION = '3.03';
+our $VERSION = '3.0302';
 
 # First, create a hash of messages for this language
 our %MESSAGES = (

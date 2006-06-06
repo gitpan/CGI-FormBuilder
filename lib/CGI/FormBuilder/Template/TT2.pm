@@ -21,7 +21,7 @@ CGI::FormBuilder::Template::TT2 - FormBuilder interface to Template Toolkit
 use Carp;
 use strict;
 
-our $VERSION = '3.03';
+our $VERSION = '3.0302';
 
 use CGI::FormBuilder::Util;
 use Template;

@@ -19,7 +19,7 @@ CGI::FormBuilder::Messages::da_DK - Danish messages for FormBuilder
 use strict;
 use utf8;
 
-our $VERSION = '3.03';
+our $VERSION = '3.0302';
 
 # First, create a hash of messages for this language
 # Then, change "locale" to the 2-letter country code, such as "en" or "de"

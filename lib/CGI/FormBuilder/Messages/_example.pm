@@ -19,7 +19,7 @@ CGI::FormBuilder::Messages::__LANG__ - __LANG__ messages for FormBuilder
 use strict;
 use utf8;
 
-our $VERSION = '3.03';
+our $VERSION = '3.0302';
 
 # First, create a hash of messages for this language
 # Then, change "__LANG__" to the POSIX locale, such as "en_US" or "da_DK"

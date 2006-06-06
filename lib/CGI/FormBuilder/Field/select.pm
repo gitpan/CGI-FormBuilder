@@ -18,7 +18,7 @@ CGI::FormBuilder::Field::select - FormBuilder class for select fields
 
 use strict;
 
-our $VERSION = '3.03';
+our $VERSION = '3.0302';
 
 use CGI::FormBuilder::Util;
 use CGI::FormBuilder::Field;

@@ -21,7 +21,7 @@ CGI::FormBuilder::Template::Text - FormBuilder interface to Text::Template
 use Carp;
 use strict;
 
-our $VERSION = '3.03';
+our $VERSION = '3.0302';
 
 use CGI::FormBuilder::Util;
 use Text::Template;

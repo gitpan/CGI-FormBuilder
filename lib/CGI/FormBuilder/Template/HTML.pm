@@ -17,7 +17,7 @@ CGI::FormBuilder::Template::HTML - FormBuilder interface to HTML::Template
 use Carp;
 use strict;
 
-our $VERSION = '3.03';
+our $VERSION = '3.0302';
 
 use CGI::FormBuilder::Util;
 use HTML::Template;

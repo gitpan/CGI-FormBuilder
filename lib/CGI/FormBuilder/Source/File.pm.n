@@ -1,5 +1,5 @@
 
-# Copyright (c) 2005 Nathan Wiger <nate@wiger.org>. All Rights Reserved.
+# Copyright (c) 2005 Nate Wiger <nate@wiger.org>. All Rights Reserved.
 # Use "perldoc CGI::FormBuilder::Source::File" to read full documentation.
 
 package CGI::FormBuilder::Source::File;
@@ -22,7 +22,7 @@ CGI::FormBuilder::Source::File - Initialize FormBuilder from external file
 use Carp;
 use strict;
 
-our $VERSION = '3.0302';
+our $VERSION = '3.0301';
 
 use 5.006; # or later
 use CGI::FormBuilder::Util;
@@ -69,6 +69,7 @@ sub parse {
     for (@file) {
         next if /^\s*$/ || /^\s*#/;     # blanks and comments
         chomp;
+        my $defn = /:/;     # have a colon?
         my($term, $line) = split /\s*:\s*/, $_, 2;
 
         # here string term-inator (har)
@@ -160,14 +161,19 @@ sub parse {
                 $term = 'fieldopts';
             } elsif ($refield) {
                 push @{$ret->{fields}}, $term;
+            } elsif ($defn) {
+                # standard thingy: value
+                $ptr->{$term} ||= {};
+                push @lvl, $ptr;
+                $ptr = $ptr->{$term};
+                $lsp = $s;       # reset spaces
+                $inval = 0;
+            } else {
+                # standalone boolean
+                $ptr->{$term} = 1;
+                $lsp = $s;       # reset spaces
+                $inval = 0;
             }
-
-            $ptr->{$term} ||= {};
-            push @lvl, $ptr;
-            $ptr = $ptr->{$term};
-
-            $lsp = $s;       # reset spaces
-            $inval = 0;
         }
         $lterm = $term;
     }
@@ -236,6 +242,7 @@ EOV
 }
 
 1;
+
 __END__
 
 =head1 DESCRIPTION
@@ -436,7 +443,7 @@ $Id: File.pm,v 1.23 2006/02/24 01:42:29 nwiger Exp $
 
 =head1 AUTHOR
 
-Copyright (c) 2005-2006 Nathan Wiger <nate@wiger.org>. All Rights Reserved.
+Copyright (c) 2005-2006 Nate Wiger <nate@wiger.org>. All Rights Reserved.
 
 This module is free software; you may copy this under the terms of
 the GNU General Public License, or the Artistic License, copies of

@@ -18,7 +18,7 @@ CGI::FormBuilder::Field::text - FormBuilder class for text fields
 
 use strict;
 
-our $VERSION = '3.03';
+our $VERSION = '3.0302';
 
 use CGI::FormBuilder::Util;
 use CGI::FormBuilder::Field;

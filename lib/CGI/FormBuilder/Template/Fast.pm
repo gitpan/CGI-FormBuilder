@@ -32,7 +32,7 @@ CGI::FormBuilder::Template::Fast - FormBuilder interface to CGI::FastTemplate
 use Carp;
 use strict;
 
-our $VERSION = '3.03';
+our $VERSION = '3.0302';
 
 use CGI::FormBuilder::Util;
 use CGI::FastTemplate;

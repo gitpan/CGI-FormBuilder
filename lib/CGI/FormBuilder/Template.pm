@@ -47,7 +47,7 @@ CGI::FormBuilder::Template - Template adapters for FormBuilder
 
 use strict;
 
-our $VERSION = '3.03';
+our $VERSION = '3.0302';
 warn __PACKAGE__, " is not a real module, please read the docs\n"; 
 1;
 __END__

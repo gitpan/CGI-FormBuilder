@@ -22,7 +22,7 @@ CGI::FormBuilder::Messages - Localized message support for FormBuilder
 
 use strict;
 
-our $VERSION = '3.03';
+our $VERSION = '3.0302';
 our $AUTOLOAD;
 
 use CGI::FormBuilder::Util;

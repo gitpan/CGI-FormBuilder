@@ -41,7 +41,7 @@ CGI::FormBuilder::Field - Base class for FormBuilder fields
 use Carp;   # confess used manually in this pkg
 use strict;
 
-our $VERSION = '3.03';
+our $VERSION = '3.0302';
 our $AUTOLOAD;
 
 use CGI::FormBuilder::Util;

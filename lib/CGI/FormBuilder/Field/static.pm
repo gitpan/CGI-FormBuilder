@@ -18,7 +18,7 @@ CGI::FormBuilder::Field::static - FormBuilder class for static fields
 
 use strict;
 
-our $VERSION = '3.03';
+our $VERSION = '3.0302';
 
 use CGI::FormBuilder::Util;
 use CGI::FormBuilder::Field;

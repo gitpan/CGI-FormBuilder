@@ -18,7 +18,7 @@ CGI::FormBuilder::Messages::en_US - English (default) messages for FormBuilder
 
 use strict;
 
-our $VERSION = '3.03';
+our $VERSION = '3.0302';
 
 # Simply create a hash of messages for this language
 our %MESSAGES = (

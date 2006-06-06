@@ -19,7 +19,7 @@ CGI::FormBuilder::Messages::es_ES - es_ES messages for FormBuilder
 use strict;
 use utf8;
 
-our $VERSION = '3.03';
+our $VERSION = '3.0302';
 
 # First, create a hash of messages for this language
 

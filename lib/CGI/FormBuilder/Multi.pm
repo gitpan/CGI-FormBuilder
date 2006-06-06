@@ -96,7 +96,7 @@ CGI::FormBuilder::Multi - Create multi-page FormBuilder forms
 
 use strict;
 
-our $VERSION = '3.03';
+our $VERSION = '3.0302';
 
 our %DEFAULT = (
     pagename => '_page',

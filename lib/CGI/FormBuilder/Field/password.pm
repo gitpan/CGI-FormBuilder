@@ -18,7 +18,7 @@ CGI::FormBuilder::Field::password - FormBuilder class for password fields
 
 use strict;
 
-our $VERSION = '3.03';
+our $VERSION = '3.0302';
 
 # hidden and password fields are rendered exactly like text fields
 

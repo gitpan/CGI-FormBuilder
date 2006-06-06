@@ -22,7 +22,7 @@ CGI::FormBuilder::Test - Test harness for FormBuilder
 
 use strict;
 
-our $VERSION = '3.03';
+our $VERSION = '3.0302';
 our $DEBUG = 0;
 
 use Exporter;

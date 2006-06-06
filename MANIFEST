@@ -37,6 +37,7 @@ lib/CGI/FormBuilder/Messages/no_NO.pm
 lib/CGI/FormBuilder/Multi.pm
 lib/CGI/FormBuilder/Source.pm
 lib/CGI/FormBuilder/Source/File.pm
+lib/CGI/FormBuilder/Source/File.pm.n
 lib/CGI/FormBuilder/Template.pm
 lib/CGI/FormBuilder/Template/Fast.pm
 lib/CGI/FormBuilder/Template/HTML.pm
