@@ -41,8 +41,8 @@ use CGI::FormBuilder::Util;
 use CGI::FastTemplate;
 use base 'CGI::FastTemplate';
 
-our $REVISION = do { (my $r='$Revision: 46 $') =~ s/\D+//g; $r };
-our $VERSION  = $CGI::FormBuilder::Util::VERSION;
+our $REVISION = do { (my $r='$Revision: 61 $') =~ s/\D+//g; $r };
+our $VERSION = '3.04';
 
 sub new {
     my $self  = shift;

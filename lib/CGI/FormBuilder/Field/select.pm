@@ -18,8 +18,8 @@ use CGI::FormBuilder::Util;
 use CGI::FormBuilder::Field;
 use base 'CGI::FormBuilder::Field';
 
-our $REVISION = do { (my $r='$Revision: 46 $') =~ s/\D+//g; $r };
-our $VERSION  = $CGI::FormBuilder::Util::VERSION;
+our $REVISION = do { (my $r='$Revision: 61 $') =~ s/\D+//g; $r };
+our $VERSION = '3.04';
 
 sub script {
     my $self = shift;

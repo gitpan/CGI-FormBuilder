@@ -43,7 +43,7 @@ CGI::FormBuilder::Source - Source adapters for FormBuilder
 
 use strict;
 
-our $REVISION = do { (my $r='$Revision: 46 $') =~ s/\D+//g; $r };
+our $REVISION = do { (my $r='$Revision: 61 $') =~ s/\D+//g; $r };
 warn __PACKAGE__, " is not a real module, please read the docs\n"; 
 1;
 __END__
@@ -100,7 +100,7 @@ L<CGI::FormBuilder>, L<CGI::FormBuilder::Source::File>,
 
 =head1 REVISION
 
-$Id: Source.pm 46 2006-08-22 16:11:04Z nwiger $
+$Id: Source.pm 61 2006-08-31 21:10:20Z nwiger $
 
 =head1 AUTHOR
 

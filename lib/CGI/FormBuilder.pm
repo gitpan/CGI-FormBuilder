@@ -72,8 +72,8 @@ use CGI::FormBuilder::Util;
 use CGI::FormBuilder::Field;
 use CGI::FormBuilder::Messages;
 
-our $VERSION  = $CGI::FormBuilder::Util::VERSION;
-our $REVISION = do { (my $r='$Revision: 56 $') =~ s/\D+//g; $r };
+our $VERSION = '3.04';
+our $REVISION = do { (my $r='$Revision: 61 $') =~ s/\D+//g; $r };
 our $AUTOLOAD;
 
 # Default options for FormBuilder
@@ -4191,7 +4191,7 @@ L<CGI::FastTemplate>
 
 =head1 REVISION
 
-$Id: FormBuilder.pm 56 2006-08-25 23:36:56Z nwiger $
+$Id: FormBuilder.pm 61 2006-08-31 21:10:20Z nwiger $
 
 =head1 AUTHOR
 

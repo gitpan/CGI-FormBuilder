@@ -48,8 +48,8 @@ use strict;
 
 use CGI::FormBuilder::Util;
 
-our $REVISION = do { (my $r='$Revision: 53 $') =~ s/\D+//g; $r };
-our $VERSION  = $CGI::FormBuilder::Util::VERSION;
+our $REVISION = do { (my $r='$Revision: 61 $') =~ s/\D+//g; $r };
+our $VERSION = '3.04';
 our $AUTOLOAD;
 
 # what to generate for tag
@@ -1028,7 +1028,7 @@ L<CGI::FormBuilder>
 
 =head1 REVISION
 
-$Id: Field.pm 53 2006-08-25 20:41:38Z nwiger $
+$Id: Field.pm 61 2006-08-31 21:10:20Z nwiger $
 
 =head1 AUTHOR
 
