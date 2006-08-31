@@ -1,34 +1,25 @@
 
-package CGI::FormBuilder::Field::select;
-
-=head1 NAME
-
-CGI::FormBuilder::Field::select - FormBuilder class for select fields
-
-=head1 SYNOPSIS
-
-    use CGI::FormBuilder::Field;
-
-    # delegated straight from FormBuilder
-    my $f = CGI::FormBuilder::Field->new($form,
-                                         name => 'whatever',
-                                         type => 'select');
-
-=cut
-
-use strict;
-
-our $VERSION = '3.0302';
-
-use CGI::FormBuilder::Util;
-use CGI::FormBuilder::Field;
-use base 'CGI::FormBuilder::Field';
+###########################################################################
+# Copyright (c) 2000-2006 Nate Wiger <nate@wiger.org>. All Rights Reserved.
+# Please visit www.formbuilder.org for tutorials, support, and examples.
+###########################################################################
 
 # The majority of this module's methods (including new) are
 # inherited directly from ::base, since they involve things
 # which are common, such as parameter parsing. The only methods
 # that are individual to different fields are those that affect
 # the rendering, such as script() and tag()
+
+package CGI::FormBuilder::Field::select;
+
+use strict;
+
+use CGI::FormBuilder::Util;
+use CGI::FormBuilder::Field;
+use base 'CGI::FormBuilder::Field';
+
+our $REVISION = do { (my $r='$Revision: 46 $') =~ s/\D+//g; $r };
+our $VERSION  = $CGI::FormBuilder::Util::VERSION;
 
 sub script {
     my $self = shift;
@@ -126,11 +117,10 @@ sub tag {
 
     # Special event handling for our _other field
     if ($self->other && $self->javascript) {
-        my $n = @opt - 1;           # last element
         my $b = $self->othername;   # box
         # w/o newlines
-        $attr->{onchange} = "if (this.selectedIndex == $n) { "
-                          . "${jspre}other_on('$b') } else { ${jspre}other_off('$b') }";
+        $attr->{onchange} .= "if (this.selectedIndex + 1 == this.options.length) { "
+                           . "${jspre}other_on('$b') } else { ${jspre}other_off('$b') }";
     }
 
     # render <select> tag
@@ -201,30 +191,3 @@ sub tag {
 
 __END__
 
-=head1 DESCRIPTION
-
-This module is used to create B<FormBuilder> elements of a specific type.
-Currently, each type module inherits all of its methods from the main
-L<CGI::FormBuilder::Field> module except for C<tag()> and C<script()>,
-which affect the XHMTL representation of the field.
-
-Please refer to L<CGI::FormBuilder::Field> and L<CGI::FormBuilder> for
-documentation.
-
-=head1 SEE ALSO
-
-L<CGI::FormBuilder>, L<CGI::FormBuilder::Field>
-
-=head1 REVISION
-
-$Id: select.pm,v 1.16 2006/02/24 01:42:29 nwiger Exp $
-
-=head1 AUTHOR
-
-Copyright (c) 2005-2006 Nate Wiger <nate@wiger.org>. All Rights Reserved.
-
-This module is free software; you may copy this under the terms of
-the GNU General Public License, or the Artistic License, copies of
-which should have accompanied your Perl kit.
-
-=cut

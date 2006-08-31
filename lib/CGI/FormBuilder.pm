@@ -1,7 +1,8 @@
 
+###########################################################################
 # Copyright (c) 2000-2006 Nate Wiger <nate@wiger.org>. All Rights Reserved.
 # Please visit www.formbuilder.org for tutorials, support, and examples.
-# Use "perldoc FormBuilder.pm" for complete documentation.
+###########################################################################
 
 package CGI::FormBuilder;
 
@@ -71,7 +72,8 @@ use CGI::FormBuilder::Util;
 use CGI::FormBuilder::Field;
 use CGI::FormBuilder::Messages;
 
-our $VERSION = '3.0302';
+our $VERSION  = $CGI::FormBuilder::Util::VERSION;
+our $REVISION = do { (my $r='$Revision: 56 $') =~ s/\D+//g; $r };
 our $AUTOLOAD;
 
 # Default options for FormBuilder
@@ -92,7 +94,7 @@ our %DEFAULT = (
     sessionidname => '_sessionid',
     submittedname => '_submitted',
     pagename   => '_page',
-    template     => '',               # default template
+    template   => '',                 # default template
     debug      => 0,                  # can be 1 or 2
     javascript => 'auto',             # 0, 1, or 'auto'
     cookies    => 1,
@@ -103,6 +105,8 @@ our %DEFAULT = (
     selectnum  => 5,
     stylesheet => 0,                  # use stylesheet stuff?
     styleclass => 'fb',               # style class to use
+    # For translating tag names (experimental)
+    tagnames   => { },
     # I don't see any reason why these are variables
     submitname => '_submit',
     resetname  => '_reset',
@@ -145,19 +149,24 @@ sub new {
     my $self = shift;
 
     # A single arg is a source; others are opt => val pairs
-    my %opt;
+    my $opt;
     if (@_ == 1) {
-        %opt = (ref $_[0] eq 'HASH') ? %{$_[0]} : (source => shift());
+        $opt = UNIVERSAL::isa($_[0], 'HASH')
+                ? $_[0] : { source => shift() };
     } else {
-        %opt = arghash(@_);
+        $opt = arghash(@_);
     }
 
+    #warn $opt->{source};
+    #use Data::Dumper;
+    #die Dumper($opt);
+
     # Pre-check for an external source
-    if (my $src = delete $opt{source}) {
+    if (my $src = delete $opt->{source}) {
 
         # check for engine type
         my $mod;
-        my %sopt;     # opts returned from parsing
+        my $sopt;     # opts returned from parsing
         my $ref = ref $src;
         unless ($ref) {
             # string filename; redo format (ala $self->{template})
@@ -168,10 +177,11 @@ sub new {
             $ref = 'HASH';  # tricky
             debug 2, "rewrote 'source' option since found filename";
         }
+        debug 1, "creating form from source ", $ref || $src;
 
         if ($ref eq 'HASH') {
             # grab module
-            $mod = delete $src->{type} || 'HTML';
+            $mod = delete $src->{type} || 'File';
 
             # user can give 'Their::Complete::Module' or an 'IncludedTemplate'
             $mod = join '::', __PACKAGE__, 'Source', $mod unless $mod =~ /::/;
@@ -181,54 +191,54 @@ sub new {
             puke "Bad source module $mod: $@" if $@;
 
             my $sob  = $mod->new(%$src);
-            %sopt = $sob->parse;
+            $sopt = $sob->parse;
         } elsif ($ref eq 'CODE') {
             # subroutine wrapper
-            %sopt = &{$src->{source}}($self);
+            $sopt = &{$src->{source}}($self);
         } elsif (UNIVERSAL::can($src->{source}, 'parse')) {
             # instantiated object
-            %sopt = $src->{source}->parse($self);
+            $sopt = $src->{source}->parse($self);
         } elsif ($ref) {
             puke "Unsupported operand to 'template' option - must be \\%hash, \\&sub, or \$object w/ parse()";
         }
 
         # per-instance variables win
-        while (my($k,$v) = each %sopt) {
-            $opt{$k} = $v unless exists $opt{$k};
+        while (my($k,$v) = each %$sopt) {
+            $opt->{$k} = $v unless exists $opt->{$k};
         }
     }
 
     if (ref $self) {
         # cloned/original object
         debug 1, "rewriting existing FormBuilder object";
-        while (my($k,$v) = each %opt) {
+        while (my($k,$v) = each %$opt) {
             $self->{$k} = $v;
         }
     } else {
         debug 1, "constructing new FormBuilder object";
         # damn deep copy this is SO damn annoying
         while (my($k,$v) = each %DEFAULT) {
-            next if exists $opt{$k};
+            next if exists $opt->{$k};
             if (ref $v eq 'HASH') {
-                $opt{$k} = { %$v };
+                $opt->{$k} = { %$v };
             } elsif (ref $v eq 'ARRAY') {
-                $opt{$k} = [ @$v ];
+                $opt->{$k} = [ @$v ];
             } else {
-                $opt{$k} = $v;
+                $opt->{$k} = $v;
             }
         }
-        $self = bless \%opt, $self;
+        $self = bless $opt, $self;
     }
 
     # Create our CGI object if not present
-    unless ($self->{params} && ref $self->{params} ne 'HASH') {
+    unless (ref $self->{params}) {
         require CGI;
         $CGI::USE_PARAM_SEMICOLONS = 0;     # fuck ; in urls
         $self->{params} = CGI->new($self->{params});
     }
 
-    # XXX not mod_perl safe (problem)
-    $CGI::FormBuilder::Util::DEBUG = $self->{debug};
+    # XXX not mod_perl safe
+    $CGI::FormBuilder::Util::DEBUG = $ENV{FORMBUILDER_DEBUG} || $self->{debug};
 
     # And a messages delegate if not existent
     # Handle 'auto' mode by trying to detect from request
@@ -240,6 +250,8 @@ sub new {
             $lang = $self->{params}->http('Accept-Language');
         } elsif (UNIVERSAL::isa($self->{params}, 'Apache')) {
             $lang = $self->{params}->headers_in->get('Accept-Language'); 
+        } elsif (UNIVERSAL::isa($self->{params}, 'Catalyst::Request')) {
+            $lang = $self->{params}->headers->header('Accept-Language'); 
         } else {
             # last-ditch effort
             $lang = $ENV{HTTP_ACCEPT_LANGUAGE}
@@ -260,7 +272,7 @@ sub new {
         my $ref = ref $self->{fields};
         if ($ref && $ref eq 'HASH') {
             # with a hash ref, we setup keys/values
-            debug 2, "got list from HASH";
+            debug 2, "got fields list from HASH";
             while(my($k,$v) = each %{$self->{fields}}) {
                 $k = lc $k;     # must lc to ignore case
                 $self->{values}{$k} = [ autodata $v ];
@@ -269,7 +281,7 @@ sub new {
             $self->{fields} = [ sort keys %{$self->{fields}} ];
         } else {
             # rewrite fields to ensure format
-            debug 2, "got list from ARRAY";
+            debug 2, "assuming fields list from ARRAY";
             $self->{fields} = [ autodata $self->{fields} ];
         }
     }
@@ -304,7 +316,7 @@ sub new {
     # replace it with a list of objects, which stringify to field names
     my @ftmp  = ();
     for (@{$self->{fields}}) {
-        my %fprop = %{delete($self->{fieldopts}{$_}) || {}}; # field properties
+        my %fprop = %{$self->{fieldopts}{$_} || {}}; # field properties
 
         if (ref $_ =~ /^CGI::FormBuilder::Field/i) {
             # is an existing Field object, so update its properties
@@ -349,11 +361,11 @@ sub field {
         if ref $_[0] eq 'ARRAY' && @_ == 1;
 
     my $name = (@_ % 2 == 0) ? '' : shift();
-    my %args = arghash(@_);
-    $args{name} ||= $name;
+    my $args = arghash(@_);
+    $args->{name} ||= $name;
 
     # no name - return ala $cgi->param
-    unless ($args{name}) {
+    unless ($args->{name}) {
         # sub fields
         # return an array of the names in list context, and a
         # hashref of name/value pairs in a scalar context
@@ -394,24 +406,24 @@ sub field {
     }
 
     # have name, so redispatch to field member
-    debug 2, "searching fields for '$args{name}'";
-    if ($args{delete}) {
+    debug 2, "searching fields for '$args->{name}'";
+    if ($args->{delete}) {
         # blow the thing away
-        delete $self->{fieldrefs}{$args{name}};
-        my @tf = grep { $_->name ne $args{name} } @{$self->{fields}};
+        delete $self->{fieldrefs}{$args->{name}};
+        my @tf = grep { $_->name ne $args->{name} } @{$self->{fields}};
         $self->{fields} = \@tf;
         return;
-    } elsif (my $f = $self->{fieldrefs}{$args{name}}) {
-        delete $args{name};         # segfault??
-        return $f->field(%args);    # set args, get value back
+    } elsif (my $f = $self->{fieldrefs}{$args->{name}}) {
+        delete $args->{name};        # segfault??
+        return $f->field(%$args);    # set args, get value back
     }
 
     # non-existent field, and no args, so assume we're checking for it
-    return unless keys %args > 1;
+    return unless keys %$args > 1;
 
     # if we're still in here, we need to init a new field
     # push it onto our mail fields array, just like initfields()
-    my $f = $self->new_field(%args);
+    my $f = $self->new_field(%$args);
     $self->{fieldrefs}{"$f"} = $f;
     push @{$self->{fields}}, $f;
     return $f->value;
@@ -419,29 +431,29 @@ sub field {
 
 sub new_field {
     my $self = shift;
-    my %args = arghash(@_);
-    puke "Need a name for \$form->new_field()" unless exists $args{name};
-    debug 1, "called \$form->new_field($args{name})";
+    my $args = arghash(@_);
+    puke "Need a name for \$form->new_field()" unless exists $args->{name};
+    debug 1, "called \$form->new_field($args->{name})";
 
     # extract our per-field options from rearrange
     while (my($from,$to) = each %REARRANGE) {
         next unless exists  $self->{$from};
-        next if     defined $args{$to};     # manually set
-        my $tval = rearrange($self->{$from}, $args{name});
-        debug 2, "rearrange: \$args{$to} = $tval;";
-        $args{$to} = $tval;
+        next if     defined $args->{$to};     # manually set
+        my $tval = rearrange($self->{$from}, $args->{name});
+        debug 2, "rearrange: \$args->{$to} = $tval;";
+        $args->{$to} = $tval;
     }
 
-    $args{type} = lc $self->{fieldtype}
-        if $self->{fieldtype} && ! exists $args{type};
+    $args->{type} = lc $self->{fieldtype}
+        if $self->{fieldtype} && ! exists $args->{type};
     if ($self->{fieldattr}) {   # legacy
         while (my($k,$v) = each %{$self->{fieldattr}}) {
-            next if exists $args{$k};
-            $args{$k} = $v;
+            next if exists $args->{$k};
+            $args->{$k} = $v;
         }
     }
 
-    my $f = CGI::FormBuilder::Field->new($self, %args);
+    my $f = CGI::FormBuilder::Field->new($self, $args);
     debug 1, "created field $f";
     return $f;   # already set args above ^^^
 }
@@ -574,89 +586,103 @@ sub class {
 
 sub table {
     my $self = shift;
+
     # single hashref kills everything; a list is temporary
     $self->{table} = shift if @_ == 1;
     return unless $self->{table};
-    $self->{table} = $DEFAULT{table} if $self->{table} == 1;
-    my %attr = %{$self->{table}};
 
-    # if still have args, it's a temp hash
+    # set defaults for numeric table => 1
+    $self->{table} = $DEFAULT{table} if $self->{table} == 1;
+
+    my $attr = $self->{table};
     if (@_) {
+        # if still have args, create a temp hash
+        my %temp = %$attr;
         while (my $k = shift) {
-            $attr{$k} = shift;
+            $temp{$k} = shift;
         }
+        $attr = \%temp;
     }
 
-    return unless $self->{table};   # 0 or unset
-    $attr{class} ||= $self->class;
-    return htmltag('table',  %attr);
+    return unless $self->{table};   # 0 or unset via table(0)
+    $attr->{class} ||= $self->class;
+    return htmltag('table',  $attr);
 }
 
 sub tr {
     my $self = shift;
+
     # single hashref kills everything; a list is temporary
     $self->{tr} = shift if @_ == 1;
-    my %attr = %{$self->{tr}};
 
-    # if still have args, it's a temp hash
+    my $attr = $self->{tr};
     if (@_) {
+        # if still have args, create a temp hash
+        my %temp = %$attr;
         while (my $k = shift) {
-            $attr{$k} = shift;
+            $temp{$k} = shift;
         }
+        $attr = \%temp;
     }
 
     # reduced formatting
     if ($self->{stylesheet}) {
         # extraneous - inherits from <table>
-        #$attr{class}  ||= $self->class($self->{rowname});
+        #$attr->{class}  ||= $self->class($self->{rowname});
     } else {
-        $attr{valign} ||= 'top';
+        $attr->{valign} ||= 'top';
     }
 
-    return htmltag('tr',  %attr);
+    return htmltag('tr',  $attr);
 }
 
 sub th {
     my $self = shift;
+
     # single hashref kills everything; a list is temporary
     $self->{th} = shift if @_ == 1;
-    my %attr = %{$self->{th}};
 
-    # if still have args, it's a temp hash
+    my $attr = $self->{th};
     if (@_) {
+        # if still have args, create a temp hash
+        my %temp = %$attr;
         while (my $k = shift) {
-            $attr{$k} = shift;
+            $temp{$k} = shift;
         }
+        $attr = \%temp;
     }
 
     # reduced formatting
     if ($self->{stylesheet}) {
         # extraneous - inherits from <table>
-        #$attr{class} ||= $self->class($self->{labelname});
+        #$attr->{class} ||= $self->class($self->{labelname});
     } else {
-        $attr{align} ||= $self->{lalign} || 'left';
+        $attr->{align} ||= $self->{lalign} || 'left';
     }
 
-    return htmltag('th',  %attr);
+    return htmltag('th', $attr);
 }
 
 sub td {
     my $self = shift;
+
     # single hashref kills everything; a list is temporary
     $self->{td} = shift if @_ == 1;
-    my %attr = %{$self->{td}};
 
-    # if still have args, it's a temp hash
+    my $attr = $self->{td};
     if (@_) {
+        # if still have args, create a temp hash
+        my %temp = %$attr;
         while (my $k = shift) {
-            $attr{$k} = shift;
+            $temp{$k} = shift;
         }
+        $attr = \%temp;
     }
 
     # extraneous - inherits from <table>
-    #$attr{class} ||= $self->class($self->{fieldname});
+    #$attr->{class} ||= $self->class($self->{fieldname});
 
-    return htmltag('td',  %attr);
+    return htmltag('td', $attr);
 }
 
 sub submitted {
@@ -1256,7 +1282,20 @@ sub validate {
         debug 1, "validating fields via the '$profile_name' profile";
         # hang on to the DFV results, for things like DBIx::Class::WebForm
         $self->{dfv_results} = $self->{validate}->check($self, $profile_name);
-        $ok = 0 if ($self->{dfv_results}->has_invalid or $self->{dfv_results}->has_missing);
+
+	    # mark the invalid fields
+	    my @invalid_fields = (
+	        $self->{dfv_results}->invalid, 
+	        $self->{dfv_results}->missing,
+	    );
+	    for my $field_name (@invalid_fields) {
+	        $self->field(
+		    name    => $field_name,
+		    invalid => 1,
+	        );
+	    }
+	    # validation failed
+        $ok = 0 if @invalid_fields > 0;
     } else {    
         debug 1, "validating all fields via \$form->validate";
         for ($self->fields) {
@@ -1275,6 +1314,64 @@ sub confirm {
     $self->{static} = 1;
     return $self->render(@_);
 }   
+
+# Prepare a template
+sub prepare {
+    my $self = shift;
+    debug 1, "Calling \$form->prepare(@_)";
+
+    # Build a big hashref of data that can be used by the template
+    # engine. Templates then have the ability to expand this however
+    # they see fit.
+    my %tmplvar = $self->tmpl_param;
+
+    # This is based on the original Template Toolkit render()
+    for my $field ($self->field) {
+
+        # Extract value since used often
+        my @value = $field->tag_value;
+
+        # Create a struct for each field
+        $tmplvar{field}{"$field"} = {
+             %$field,   # gets invalid/missing/required
+             field   => $field->tag,
+             value   => $value[0],
+             values  => \@value,
+             options => [$field->options],
+             label   => $field->label,
+             type    => $field->type,
+             comment => $field->comment,
+             nameopts => $field->nameopts,
+             cleanopts => $field->cleanopts,
+        };
+        # Force-stringify "$field" to get name() under buggy Perls
+        $tmplvar{field}{"$field"}{error} = $field->error;
+    }
+
+    # Must generate JS first because it affects the others.
+    # This is a bit action-at-a-distance, but I just can't
+    # figure out a way around it.
+    debug 2, "\$tmplvar{jshead} = \$self->script";
+    $tmplvar{jshead}   = $self->script;
+    debug 2, "\$tmplvar{title} = \$self->title";
+    $tmplvar{title}    = $self->title;
+    debug 2, "\$tmplvar{start} = \$self->start . \$self->statetags . \$self->keepextras";
+    $tmplvar{start}    = $self->start . $self->statetags . $self->keepextras;
+    debug 2, "\$tmplvar{submit} = \$self->submit";
+    $tmplvar{submit}   = $self->submit;
+    debug 2, "\$tmplvar{reset} = \$self->reset";
+    $tmplvar{reset}    = $self->reset;
+    debug 2, "\$tmplvar{end} = \$self->end";
+    $tmplvar{end}      = $self->end;
+    debug 2, "\$tmplvar{invalid} = \$self->invalid";
+    $tmplvar{invalid}  = $self->invalid;
+    debug 2, "\$tmplvar{required} = \$self->required";
+    $tmplvar{required} = $self->required;
+    debug 2, "\$tmplvar{fields} = [ map \$tmplvar{field}{\$_}, \$self->field ]";
+    $tmplvar{fields}   = [ map $tmplvar{field}{$_}, $self->field ];
+
+    return wantarray ? %tmplvar : \%tmplvar;
+}
 
 sub render {
     local $^W = 0;        # -w sucks
@@ -1305,11 +1402,14 @@ sub render {
         debug 2, "rewrote 'template' option since found filename";
     }
 
-    my %opt;
+    # Get ourselves ready
+    $self->{prepare} = $self->prepare;
+
+    my $opt;
     if ($ref eq 'HASH') {
         # must copy to avoid destroying
-        %opt = %{ $self->{template} };
-        $mod = delete $opt{type} || 'HTML';
+        $opt = { %{ $self->{template} } };
+        $mod = delete $opt->{type} || 'HTML';
     } elsif ($ref eq 'CODE') {
         # subroutine wrapper
         return &{$self->{template}}($self);
@@ -1320,184 +1420,48 @@ sub render {
         puke "Unsupported operand to 'template' option - must be \\%hash, \\&sub, or \$object w/ render()";
     }
 
-    # load user-specified rendering module if supplied
-    if ($mod) {
-        # user can give 'Their::Complete::Module' or an 'IncludedAdapter'
-        $mod = join '::', __PACKAGE__, 'Template', $mod unless $mod =~ /::/;
-        debug 1, "loading $mod for 'template' option";
+    # load user-specified rendering module, or builtin rendering
+    $mod ||= 'Builtin';
 
-        # load module
-        eval "require $mod";
-        puke "Bad template engine $mod: $@" if $@;
+    # user can give 'Their::Complete::Module' or an 'IncludedAdapter'
+    $mod = join '::', __PACKAGE__, 'Template', $mod unless $mod =~ /::/;
+    debug 1, "loading $mod for 'template' option";
 
-        # create new object
-        my $tmpl = $mod->new(%opt);
+    # load module
+    eval "require $mod";
+    puke "Bad template engine $mod: $@" if $@;
 
-        # dispatch to engine render
-        return $tmpl->render($self);
+    # create new object
+    my $tmpl = $mod->new($opt);
 
+    # Experiemental: Alter tag names as we're rendering, to support 
+    # Ajaxian markup schemes that use their own tags (Backbase, Dojo, etc)
+    local %CGI::FormBuilder::Util::TAGNAMES;
+    while (my($k,$v) = each %{$self->{tagnames}}) {
+        $CGI::FormBuilder::Util::TAGNAMES{$k} = $v;
     }
 
-    # Builtin default rendering (follows)
-    debug 1, "no template module specified, using builtin rendering";
-    return $self->render_builtin;
-}
-
-sub render_builtin {
-    my $self = shift;
-    my @html = ();  # joined with newline
-
-    # Opening CGI/title gunk 
-    my $hd = $self->header;
-    if (defined $hd) {
-        push @html, ($hd . $self->dtd), '<head>';
-        push @html, ('<title>'.$self->title.'</title>') if $self->title;
-
-        # stylesheet path if specified
-        if ($self->{stylesheet} && $self->{stylesheet} ne 1) {
-            # user-specified path
-            push @html, htmltag('link', { rel  => 'stylesheet',
-                                          type => 'text/css',
-                                          href => $self->{stylesheet} });
-        }
+    # Call the engine's prepare too, if it exists
+    # Give it the form object so it can do what it wants
+    # This will have all of the prepared data in {prepare} anyways
+    if ($tmpl && UNIVERSAL::can($tmpl, 'prepare')) {
+        $tmpl->prepare($self);
     }
 
-    # JavaScript validate/head functions
-    my $js = $self->script;
-    push @html, $js if $js;
-
-    # Opening HTML if so requested
-    my $font = $self->font;
-    my $fcls = $font ? '</font>' : '';
-    if (defined $hd) {
-        push @html, '</head>', $self->body;
-        push @html, $font if $font;
-        push @html, ('<h3>'.$self->title.'</h3>') if $self->title;
-    }
-
-    # Include warning if noscript
-    push @html, $self->noscript if $js;
-
-    # Begin form
-    my $txt = $self->text;
-    push @html, $txt if $txt;
-    push @html, $self->start, '<div>', ($self->statetags . $self->keepextras);
-
-    # Render hidden fields first
-    my @unhidden;
-    for my $field ($self->field) {
-        push(@unhidden, $field), next if $field->type ne 'hidden';
-        push @html, $field->tag;   # no label/etc for hidden fields
-    }
-
-    # Get table stuff and reused calls
-    my $table = $self->table;
-    push @html, $table if $table;
-
-    # Render regular fields in table
-    for my $field (@unhidden) {
-        debug 2, "render: attacking normal field '$field'";
-        next if $field->static > 1 && ! $field->tag_value;  # skip missing static vals
-
-        if ($table) {
-            my($trid, $laid, $inid, $erid, $cmid, $cl);
-            if ($self->{name}) {
-                # add id's to all elements
-                $trid = tovar("$self->{name}_$field$self->{rowname}");
-                $laid = tovar("$self->{name}_$field$self->{labelname}");
-                $inid = tovar("$self->{name}_$field$self->{fieldname}");
-                $erid = tovar("$self->{name}_$field$self->{errorname}");
-                $cmid = tovar("$self->{name}_$field$self->{commentname}");
-            }
-            push @html, $self->tr(id => $trid);
-
-            $cl = $self->class($self->{labelname});
-            my $row = '  ' . $self->td(id => $laid, class => $cl) . $font;
-            if ($field->invalid) {
-                $row .= $self->invalid_tag($field->label);
-            } elsif ($field->required && ! $field->static) {
-                $row .= $self->required_tag($field->label);
-            } else {
-                $row .= $field->label;
-            }
-            $row .= $fcls . '</td>';
-            push @html, $row;
-
-            # tag plus optional errors and/or comments
-            $row = '';
-            if ($field->invalid) {
-                $row .= ' ' . $field->message;
-            }
-            if ($field->comment) {
-                $row .= ' ' . $field->comment unless $field->static;
-            }
-            $row = $field->tag . $row;
-            $cl  = $self->class($self->{fieldname});
-            push @html, ('  ' . $self->td(id => $inid, class => $cl) . $font 
-                        . $row . $fcls . '</td>');
-            push @html, '</tr>';
-        } else {
-            # no table
-            my $row = $font;
-            if ($field->invalid) {
-                $row .= $self->invalid_tag($field->label);
-            } elsif ($field->required && ! $field->static) {
-                $row .= $self->required_tag($field->label);
-            } else {
-                $row .= $field->label;
-            }
-            $row .= $fcls;
-            push @html, $row;
-            push @html, $field->tag;
-            push @html, $field->message if $field->invalid;
-            push @html, $field->comment if $field->comment;
-            push @html, '<br />' if $self->linebreaks;
-        }
-    }
-
-    # Throw buttons in a colspan
-    my $buttons = $self->reset . $self->submit;
-    if ($buttons) {
-        my $row = '';
-        if ($table) {
-            my($trid, $inid);
-            if ($self->{name}) {
-                # add id's
-                $trid = tovar("$self->{name}_submit$self->{rowname}");
-                $inid = tovar("$self->{name}_submit$self->{fieldname}");
-            }
-            my $c = $self->class($self->{submitname});
-            my %a = $c ? () : (align => 'center');
-            $row .= $self->tr(id => $trid) . "\n  "
-                  . $self->td(id => $inid, class => $c, colspan => 2, %a) . $font;
-        }
-        $row .= $buttons;
-        if ($table) {
-            $row .= '</font>' if $font;
-            $row .= "</td>\n</tr>" if $table;
-        }
-        push @html, $row;
-    }
-
-    # Properly nest closing tags
-    push @html, '</table>'  if $table;
-    push @html, '</div>','</form>';   # $form->end
-    push @html, '</font>'   if $font && defined $hd;
-    push @html, '</body>','</html>' if defined $hd;
-
-    # Always return scalar since print() is a list function
-    return join("\n", @html) . "\n"
+    # dispatch to engine, prepend header
+    debug 1, "returning $tmpl->render($self->{prepare})";
+    return $self->header . $tmpl->render($self->{prepare});
 }
 
 # These routines should be moved to ::Mail or something since they're rarely used
 sub mail () {
     # This is a very generic mail handler
     my $self = shift;
-    my %args = arghash(@_);
+    my $args = arghash(@_);
 
     # Where does the mailer live? Must be sendmail-compatible
     my $mailer = undef;
-    unless ($mailer = $args{mailer} && -x $mailer) {
+    unless ($mailer = $args->{mailer} && -x $mailer) {
         for my $sendmail (qw(/usr/lib/sendmail /usr/sbin/sendmail /usr/bin/sendmail)) {
             if (-x $sendmail) {
                 $mailer = "$sendmail -t";
@@ -1509,29 +1473,29 @@ sub mail () {
         belch "Cannot find a sendmail-compatible mailer; use mailer => '/path/to/mailer'";
         return;
     }
-    unless ($args{to}) {
+    unless ($args->{to}) {
         belch "Missing required 'to' argument; cannot continue without recipient";
         return;
     }
-    if ($args{from}) {
-        (my $from = $args{from}) =~ s/"/\\"/g;
+    if ($args->{from}) {
+        (my $from = $args->{from}) =~ s/"/\\"/g;
         $mailer .= qq( -f "$from");
     }
 
-    debug 1, "opening new mail to $args{to}";
+    debug 1, "opening new mail to $args->{to}";
 
     # untaint
     my $oldpath = $ENV{PATH};
     $ENV{PATH} = '/usr/bin:/usr/sbin';
 
     open(MAIL, "|$mailer >/dev/null 2>&1") || next;
-    print MAIL "From: $args{from}\n";
-    print MAIL "To: $args{to}\n";
-    print MAIL "Cc: $args{cc}\n" if $args{cc};
+    print MAIL "From: $args->{from}\n";
+    print MAIL "To: $args->{to}\n";
+    print MAIL "Cc: $args->{cc}\n" if $args->{cc};
     print MAIL "Content-Type: text/plain; charset=\""
               . $self->charset . "\"\n" if $self->charset;
-    print MAIL "Subject: $args{subject}\n\n";
-    print MAIL "$args{text}\n";
+    print MAIL "Subject: $args->{subject}\n\n";
+    print MAIL "$args->{text}\n";
 
     # retaint
     $ENV{PATH} = $oldpath;
@@ -1547,32 +1511,32 @@ sub mailconfirm () {
 
     my $self = shift;
     my $to = shift unless (@_ > 1);
-    my %args = arghash(@_);
+    my $args = arghash(@_);
 
     # must have a "to"
-    return unless $args{to} ||= $to;
+    return unless $args->{to} ||= $to;
 
     # defaults
-    $args{from}    ||= 'auto-reply';
-    $args{subject} ||= sprintf $self->{messages}->mail_confirm_subject, $self->title;
-    $args{text}    ||= sprintf $self->{messages}->mail_confirm_text, scalar localtime();
+    $args->{from}    ||= 'auto-reply';
+    $args->{subject} ||= sprintf $self->{messages}->mail_confirm_subject, $self->title;
+    $args->{text}    ||= sprintf $self->{messages}->mail_confirm_text, scalar localtime();
 
-    debug 1, "mailconfirm() called, subject = '$args{subject}'";
+    debug 1, "mailconfirm() called, subject = '$args->{subject}'";
 
-    $self->mail(%args);
+    $self->mail($args);
 }
 
 sub mailresults () {
     # This is a wrapper around mail() that sends the form results
     my $self = shift;
-    my %args = arghash(@_);
+    my $args = arghash(@_);
 
-    if (exists $args{plugin}) {
-        my $lib = "CGI::FormBuilder::Mail::$args{plugin}";
+    if (exists $args->{plugin}) {
+        my $lib = "CGI::FormBuilder::Mail::$args->{plugin}";
         eval "use $lib";
         puke "Cannot use mailresults() plugin '$lib': $@" if $@;
         eval {
-            my $plugin = $lib->new( form => $self, %args );
+            my $plugin = $lib->new( form => $self, %$args );
             $plugin->mailresults();
         };
         puke "Could not mailresults() with plugin '$lib': $@" if $@;
@@ -1580,33 +1544,33 @@ sub mailresults () {
     }
 
     # Get the field separator to use
-    my $delim = $args{delimiter} || ': ';
-    my $join  = $args{joiner}    || $";
-    my $sep   = $args{separator} || "\n";
+    my $delim = $args->{delimiter} || ': ';
+    my $join  = $args->{joiner}    || $";
+    my $sep   = $args->{separator} || "\n";
 
     # subject default
-    $args{subject} ||= sprintf $self->{messages}->mail_results_subject, $self->title;
-    debug 1, "mailresults() called, subject = '$args{subject}'";
+    $args->{subject} ||= sprintf $self->{messages}->mail_results_subject, $self->title;
+    debug 1, "mailresults() called, subject = '$args->{subject}'";
 
-    if ($args{skip}) {
-        if ($args{skip} =~ m#^m?(\S)(.*)\1$#) {
-            ($args{skip} = $2) =~ s/\\\//\//g;
-            $args{skip} =~ s/\//\\\//g;
+    if ($args->{skip}) {
+        if ($args->{skip} =~ m#^m?(\S)(.*)\1$#) {
+            ($args->{skip} = $2) =~ s/\\\//\//g;
+            $args->{skip} =~ s/\//\\\//g;
         }
     }
 
     my @form = ();
     for my $field ($self->fields) {
-        if ($args{skip} && $field =~ /$args{skip}/) {
+        if ($args->{skip} && $field =~ /$args->{skip}/) {
             next;
         }
         my $v = join $join, $field->value;
-        $field = $field->label if $args{labels};
+        $field = $field->label if $args->{labels};
         push @form, "$field$delim$v"; 
     }
     my $text = join $sep, @form;
 
-    $self->mail(%args, text => $text);
+    $self->mail(%$args, text => $text);
 }
 
 sub DESTROY { 1 }
@@ -2215,7 +2179,7 @@ want is the previous option.
 
 If set to 1, then extra parameters not set in your fields declaration
 will be kept as hidden fields in the form. However, you will need
-to use C<cgi_param()>, B<NOT> C<field()>, to get to the values.
+to use C<cgi_param()>, B<NOT> C<field()>, to access the values.
 
 This is useful if you want to keep some extra parameters like mode or
 company available but not have them be valid form fields:
@@ -2227,7 +2191,12 @@ in which case only params in that list will be preserved. For example:
 
     keepextras => [qw(mode company)]
 
-Will only preserve the params C<mode> and C<company>.
+Will only preserve the params C<mode> and C<company>. Again, to access them:
+
+    my $mode = $form->cgi_param('mode');
+    $form->cgi_param(name => 'mode', value => 'relogin');
+
+See C<CGI.pm> for details on C<param()> usage.
 
 =item labels => \%hash
 
@@ -2693,6 +2662,18 @@ doesn't generate any JavaScript validation code for you.
 Note that any other options specified are passed to the C<< <form> >>
 tag verbatim. For example, you could specify C<onsubmit> or C<enctype>
 to add the respective attributes.
+
+=head2 prepare()
+
+This function prepares a form for rendering. It is automatically
+called by C<render()>, but calling it yourself may be useful if
+you are using B<Catalyst> or some other large framework. It returns
+the same hash that will be used by C<render()>:
+
+    my %expanded = $form->prepare;
+
+You could use this to, say, tweak some custom values and then
+pass it to your own rendering object.
 
 =head2 render()
 
@@ -4135,6 +4116,13 @@ And this code:
 Except that the latter doesn't require that we first create 
 C<@fields> and C<%validate> variables.
 
+=head1 ENVIRONMENT VARIABLES
+
+=head2 FORMBUILDER_DEBUG
+
+This toggles the debug flag, so that you can control FormBuilder
+debugging globally. Helpful in mod_perl.
+
 =head1 NOTES
 
 Parameters beginning with a leading underscore are reserved for
@@ -4170,6 +4158,7 @@ reports, and encouraging feedback from a number of people, including:
     Adam Foxson
     Jorge Gonzalez
     Florian Helmberger
+    Mark Hedges
     Mark Houliston
     Robert James Kaes
     Dimitry Kharitonov
@@ -4202,7 +4191,7 @@ L<CGI::FastTemplate>
 
 =head1 REVISION
 
-$Id: FormBuilder.pm,v 1.105 2006/02/24 01:42:29 nwiger Exp $
+$Id: FormBuilder.pm 56 2006-08-25 23:36:56Z nwiger $
 
 =head1 AUTHOR
 

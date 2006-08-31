@@ -1,25 +1,15 @@
 
-# Copyright (c) 2005 Nate Wiger <nate@wiger.org>, Thilo Planz <thilo@cpan.org>.
-# Use "perldoc CGI::FormBuilder::Messages" to read full documentation.
+###########################################################################
+# Copyright (c) 2000-2006 Nate Wiger <nate@wiger.org>. All Rights Reserved.
+# Please visit www.formbuilder.org for tutorials, support, and examples.
+###########################################################################
 
 package CGI::FormBuilder::Messages::locale;
-
-=head1 NAME
-
-CGI::FormBuilder::Messages::de_DE - German messages for FormBuilder
-
-=head1 SYNOPSIS
-
-    use CGI::FormBuilder;
-
-    my $form = CGI::FormBuilder->new(messages => 'de');
-
-=cut
 
 use strict;
 use utf8;
 
-our $VERSION = '3.0302';
+our $REVISION = do { (my $r='$Revision: 46 $') =~ s/\D+//g; $r };
 
 # Simply create a hash of messages for this language
 our %MESSAGES = (
@@ -84,32 +74,3 @@ sub messages {
 1;
 __END__
 
-=head1 DESCRIPTION
-
-This module contains German messages for FormBuilder.
-
-If the C<messages> option is set to C<auto> (the recommended but NOT default
-setting), these messages will automatically be displayed to German clients:
-
-    my $form = CGI::FormBuilder->new(messages => 'auto');
-
-To force display of these messages, use the following option:
-
-    my $form = CGI::FormBuilder->new(messages => ':de_DE');
-
-Thanks to Thilo Planz for the German translation.
-
-=head1 REVISION
-
-$Id: de_DE.pm,v 1.12 2006/02/24 01:42:29 nwiger Exp $
-
-=head1 AUTHOR
-
-Copyright (c) 2005-2006 Nate Wiger <nate@wiger.org>, Thilo Planz <thilo@cpan.org>.
-All Rights Reserved.
-
-This module is free software; you may copy this under the terms of
-the GNU General Public License, or the Artistic License, copies of
-which should have accompanied your Perl kit.
-
-=cut

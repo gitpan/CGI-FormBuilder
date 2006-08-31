@@ -1,4 +1,9 @@
 
+###########################################################################
+# Copyright (c) 2000-2006 Nate Wiger <nate@wiger.org>. All Rights Reserved.
+# Please visit www.formbuilder.org for tutorials, support, and examples.
+###########################################################################
+
 package CGI::FormBuilder::Template::Text;
 
 =head1 NAME
@@ -21,26 +26,27 @@ CGI::FormBuilder::Template::Text - FormBuilder interface to Text::Template
 use Carp;
 use strict;
 
-our $VERSION = '3.0302';
-
 use CGI::FormBuilder::Util;
 use Text::Template;
+
+our $REVISION = do { (my $r='$Revision: 46 $') =~ s/\D+//g; $r };
+our $VERSION  = $CGI::FormBuilder::Util::VERSION;
 
 sub new {
     my $self  = shift;
     my $class = ref($self) || $self;
-    my %opt   = @_;
+    my $opt   = arghash(@_);
 
-    my $tt_engine = $opt{engine} || {};
+    my $tt_engine = $opt->{engine} || {};
     unless (UNIVERSAL::isa($tt_engine, 'Text::Template')) {
-        $tt_engine->{&tt_param_name('type',%$tt_engine)}   ||= $opt{TYPE} || 'FILE';
-        $tt_engine->{&tt_param_name('source',%$tt_engine)} ||= $opt{template} || $opt{source} ||
+        $tt_engine->{&tt_param_name('type',%$tt_engine)}   ||= $opt->{TYPE} || 'FILE';
+        $tt_engine->{&tt_param_name('source',%$tt_engine)} ||= $opt->{template} || $opt->{source} ||
             puke "Text::Template source not specified, use the 'template' option";
         $tt_engine->{&tt_param_name('delimiters',%$tt_engine)} ||= [ '<%','%>' ];
-        $opt{engine} = Text::Template->new(%$tt_engine) || puke $Text::Template::ERROR;
+        $opt->{engine} = Text::Template->new(%$tt_engine) || puke $Text::Template::ERROR;
     }
 
-    return bless \%opt, $class;
+    return bless $opt, $class;
 }
 
 sub engine {
@@ -56,29 +62,7 @@ sub tt_param_name {
 
 sub render {
     my $self = shift;
-    my $form = shift;
-
-    my %tmplvar = $form->tmpl_param;
-
-    # Like Template Toolkit, Text::Template can directly access Perl data
-    for my $field ($form->field) {
-
-        # Extract value since used often
-        my @value = $field->tag_value;
-
-        # Create a struct for each field
-        $tmplvar{field}{"$field"} = {
-             %$field,
-             field   => $field->tag,
-             label   => $field->label,
-             value   => $value[0],
-             values  => \@value,
-             options => [$field->options],
-             type    => $field->type,
-             comment => $field->comment,
-        };
-        $tmplvar{field}{"$field"}{error} = $field->error;
-    }
+    my $tvar = shift || puke "Missing template expansion hashref (\$form->prepare failed?)";
 
     my $tt_data;
     if (ref $self->{data} eq 'ARRAY') {
@@ -86,22 +70,12 @@ sub render {
     } else {
         $tt_data = [ $self->{data} ];
     }
-
     my $tt_var  = $self->{variable};      # optional var for nesting
 
-    # must generate JS first because it affects the others
-    $tmplvar{'jshead'} = $form->script;
-    $tmplvar{'title'}  = $form->title;
-    $tmplvar{'start'}  = $form->start . $form->statetags . $form->keepextras;
-    $tmplvar{'submit'} = $form->submit;
-    $tmplvar{'reset'}  = $form->reset;
-    $tmplvar{'end'}    = $form->end;
-    $tmplvar{'invalid'}= $form->invalid;
-    $tmplvar{'fields'} = [ map $tmplvar{field}{$_}, $form->field ];
     if ($tt_var) {
-        push @$tt_data, { $tt_var => \%tmplvar };
+        push @$tt_data, { $tt_var => $tvar };
     } else {
-        push @$tt_data, \%tmplvar;
+        push @$tt_data, $tvar;
     }
 
     my $tt_fill_in = $self->{fill_in} || {};
@@ -114,10 +88,11 @@ sub render {
 
     $tt_fill_in_hash = {} unless @$tt_fill_in_hash;
     $tt_fill_in->{&tt_param_name('hash',%$tt_fill_in)} = $tt_fill_in_hash;
+
     my $tt_output = $self->{engine}->fill_in(%$tt_fill_in)
         || puke "Text::Template expansion failed: $Text::Template::ERROR";
 
-    return $form->header . $tt_output;
+    return $tt_output;
 }
 
 1;
@@ -148,6 +123,22 @@ ones used by Template Toolkit and C<HTML::Mason> (the Text::Template default
 delimiters are C<{> and C<}>, but using alternative delimiters speeds it up by
 about 25%, and the C<< <% >> and C<< %> >> delimiters are good,
 familiar-looking alternatives).
+
+The following methods are provided (usually only used internally):
+
+=head2 engine
+
+Returns a reference to the C<HTML::Template> object
+
+=head2 prepare
+
+Returns a hash of all the fields ready to be rendered.
+
+=head2 render
+
+Uses the prepared hash and expands the template, returning a string of HTML.
+
+=head1 TEMPLATES
 
     <% $jshead %>  -  JavaScript to stick in <head>
     <% $title  %>  -  The <title> of the HTML form
@@ -291,7 +282,7 @@ L<CGI::FormBuilder>, L<CGI::FormBuilder::Template>, L<Text::Template>
 
 =head1 REVISION
 
-$Id: Text.pm,v 1.32 2006/02/24 01:42:29 nwiger Exp $
+$Id: Text.pm 46 2006-08-22 16:11:04Z nwiger $
 
 =head1 AUTHOR
 

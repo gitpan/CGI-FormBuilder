@@ -1,4 +1,9 @@
 
+###########################################################################
+# Copyright (c) 2000-2006 Nate Wiger <nate@wiger.org>. All Rights Reserved.
+# Please visit www.formbuilder.org for tutorials, support, and examples.
+###########################################################################
+
 package CGI::FormBuilder::Template::Fast;
 
 =head1 NAME
@@ -32,39 +37,40 @@ CGI::FormBuilder::Template::Fast - FormBuilder interface to CGI::FastTemplate
 use Carp;
 use strict;
 
-our $VERSION = '3.0302';
-
 use CGI::FormBuilder::Util;
 use CGI::FastTemplate;
 use base 'CGI::FastTemplate';
 
+our $REVISION = do { (my $r='$Revision: 46 $') =~ s/\D+//g; $r };
+our $VERSION  = $CGI::FormBuilder::Util::VERSION;
+
 sub new {
     my $self  = shift;
     my $class = ref($self) || $self;
-    my %opt   = @_;
+    my $opt   = arghash(@_);
 
-    my $t = CGI::FastTemplate->new($opt{root});
+    my $t = CGI::FastTemplate->new($opt->{root});
 
     # turn off strict so that undef vars show up
     # as blank in the template output
     $t->no_strict;
 
     # define our templates
-    $t->define(%{ $opt{define} });
-    $t->define_raw($opt{define_raw});
-    $t->define_nofile($opt{define_nofile});    
+    $t->define(%{ $opt->{define} });
+    $t->define_raw($opt->{define_raw});
+    $t->define_nofile($opt->{define_nofile});    
 
     # jam $t info FB 'engine' container
-    $opt{engine} = $t;
+    $opt->{engine} = $t;
 
-    return bless \%opt, $class;
+    return bless $opt, $class;
 }
 
 sub engine {
     return shift()->{engine};
 }
 
-sub render {
+sub prepare {
     my $self = shift;
     my $form = shift;
 
@@ -110,8 +116,12 @@ sub render {
     });
     $self->{engine}->parse(FORM => 'form');
 
-    # prepend header to template rendering
-    return $form->header . ${ $self->{engine}->fetch('FORM') };
+    return $self;
+}
+
+sub render {
+    my $self = shift;
+    return ${ $self->{engine}->fetch('FORM') };
 }
 
 

@@ -1,6 +1,8 @@
 
-# Copyright (c) 2005 Nate Wiger <nate@wiger.org>. All Rights Reserved.
-# Use "perldoc CGI::FormBuilder::Test" to read full documentation.
+###########################################################################
+# Copyright (c) 2000-2006 Nate Wiger <nate@wiger.org>. All Rights Reserved.
+# Please visit www.formbuilder.org for tutorials, support, and examples.
+###########################################################################
 
 package CGI::FormBuilder::Test;
 
@@ -22,14 +24,17 @@ CGI::FormBuilder::Test - Test harness for FormBuilder
 
 use strict;
 
-our $VERSION = '3.0302';
+use CGI::FormBuilder::Util;
+
+our $REVISION = do { (my $r='$Revision: 46 $') =~ s/\D+//g; $r };
+our $VERSION  = $CGI::FormBuilder::Util::VERSION;
 our $DEBUG = 0;
 
 use Exporter;
 use base 'Exporter';
 our @EXPORT = qw(outfile);
 
-use File::Basename;
+use File::Basename 'fileparse';
 use File::Spec::Functions;
 
 sub outfile ($) {
@@ -44,9 +49,9 @@ sub outfile ($) {
 
 =head1 DESCRIPTION
 
-=head1 VERSION
+=head1 REVISION
 
-$Id: Test.pm,v 1.14 2006/02/24 01:42:29 nwiger Exp $
+$Id: Test.pm 46 2006-08-22 16:11:04Z nwiger $
 
 =head1 AUTHOR
 

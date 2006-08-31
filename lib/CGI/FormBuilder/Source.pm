@@ -1,6 +1,8 @@
 
-# Copyright (c) 2005 Nate Wiger <nate@wiger.org>. All Rights Reserved.
-# Use "perldoc CGI::FormBuilder::Source" to read full documentation.
+###########################################################################
+# Copyright (c) 2000-2006 Nate Wiger <nate@wiger.org>. All Rights Reserved.
+# Please visit www.formbuilder.org for tutorials, support, and examples.
+###########################################################################
 
 package CGI::FormBuilder::Source;
 
@@ -41,7 +43,7 @@ CGI::FormBuilder::Source - Source adapters for FormBuilder
 
 use strict;
 
-our $VERSION = '3.0302';
+our $REVISION = do { (my $r='$Revision: 46 $') =~ s/\D+//g; $r };
 warn __PACKAGE__, " is not a real module, please read the docs\n"; 
 1;
 __END__
@@ -98,7 +100,7 @@ L<CGI::FormBuilder>, L<CGI::FormBuilder::Source::File>,
 
 =head1 REVISION
 
-$Id: Source.pm,v 1.16 2006/02/24 01:42:29 nwiger Exp $
+$Id: Source.pm 46 2006-08-22 16:11:04Z nwiger $
 
 =head1 AUTHOR
 

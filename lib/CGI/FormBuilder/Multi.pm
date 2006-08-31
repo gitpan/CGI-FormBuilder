@@ -1,6 +1,8 @@
 
-# Copyright (c) 2005 Nate Wiger <nate@wiger.org>. All Rights Reserved.
-# Use "perldoc CGI::FormBuilder::Multi" to read full documentation.
+###########################################################################
+# Copyright (c) 2000-2006 Nate Wiger <nate@wiger.org>. All Rights Reserved.
+# Please visit www.formbuilder.org for tutorials, support, and examples.
+###########################################################################
 
 package CGI::FormBuilder::Multi;
 
@@ -96,15 +98,16 @@ CGI::FormBuilder::Multi - Create multi-page FormBuilder forms
 
 use strict;
 
-our $VERSION = '3.0302';
+use CGI::FormBuilder;
+use CGI::FormBuilder::Util;
+
+our $REVISION = do { (my $r='$Revision: 46 $') =~ s/\D+//g; $r };
+our $VERSION  = $CGI::FormBuilder::Util::VERSION;
 
 our %DEFAULT = (
     pagename => '_page',
     navbar   => 0,
 );
-
-use CGI::FormBuilder;
-use CGI::FormBuilder::Util;
 
 sub new {
     my $mod = shift;
@@ -343,7 +346,7 @@ L<CGI::FormBuilder>
 
 =head1 REVISION
 
-$Id: Multi.pm,v 1.25 2006/02/24 01:42:29 nwiger Exp $
+$Id: Multi.pm 46 2006-08-22 16:11:04Z nwiger $
 
 =head1 AUTHOR
 

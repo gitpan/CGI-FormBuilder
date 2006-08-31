@@ -49,11 +49,11 @@ EOW
 
 WriteMakefile(
     NAME           => 'CGI::FormBuilder',
-    VERSION_FROM   => 'lib/CGI/FormBuilder.pm',     # finds $VERSION
+    VERSION_FROM   => 'lib/CGI/FormBuilder/Util.pm',     # finds $VERSION
     PREREQ_PM      => { CGI => 0 },
     CONFIGURE      => \&modcheck,
     ($] >= 5.005 ?
       (ABSTRACT_FROM => 'lib/CGI/FormBuilder.pm',  # abstract from POD
-       AUTHOR        => 'Nathan Wiger (nate@sun.com)') : ()
+       AUTHOR        => 'Nathan Wiger (nate@wiger.org)') : ()
     ),
 );

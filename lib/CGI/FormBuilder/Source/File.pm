@@ -1,6 +1,8 @@
 
-# Copyright (c) 2005 Nathan Wiger <nate@wiger.org>. All Rights Reserved.
-# Use "perldoc CGI::FormBuilder::Source::File" to read full documentation.
+###########################################################################
+# Copyright (c) 2000-2006 Nate Wiger <nate@wiger.org>. All Rights Reserved.
+# Please visit www.formbuilder.org for tutorials, support, and examples.
+###########################################################################
 
 package CGI::FormBuilder::Source::File;
 
@@ -22,10 +24,11 @@ CGI::FormBuilder::Source::File - Initialize FormBuilder from external file
 use Carp;
 use strict;
 
-our $VERSION = '3.0302';
-
 use 5.006; # or later
 use CGI::FormBuilder::Util;
+
+our $REVISION = do { (my $r='$Revision: 46 $') =~ s/\D+//g; $r };
+our $VERSION  = $CGI::FormBuilder::Util::VERSION;
 
 # Begin "real" code
 sub new {
@@ -432,7 +435,7 @@ L<CGI::FormBuilder>, L<Text::FormBuilder>
 
 =head1 REVISION
 
-$Id: File.pm,v 1.23 2006/02/24 01:42:29 nwiger Exp $
+$Id: File.pm 46 2006-08-22 16:11:04Z nwiger $
 
 =head1 AUTHOR
 

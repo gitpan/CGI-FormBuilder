@@ -5,7 +5,7 @@ Changes - Changes in FormBuilder 3.0, please also see the README
 
 =head1 COMPATIBILITY
 
-FormBuilder 3.0 should be completely compatible with FormBuilder 2.x,
+FormBuilder 3.x should be completely compatible with FormBuilder 2.x,
 with the singular exception that you can no longer use the shortcut
 autoload style of getting to fields:
 
@@ -15,7 +15,61 @@ autoload style of getting to fields:
 In order to allow the second form, you must specify the C<fieldsubs>
 option to C<new()>.
 
-=head1 VERSION 3.0301
+=head1 VERSION 3.04
+
+In addition to the below features, a new Catalyst FormBuilder plugin
+is available on CPAN, C<< Catalyst::Plugin::FormBuilder >>.
+
+=head2 New $form->prepare() method
+
+You can now use C<< $form->prepare() >> to get back an expanded
+hashref just before C<< $form->render() >> is called. This allows
+you to use FormBuilder with Catalyst or other frameworks more
+easily, where the rendering is done elsewhere:
+
+    my %expansion = $form->prepare;
+
+This could be passed directly to, say, Template Toolkit without
+having to use FormBuilder's Template Toolkit support.
+
+=head2 New "inflate" option to field()
+
+This is used the convert fields on the fly into objects or other
+values. For example, you could convert a "date" field into a 
+DateTime object. Nice patch from Mark Hedges, check it out.
+
+=head2 Turkish messages
+
+Thanks to Recai Oktas.
+
+=head2 Added "missing" property for fields
+
+This can be queried in templates. To see if a field is missing altogether,
+you can check "field.missing" or "missing-field" depending on your
+template engine of choice.
+
+=head2 Removal of custom C<puke> and C<belch>
+
+FormBuilder now uses C<Carp> and C<@CARP_NOT> to handle its errors.
+As such, you will probably notice some differences in error output.
+The benefit is that setting C<debug> will give you a stack trace
+on fatal errors.
+
+=head2 CGI::FormBuilder::Template::Builtin
+
+Moved the C<render_builtin()> method to the above module, to
+unify the rendering schemes.
+
+=head2 New FORMBUILDER_DEBUG environment variable
+
+Setting this has the same effect as using the C<debug> option.
+
+=head2 Removal of excess documentation
+
+Removed all the stub docs from C<Field::*> and C<Messages::*>
+to make CPAN happy.
+
+=head1 VERSION 3.0302
 
 This is a bugfix release to repair these main items:
 

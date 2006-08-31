@@ -8,6 +8,7 @@ use strict;
 use vars qw($TESTING $DEBUG $SKIP);
 $TESTING = 1;
 $DEBUG = $ENV{DEBUG} || 0;
+
 use Test;
 
 # use a BEGIN block so we print our plan before CGI::FormBuilder is loaded
@@ -32,7 +33,7 @@ BEGIN {
 $ENV{REQUEST_METHOD} = 'GET';
 $ENV{QUERY_STRING}   = 'ticket=111&user=pete&replacement=TRUE';
 
-use CGI::FormBuilder;
+use CGI::FormBuilder 3.04;
 use CGI::FormBuilder::Test;
 
 # Grab our template from our test00.html file
@@ -105,8 +106,7 @@ for (@test) {
     # (since render is called regardless of whether $SKIP is set)
     #
     my $out = outfile($seq++);
-    my $ren;
-    eval '$ren = $form->render';
+    my $ren = $SKIP ? '' : $form->render;
     my $ok = skip($SKIP, $ren, $out);
 
     if (! $ok && $ENV{LOGNAME} eq 'nwiger') {

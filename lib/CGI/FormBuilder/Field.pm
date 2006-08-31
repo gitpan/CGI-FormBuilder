@@ -1,4 +1,9 @@
 
+###########################################################################
+# Copyright (c) 2000-2006 Nate Wiger <nate@wiger.org>. All Rights Reserved.
+# Please visit www.formbuilder.org for tutorials, support, and examples.
+###########################################################################
+
 package CGI::FormBuilder::Field;
 
 =head1 NAME
@@ -41,10 +46,11 @@ CGI::FormBuilder::Field - Base class for FormBuilder fields
 use Carp;   # confess used manually in this pkg
 use strict;
 
-our $VERSION = '3.0302';
-our $AUTOLOAD;
-
 use CGI::FormBuilder::Util;
+
+our $REVISION = do { (my $r='$Revision: 53 $') =~ s/\D+//g; $r };
+our $VERSION  = $CGI::FormBuilder::Util::VERSION;
+our $AUTOLOAD;
 
 # what to generate for tag
 our @TAGATTR = qw(name type multiple jsclick);
@@ -97,36 +103,55 @@ use overload '""'   => sub { $_[0]->name },
              'bool' => sub { $_[0]->name },
              'eq'   => sub { $_[0]->name eq $_[1] };
 
+=for slower
+
+sub BEGIN {
+    eval "use Class::Accessor::Fast";
+    eval "use base 'Class::Accessor::Fast'";
+    unless ($@) {
+        # use these instead of AUTOLOAD
+        debug 1, "found Class::Accessor::Fast for speedup";
+        __PACKAGE__->mk_accessors(qw/
+            label jsclick onclick onchange
+            sticky required invalid missing
+            nameopts sortopts cleanopts optgroups order 
+            linebreaks selectname selectnum columns
+        /);
+    }
+}
+
+=cut
+
 sub new {
     puke "Not enough arguments for Field->new()" unless @_ > 1;
     my $self = shift;
 
     my $form = shift;       # need for top-level attr
-    my %opt  = ref $_[0] eq 'HASH' ? %{$_[0]} : @_;
-    $opt{_form} = $form;    # parental ptr
-    puke "Missing name for field() in Field->new()" unless $opt{name};
+    my $opt  = arghash(@_);
+    $opt->{_form} = $form;    # parental ptr
+    puke "Missing name for field() in Field->new()"
+        unless $opt->{name};
 
     my $class = ref($self) || $self;
-    my $f = bless \%opt, $class;
+    my $f = bless $opt, $class;
 
-    #
-    # XXX This is ugly and I don't really like it.
-    # XXX ->type re-blesses the object into the appropriate
-    # XXX ::type.pm classes as a side-effect. As such, calling
-    # XXX in a void context will morph it into the proper object.
-    # XXX There should be a cleaner way of doing this.
-    #
-    #$f->type;      # does not work - must call w/i script()
+    # Note that at this point, the object is a generic field
+    # without a type. Not until it's called via $f->type does
+    # it get a type, which affects its HTML representation.
+    # Everything else is inherited from this module.
 
     return $f;
 }
 
 sub field {
     my $self = shift;
-    my %opt  = ref $_[0] eq 'HASH' ? %{$_[0]} : @_;
-    while (my($k,$v) = each %opt) {
-        next if $k eq 'name';   # segfault??
-        $self->{$k} = $v;
+
+    if (ref $_[0] || @_ > 1) {
+        my $opt = arghash(@_);
+        while (my($k,$v) = each %$opt) {
+            next if $k eq 'name';   # segfault??
+            $self->{$k} = $v;
+        }
     }
     return $self->value;    # needed for @v = $form->field('name')
 }
@@ -158,17 +183,17 @@ sub othertag {
     return '' unless $self->other;
 
     # add an additional tag for our _other field
-    my %oa = $self->other;  # other attr
+    my $oa = $self->other;  # other attr
 
     # default settings
-    $oa{type}  ||= 'text';
+    $oa->{type}  ||= 'text';
     my $v = $self->{_form}->cgi_param($self->othername);
     if ($self->sticky and $v) {
-        $oa{value} = $v;
+        $oa->{value} = $v;
     }
 
-    $oa{disabled} = 'disabled' if $self->javascript && ! $v;   # fanciness
-    return htmltag('input', %oa);
+    $oa->{disabled} = 'disabled' if $self->javascript && ! $v;   # fanciness
+    return htmltag('input', $oa);
 }
 
 sub growname {
@@ -181,9 +206,11 @@ sub cgi_value {
     debug 2, "$self->{name}: called \$field->cgi_value";
     puke "Cannot set \$field->cgi_value manually" if @_;
     if (my @v = $self->{_form}{params}->param($self->name)) {
-        if ($v[0] eq $self->othername) {
-            debug 1, "$self->{name}: redoing value from _other field";
-            @v = $self->{_form}{params}->param($self->othername);
+        for my $v (@v) {
+            if ($self->other && $v eq $self->othername) {
+                debug 1, "$self->{name}: redoing value from _other field";
+                $v = $self->{_form}{params}->param($self->othername);
+            }
         }
         local $" = ',';
         debug 2, "$self->{name}: cgi value = (@v)";
@@ -202,7 +229,52 @@ sub def_value {
     my @v = autodata $self->{value};
     local $" = ',';
     debug 2, "$self->{name}: def value = (@v)";
+    $self->inflate_value(\@v);
     return wantarray ? @v : $v[0];
+}
+
+sub inflate_value {
+    my ($self, $v_aref) = @_;
+
+    debug 2, "$self->{name}: called \$field->inflate_value";
+
+    # trying to inflate?
+    return unless exists $self->{inflate};
+    debug 2, "$self->{name}: inflate routine exists";
+
+    # must return real values to the validate() routine:
+    return if grep { ((caller($_))[3] eq 'CGI::FormBuilder::Field::validate') } 
+                1..2;
+    debug 2, "$self->{name}: made sure inflate not called via validate";
+
+    # must be valid:
+    #return unless exists $self->{invalid} && ! $self->{invalid};
+    return if $self->invalid;
+    debug 2, "$self->{name}: valid field, inflate proceeding";
+
+    my $cache = $self->{inflated_values};
+
+    if ($cache && ref $cache eq 'ARRAY' && @{$cache}) {
+        # could have been cached by validate() check
+        @{ $v_aref } = @{ $self->{inflated_values} };
+        debug 2, "$self->{name}: using cached inflate "
+               . "value from validate()";
+    }
+    else {
+        debug 2, "$self->{name}: new inflate";
+
+        puke("Field $self->{name}: inflate must be a reference to a \\&sub")
+            if ref $self->{inflate} ne 'CODE';
+
+        eval { @{ $v_aref } = map $self->{inflate}->($_), @{ $v_aref } };
+
+        # no choice but to die hard if didn't validate() first
+        puke("Field $self->{name}: inflate failed: $@") if $@;
+
+        # cache the result:
+        @{ $self->{inflated_values} } = @{ $v_aref };
+    }
+    return;
 }
 
 # CGI.pm happiness
@@ -222,6 +294,7 @@ sub value {
         if (my @v = $self->cgi_value) {
             local $" = ',';
             debug 1, "$self->{name}: returning value (@v)";
+            $self->inflate_value(\@v);
             return wantarray ? @v : $v[0];
         }
     }
@@ -253,6 +326,18 @@ sub tag_value {
     debug 2, "no cgi found, returning def_value";
     # no CGI value, or value was forced, or not sticky
     return $self->def_value;
+}
+
+# Handle "b:select" and "b:option"
+sub tag_name {
+    my $self = shift;
+    $self->{tag_name} = shift if @_;
+    return $self->{tag_name} if $self->{tag_name};
+    # Try to guess
+    my($tag) = ref($self) =~ /^CGI::FormBuilder::Field::(.+)/;
+    puke "Can't resolve tag for untyped field '$self->{name}'"
+        unless $tag;
+    return $tag;
 }
 
 sub type {
@@ -595,6 +680,14 @@ sub validate () {
     my $pattern = shift || $self->{validate};
     my $field   = $self->name;
 
+    # inflation subref?
+    my $inflate = (exists $self->{inflate}) ? $self->{inflate} : undef;
+    puke("$field: inflate attribute must be subroutine reference")
+        if defined $inflate && ref $inflate ne 'CODE';
+    puke("$field: inflate requires a validation pattern")
+        if defined $inflate && !defined $pattern;
+    $self->{inflated_values} = [ ] if $inflate;
+
     debug 1, "$self->{name}: called \$field->validate(@_) for field '$field'";
 
     # Check our hash to see if it's a special pattern
@@ -667,6 +760,22 @@ sub validate () {
         # Just for debugging's sake
         $thisfail ? debug 2, "$field: pattern FAILED"
                   : debug 2, "$field: pattern passed";
+        
+        # run inflation subref if defined, trap errors and warn
+        if (defined $inflate) {
+            debug 1, "trying to inflate value '$value'";
+            my $inflated_value = eval { $inflate->($value) };
+            if ($@) {
+                belch "Field $field: inflate failed on value '$value' due to '$@'";
+                $thisfail = ++$bad;
+            }
+            # cache for value():
+            push @{$self->{inflated_values}}, $inflated_value;
+
+            # debugging:
+            $thisfail ? debug 2, "$field: inflate FAILED"
+                      : debug 2, "$field: inflate passed";
+        }
     }
 
     # If not $atleastone and they asked for validation, then we
@@ -674,18 +783,14 @@ sub validate () {
     if ($bad || (! $atleastone && $self->required)) {
         debug 1, "$field: validation FAILED";
         $self->{invalid} = $bad || 1;
+        $self->{missing} = $atleastone;  
         return;
     } else {
         debug 1, "$field: validation passed";
         delete $self->{invalid};    # in case of previous run
+        delete $self->{missing};    # ditto
         return 1;
     }
-}
-
-sub invalid () {
-    my $self = shift;
-    # return stored value, assume validate run first
-    @_ ? $self->{invalid} = shift : $self->{invalid};
 }
 
 sub static () {
@@ -853,6 +958,20 @@ call in FormBuilder. Usually running per-field validate() calls is not
 what you want. Instead, you want to run the one on C<$form>, which in
 turn calls each individual field's and saves some temp state.
 
+=head2 inflate($subref)
+
+This sets the inflate attribute: subroutine reference used to inflate values 
+returned by value() into objects or whatever you want.  If no parameter, 
+returns the inflate subroutine reference that is set.  For example:
+    
+ use DateTime::Format::Strptime;
+ my $date_format = DateTime::Format::Strptime->new(
+    pattern   => '%D',    # for MM/DD/YYYY american dates
+    locale    => 'en_US',
+    time_zone => 'America/Los_Angeles',
+ );
+ $field->inflate( sub { return $date_format->format_datetime(shift) } );
+
 =head2 invalid
 
 This returns the opposite value that C<validate()> would return, with
@@ -878,6 +997,13 @@ This always returns the CGI value, regardless of C<sticky>.
 
 This always returns the default value, regardless of C<sticky>.
 
+=head2 tag_name()
+
+This returns the tag name of the current item. This was added so you could
+subclass, say, C<CGI::FormBuilder::Field::select> and change the HTML tag
+to C<< <b:select> >> instead. This is an experimental feature and subject
+to change wildly (suggestions welcome).
+
 =head2 accessors
 
 In addition to the above methods, accessors are provided for directly 
@@ -902,7 +1028,7 @@ L<CGI::FormBuilder>
 
 =head1 REVISION
 
-$Id: Field.pm,v 1.71 2006/02/24 01:42:29 nwiger Exp $
+$Id: Field.pm 53 2006-08-25 20:41:38Z nwiger $
 
 =head1 AUTHOR
 

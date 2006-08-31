@@ -1,34 +1,23 @@
 
+###########################################################################
+# Copyright (c) 2000-2006 Nate Wiger <nate@wiger.org>. All Rights Reserved.
+# Please visit www.formbuilder.org for tutorials, support, and examples.
+###########################################################################
+
+# static fields are a special FormBuilder type that turns any
+# normal field into a hidden field with the value printed.
+# As such, the code has to basically handle all field types.
+
 package CGI::FormBuilder::Field::static;
 
-=head1 NAME
-
-CGI::FormBuilder::Field::static - FormBuilder class for static fields
-
-=head1 SYNOPSIS
-
-    use CGI::FormBuilder::Field;
-
-    # delegated straight from FormBuilder
-    my $f = CGI::FormBuilder::Field->new($form,
-                                         name => 'whatever',
-                                         type => 'static');
-
-=cut
-
 use strict;
-
-our $VERSION = '3.0302';
 
 use CGI::FormBuilder::Util;
 use CGI::FormBuilder::Field;
 use base 'CGI::FormBuilder::Field';
 
-# The majority of this module's methods (including new) are
-# inherited directly from ::base, since they involve things
-# which are common, such as parameter parsing. The only methods
-# that are individual to different fields are those that affect
-# the rendering, such as script() and tag()
+our $REVISION = do { (my $r='$Revision: 46 $') =~ s/\D+//g; $r };
+our $VERSION  = $CGI::FormBuilder::Util::VERSION;
 
 sub script {
     return '';        # static fields get no messages
@@ -98,30 +87,3 @@ sub tag {
 
 __END__
 
-=head1 DESCRIPTION
-
-This module is used to create B<FormBuilder> elements of a specific type.
-Currently, each type module inherits all of its methods from the main
-L<CGI::FormBuilder::Field> module except for C<tag()> and C<script()>,
-which affect the XHMTL representation of the field.
-
-Please refer to L<CGI::FormBuilder::Field> and L<CGI::FormBuilder> for
-documentation.
-
-=head1 SEE ALSO
-
-L<CGI::FormBuilder>, L<CGI::FormBuilder::Field>
-
-=head1 REVISION
-
-$Id: static.pm,v 1.12 2006/02/24 01:42:29 nwiger Exp $
-
-=head1 AUTHOR
-
-Copyright (c) 2005-2006 Nate Wiger <nate@wiger.org>. All Rights Reserved.
-
-This module is free software; you may copy this under the terms of
-the GNU General Public License, or the Artistic License, copies of
-which should have accompanied your Perl kit.
-
-=cut

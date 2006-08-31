@@ -1,4 +1,9 @@
 
+###########################################################################
+# Copyright (c) 2000-2006 Nate Wiger <nate@wiger.org>. All Rights Reserved.
+# Please visit www.formbuilder.org for tutorials, support, and examples.
+###########################################################################
+
 package CGI::FormBuilder::Template::TT2;
 
 =head1 NAME
@@ -21,20 +26,21 @@ CGI::FormBuilder::Template::TT2 - FormBuilder interface to Template Toolkit
 use Carp;
 use strict;
 
-our $VERSION = '3.0302';
-
 use CGI::FormBuilder::Util;
 use Template;
+
+our $REVISION = do { (my $r='$Revision: 46 $') =~ s/\D+//g; $r };
+our $VERSION  = $CGI::FormBuilder::Util::VERSION;
 
 sub new {
     my $self  = shift;
     my $class = ref($self) || $self;
-    my %opt   = @_;
+    my $opt   = arghash(@_);
 
-    $opt{engine} = Template->new($opt{engine} || {})
-            || puke $Template::ERROR unless UNIVERSAL::isa($opt{engine}, 'Template');
+    $opt->{engine} = Template->new($opt->{engine} || {})
+            || puke $Template::ERROR unless UNIVERSAL::isa($opt->{engine}, 'Template');
 
-    return bless \%opt, $class;
+    return bless $opt, $class;
 }
 
 sub engine {
@@ -43,55 +49,25 @@ sub engine {
 
 sub render {
     my $self = shift;
-    my $form = shift;
-
-    my %tmplvar = $form->tmpl_param;
-
-    # Template Toolkit can access complex data pretty much unaided
-    for my $field ($form->field) {
-
-        # Extract value since used often
-        my @value = $field->tag_value;
-
-        # Create a struct for each field
-        $tmplvar{field}{"$field"} = {
-             %$field,
-             field   => $field->tag,
-             value   => $value[0],
-             values  => \@value,
-             options => [$field->options],
-             label   => $field->label,
-             type    => $field->type,
-             comment => $field->comment,
-        };
-        $tmplvar{field}{"$field"}{error} = $field->error;
-    }
+    my $tvar = shift || puke "Missing template expansion hashref (\$form->prepare failed?)";
 
     my $tt2template = $self->{template}
         || puke "Template Toolkit template not specified";
     my $tt2data = $self->{data} || {};
     my $tt2var  = $self->{variable};      # optional var for nesting
 
-    # must generate JS first because it affects the others
-    $tmplvar{'jshead'} = $form->script;
-    $tmplvar{'title'}  = $form->title;
-    $tmplvar{'start'}  = $form->start . $form->statetags . $form->keepextras;
-    $tmplvar{'submit'} = $form->submit;
-    $tmplvar{'reset'}  = $form->reset;
-    $tmplvar{'end'}    = $form->end;
-    $tmplvar{'invalid'}= $form->invalid;
-    $tmplvar{'fields'} = [ map $tmplvar{field}{$_}, $form->field ];
     if ($tt2var) {
-        $tt2data->{$tt2var} = \%tmplvar;
+        $tt2data->{$tt2var} = $tvar;
     } else {
-        $tt2data = { %$tt2data, %tmplvar };
+        $tt2data = { %$tt2data, %$tvar };
     }
-
     my $tt2output;  # growing a scalar is so C-ish
+
     $self->{engine}->process($tt2template, $tt2data, \$tt2output)
         || puke $self->{engine}->error();
 
-    return $form->header . $tt2output;
+    # string HTML output
+    return $tt2output;
 }
 
 1;
@@ -114,6 +90,22 @@ to be referenced by:
                         variable => 'form',
                     }
                );
+
+The following methods are provided (usually only used internally):
+
+=head2 engine
+
+Returns a reference to the C<HTML::Template> object
+
+=head2 prepare
+
+Returns a hash of all the fields ready to be rendered.
+
+=head2 render
+
+Uses the prepared hash and expands the template, returning a string of HTML.
+
+=head1 TEMPLATES
 
 The template might look something like this:
 
@@ -246,7 +238,7 @@ L<CGI::FormBuilder>, L<CGI::FormBuilder::Template>, L<Template>
 
 =head1 REVISION
 
-$Id: TT2.pm,v 1.33 2006/02/24 01:42:29 nwiger Exp $
+$Id: TT2.pm 46 2006-08-22 16:11:04Z nwiger $
 
 =head1 AUTHOR
 

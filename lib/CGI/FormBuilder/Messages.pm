@@ -1,6 +1,8 @@
 
-# Copyright (c) 2005 Nate Wiger <nate@wiger.org>. All Rights Reserved.
-# Use "perldoc CGI::FormBuilder::Messages" to read full documentation.
+###########################################################################
+# Copyright (c) 2000-2006 Nate Wiger <nate@wiger.org>. All Rights Reserved.
+# Please visit www.formbuilder.org for tutorials, support, and examples.
+###########################################################################
 
 package CGI::FormBuilder::Messages;
 
@@ -22,17 +24,18 @@ CGI::FormBuilder::Messages - Localized message support for FormBuilder
 
 use strict;
 
-our $VERSION = '3.0302';
-our $AUTOLOAD;
-
 use CGI::FormBuilder::Util;
+
+our $REVISION = do { (my $r='$Revision: 46 $') =~ s/\D+//g; $r };
+our $VERSION  = $CGI::FormBuilder::Util::VERSION;
+our $AUTOLOAD;
 
 sub new {
     my $self = shift;
     my $class = ref($self) || $self;
     my $src   = shift;
-    debug 1, "creating Messages object from $src";
-    my %hash = ();
+    debug 1, "creating Messages object from ", $src || '(default)';
+    my %hash;
 
     if (my $ref = ref $src) {
         # hashref, get values directly
@@ -40,6 +43,7 @@ sub new {
             if $ref eq 'ARRAY' || $ref eq 'SCALAR';
 
         # load defaults from English
+        # anonymize the %hash or we get fucked with refs later
         require CGI::FormBuilder::Messages::default;
         %hash = CGI::FormBuilder::Messages::locale->messages;
 
@@ -140,6 +144,7 @@ Currently included with B<FormBuilder> are several different locales:
     Spanish/Espanol      es_ES
     Japanese             ja_JP
     Norwegian/Norvegian  no_NO
+    Turkish              tr_TR
 
 To enable automatic localization that will detect the client's locale
 and use one of these included locales, simply turn on C<auto> messages:
@@ -236,13 +241,51 @@ the C<%s> format tag. Of course, this is optional, and you can leave it out.
 The best way to get an idea of how these work is to experiment a little.
 It should become obvious really quickly.
 
+=head1 TRANSLATORS
+
+Foreign language translations were contributed by the following people:
+
+=over
+
+=item Danish translation (da_DK)
+
+Jonas Smedegaard
+
+=item German translation (de_DE)
+
+Thilo Planz
+
+=item Spanish translation (es_ES)
+
+Florian Merges
+
+=item French translation (fr_FR)
+
+Laurent Dami
+
+=item Japanese translation (ja_JP)
+
+Toru Yamaguchi and Thilo Planz
+
+=item Norwegian translation (no_NO)
+
+Steinar Fremme
+
+=item Turkish translation (tr_TR)
+
+Recai Oktaş
+
+=back
+
+Thanks!
+
 =head1 SEE ALSO
 
 L<CGI::FormBuilder>
 
 =head1 REVISION
 
-$Id: Messages.pm,v 1.39 2006/02/24 01:42:29 nwiger Exp $
+$Id: Messages.pm 46 2006-08-22 16:11:04Z nwiger $
 
 =head1 AUTHOR
 

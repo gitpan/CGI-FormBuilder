@@ -18,7 +18,7 @@ BEGIN {
     open(M, "<MANIFEST") || warn "Can't open MANIFEST ($!) - skipping imports";
     chomp(@pm = grep !/Template/, grep /\.pm$/, <M>);
 
-    my $numtests = 22 + @pm;
+    my $numtests = 25 + @pm;
 
     plan tests => $numtests;
 
@@ -39,9 +39,9 @@ for (@pm) {
 
 # Fake a submission request
 $ENV{REQUEST_METHOD} = 'GET';
-$ENV{QUERY_STRING}   = 'ticket=111&user=pete&replacement=TRUE&action=Unsubscribe&name=Pete+Peteson&email=pete%40peteson.com&extra=junk&_submitted=1&blank=&two=&two=';
+$ENV{QUERY_STRING}   = 'ticket=111&user=pete&replacement=TRUE&action=Unsubscribe&name=Pete+Peteson&email=pete%40peteson.com&extra=junk&_submitted=1&blank=&two=&two=&other_test=_other_other_test&_other_other_test=42&other_test_2=_other_other_test_2&_other_other_test_2=nope';
 
-use CGI::FormBuilder;
+use CGI::FormBuilder 3.04;
 use CGI::FormBuilder::Test;
 
 # jump to a test if specified for debugging (goto eek!)
@@ -404,4 +404,42 @@ T22: ok(do{
     $ok;
 }, 1);
 exit if $t;
+
+#23 - other field values
+T23: ok(do{
+    my $form = CGI::FormBuilder->new;
+    $form->field(name => 'other_test', other => 1, type => 'select');
+    $form->field(name => 'other_test_2', other => 0, value => 'nope');
+    my $ok = 1;
+    $ok = 0 unless $form->field('other_test') eq '42';
+    $ok = 0 unless $form->field('other_test_2') eq '_other_other_test_2';
+    $ok;
+}, 1);
+exit if $t;
+
+#24 - inflate coderef
+T24: ok(do{
+    my $form = CGI::FormBuilder->new;
+    $form->field(
+        name    => 'inflate_test', 
+        value   => '2003-04-05 06:07:08', 
+        inflate => sub { return [ split /\D+/, shift ] },
+    );
+    my $ok = 1;
+    my $val = $form->field('inflate_test');
+    $ok = 0 unless ref $val eq 'ARRAY';
+    my $i = 0;
+    $ok = 0 if grep { ($val->[$i++] != $_) } 2003, 4, 5, 6, 7, 8;
+    $ok;
+}, 1);
+
+#25 - don't tell anyone this works
+T25: ok(do{
+    my $form = CGI::FormBuilder->new;
+    my $val  = $form->field(
+        name    => 'forty-two', 
+        value   => 42
+    );
+    $val == 42;
+}, 1);
 

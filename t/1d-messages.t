@@ -12,7 +12,26 @@ use Test;
 
 # use a BEGIN block so we print our plan before CGI::FormBuilder is loaded
 my @pm;
+my %messages;
 BEGIN { 
+    %messages = (
+        form_invalid_text   => 'You fucked up',
+        js_invalid_text     => 'Yep, shit sucks!',
+        form_select_default => '*<- choose ->*',
+        taco_salad          => 'is delicious',
+        parade              => [1,2,3],
+
+        form_invalid_text     => '<font color="red"><b>%s</b></font>',
+        form_invalid_input    => 'Invalid entry',
+        form_invalid_select   => 'Select an option from this list',
+        form_invalid_checkbox => 'Check one or more options',
+        form_invalid_radio    => 'Choose an option',
+        form_invalid_password => 'Invalid entry',
+        form_invalid_textarea => 'Please fill this in',
+        form_invalid_file     => 'Invalid filename',
+        form_invalid_default  => 'Invalid entry',
+    );
+
     # try to load all the .pm's except templates from MANIFEST
     open(M, "<MANIFEST") || warn "Can't open MANIFEST ($!) - skipping imports";
     chomp(@pm = grep m#Messages/[a-z]+_.*#, grep /\.pm$/, <M>);
@@ -20,10 +39,11 @@ BEGIN {
 
     #
     # There are 34 keys, times the number of modules, plus one load of the module.
-    # Then, also add in our 30 custom tests as well.
+    # Then, also add in our custom tests as well, which is two passes over
+    # the %messages hash (above) plus 4 charset/dtd checks
     #
 
-    my $numtests = (34 * @pm) + @pm + 34;
+    my $numtests = (34 * @pm) + @pm + (keys(%messages) * 2) + 4;
 
     plan tests => $numtests;
 
@@ -35,25 +55,6 @@ BEGIN {
 }
 
 # Messages, both inline and file
-my %messages = (
-    form_invalid_text   => 'You fucked up',
-    js_invalid_text     => 'Yep, shit sucks!',
-    form_select_default => '*<- choose ->*',
-    taco_salad          => 'is delicious',
-    parade              => [1,2,3],
-
-    form_invalid_opentag  => '<font color="red"><b>',
-    form_invalid_closetag => '</b></font>',
-    form_invalid_input    => 'Invalid entry',
-    form_invalid_select   => 'Select an option from this list',
-    form_invalid_checkbox => 'Check one or more options',
-    form_invalid_radio    => 'Choose an option',
-    form_invalid_password => 'Invalid entry',
-    form_invalid_textarea => 'Please fill this in',
-    form_invalid_file     => 'Invalid filename',
-    form_invalid_default  => 'Invalid entry',
-);
-
 my $locale = "fb_FAKE";
 my $messages = "messages.$locale";
 open(M, ">$messages") || warn "Can't write $messages: $!";
@@ -66,7 +67,7 @@ close(M);
 $ENV{REQUEST_METHOD} = 'GET';
 $ENV{QUERY_STRING}   = 'ticket=111&user=pete&replacement=TRUE&action=Unsubscribe&name=Pete+Peteson&email=pete%40peteson.com&extra=junk&_submitted=1&blank=&two=&two=';
 
-use CGI::FormBuilder;
+use CGI::FormBuilder 3.04;
 
 # Now manually try a whole bunch of things
 my $hash = CGI::FormBuilder->new(
@@ -118,7 +119,7 @@ for my $pm (@pm) {
     eval { $form = CGI::FormBuilder->new(messages => ":$lang"); };
     skip($skip, !$@);
     for (@keys) {
-        skip($skip, $form->{messages}{$_}) || warn "Locale $lang: missing $_\n";
+        skip($skip, $form->{messages}->$_) || warn "Locale $lang: missing $_\n";
     }
 }
 

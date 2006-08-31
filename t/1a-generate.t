@@ -11,10 +11,11 @@ $TESTING = 1;
 $DEBUG = $ENV{DEBUG} || 0;
 
 use Test;
+use CGI::FormBuilder::Test;
 
 # use a BEGIN block so we print our plan before CGI::FormBuilder is loaded
 BEGIN {
-    my $numtests = 30;
+    my $numtests = 32;
 
     plan tests => $numtests;
 
@@ -27,10 +28,9 @@ BEGIN {
 
 # Need to fake a request or else we stall
 $ENV{REQUEST_METHOD} = 'GET';
-$ENV{QUERY_STRING}   = 'ticket=111&user=pete&replacement=TRUE&action=Unsubscribe&name=Pete+Peteson&email=pete%40peteson.com&extra=junk';
+$ENV{QUERY_STRING}   = 'ticket=111&user=pete&replacement=TRUE&action=Unsubscribe&name=Pete+Peteson&email=pete%40peteson.com&extra=junk&other_test=_other_other_test&_other_other_test=42';
 
-use CGI::FormBuilder;
-use CGI::FormBuilder::Test;
+use CGI::FormBuilder 3.04;
 
 # What options we want to use, and what we expect to see
 my @test = (
@@ -401,6 +401,54 @@ EOJS
         },
     },
 
+    #31 - Backbase tagname support (experiemental)
+    {
+        opt => {
+            stylesheet => 'fbstyle.css',
+            submit     => [qw(Update Delete)],
+            reset      => 'Showme',
+            method     => 'POST',
+            fields     => [qw(fullname gender fav_color lover)],    # need hash order
+            header     => 1,
+            columns    => 1,
+            messages   => 'auto',
+            tagnames => {
+                name   => 'b:name',
+                select => 'b:select',
+                value  => 'b:value',
+                option => 'b:option',
+                input  => 'b:input',
+                table  => 'div',
+                tr     => 'div',
+                th     => 'div',
+                td     => 'div',
+            },
+        },
+        mod => {
+            fullname => {
+                label => 'Full Name',
+                type  => 'text',
+                required => 1,
+            },
+            gender => {
+                label => 'Sex',
+                options => [qw(M F)],
+                comment => "It's one or the other",
+            },
+            fav_color => {
+                label => 'Favy Colour',
+                options => [qw(Red Green Blue Orange Yellow Purple)],
+                comment => 'Choose just one, even if you have more than one',
+                invalid => 1,   # tricky
+            },
+            lover => {
+                label => 'Things you love',
+                options => [qw(Sex Drugs Rock+Roll)],
+                multiple => 1,
+            },
+        },
+    },
+
 );
 
 sub refsort {
@@ -412,6 +460,9 @@ sub refsort {
 my $seq = $ARGV[0] || 1;
 
 $ENV{HTTP_ACCEPT_LANGUAGE} = 'en_US';
+
+# To test local %TAGNAMES
+$CGI::FormBuilder::Util::TAGNAMES{name} = 'yellow';
 
 # Cycle thru and try it out
 for (@test) {
@@ -448,4 +499,5 @@ for (@test) {
         exit 1;
     }
 }
+ok($CGI::FormBuilder::Util::TAGNAMES{name}, 'yellow');
 

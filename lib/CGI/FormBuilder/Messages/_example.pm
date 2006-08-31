@@ -1,25 +1,33 @@
 
-# Copyright (c) 2005 Nate Wiger <nate@wiger.org>. All Rights Reserved.
-# Use "perldoc CGI::FormBuilder::Messages" to read full documentation.
+###########################################################################
+# Copyright (c) 2000-2006 Nate Wiger <nate@wiger.org>. All Rights Reserved.
+# Please visit www.formbuilder.org for tutorials, support, and examples.
+###########################################################################
+
+#
+# This is an example of how to create a Messages module. If you 
+# create one for a language that FormBuilder does not include, 
+# please post it to the mailing list, so that it is included in
+# future releases.
+#
+# To create one, simple replace __LANG__ with your language, for
+# example, "uk_UA". Then, change all the values on the right side
+# of the %MESSAGES hash to the correct strings for your language.
+#
+# Save the file as __LANG__.pm, for example, "uk_UA.pm". You can
+# then use this in FormBuilder as:
+#
+#   my $form = CGI::FormBuilder->new(messages => ':uk_UA');
+#
+# That's it!
+#
 
 package CGI::FormBuilder::Messages::__LANG__;
-
-=head1 NAME
-
-CGI::FormBuilder::Messages::__LANG__ - __LANG__ messages for FormBuilder
-
-=head1 SYNOPSIS
-
-    use CGI::FormBuilder;
-
-    my $form = CGI::FormBuilder->new(messages => 'auto');
-
-=cut
 
 use strict;
 use utf8;
 
-our $VERSION = '3.0302';
+our $REVISION = do { (my $r='$Revision: 46 $') =~ s/\D+//g; $r };
 
 # First, create a hash of messages for this language
 # Then, change "__LANG__" to the POSIX locale, such as "en_US" or "da_DK"
@@ -84,37 +92,3 @@ sub messages {
 1;
 __END__
 
-=head1 DESCRIPTION
-
-This is a stub module which can be used to create localized messages.
-To do so, first open up the file and edit the %MESSAGES hash so that it
-contains the proper translations for your locale.
-
-Once it is finished, save the file as:
-
-    CGI/FormBuilder/Messages/locale.pm
-
-Where locale is the appropriate POSIX locale name, such as "en_US" or "da_DK".
-
-If you want to use the same file to serve multiple locales, simple create
-links pointing to this module for each locale name.
-
-Finally, join the mailing list and submit your translated module:
-
-    fbusers-subscribe@formbuilder.org
-
-That way, it can be included in future versions of FormBuilder!
-
-=head1 VERSION
-
-$Id: _example.pm,v 1.20 2006/02/24 01:42:29 nwiger Exp $
-
-=head1 AUTHOR
-
-Copyright (c) 2005-2006 Nate Wiger <nate@wiger.org>. All Rights Reserved.
-
-This module is free software; you may copy this under the terms of
-the GNU General Public License, or the Artistic License, copies of
-which should have accompanied your Perl kit.
-
-=cut

@@ -1,25 +1,18 @@
 
-# Copyright (c) 2005 Nate Wiger <nate@wiger.org>. All Rights Reserved.
-# Use "perldoc CGI::FormBuilder::Messages" to read full documentation.
+###########################################################################
+# Copyright (c) 2000-2006 Nate Wiger <nate@wiger.org>. All Rights Reserved.
+# Please visit www.formbuilder.org for tutorials, support, and examples.
+###########################################################################
 
 package CGI::FormBuilder::Messages::locale;
-
-=head1 NAME
-
-CGI::FormBuilder::Messages::da_DK - Danish messages for FormBuilder
-
-=head1 SYNOPSIS
-
-    use CGI::FormBuilder;
-
-    my $form = CGI::FormBuilder->new(messages => 'auto');
-
-=cut
 
 use strict;
 use utf8;
 
-our $VERSION = '3.0302';
+use CGI::FormBuilder::Util;
+
+our $REVISION = do { (my $r='$Revision: 46 $') =~ s/\D+//g; $r };
+our $VERSION  = $CGI::FormBuilder::Util::VERSION;
 
 # First, create a hash of messages for this language
 # Then, change "locale" to the 2-letter country code, such as "en" or "de"
@@ -83,33 +76,3 @@ sub messages {
 1;
 __END__
 
-=head1 DESCRIPTION
-
-This module contains Danish messages for FormBuilder.
-
-If the C<messages> option is set to C<auto> (the recommended but NOT
-default setting), these messages will automatically be displayed to
-Danish clients:
-
-    my $form = CGI::FormBuilder->new(messages => 'auto');
-
-To force display of these messages, use the following option:
-
-    my $form = CGI::FormBuilder->new(messages => ':da_DK');
-
-Thanks to Jonas Smedegaard for the Danish translation.
-
-=head1 VERSION
-
-$Id: da_DK.pm,v 1.13 2006/02/24 01:42:29 nwiger Exp $
-
-=head1 AUTHOR
-
-Copyright (c) 2005-2006 Nate Wiger <nate@wiger.org>, Jonas Smedegaard <dr@jones.dk>.
-All Rights Reserved.
-
-This module is free software; you may copy this under the terms of
-the GNU General Public License, or the Artistic License, copies of
-which should have accompanied your Perl kit.
-
-=cut

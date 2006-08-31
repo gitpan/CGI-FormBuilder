@@ -1,4 +1,9 @@
 
+###########################################################################
+# Copyright (c) 2000-2006 Nate Wiger <nate@wiger.org>. All Rights Reserved.
+# Please visit www.formbuilder.org for tutorials, support, and examples.
+###########################################################################
+
 package CGI::FormBuilder::Template::HTML;
 
 =head1 NAME
@@ -17,21 +22,51 @@ CGI::FormBuilder::Template::HTML - FormBuilder interface to HTML::Template
 use Carp;
 use strict;
 
-our $VERSION = '3.0302';
-
 use CGI::FormBuilder::Util;
 use HTML::Template;
 use base 'HTML::Template';
 
+our $REVISION = do { (my $r='$Revision: 46 $') =~ s/\D+//g; $r };
+our $VERSION  = $CGI::FormBuilder::Util::VERSION;
+
+#
+# For legacy reasons, and due to its somewhat odd interface, 
+# HTML::Template vars use a completely different naming scheme.
+#
+our %FORM_VARS = (
+    'js-head'       =>  'jshead',
+    'form-title'    =>  'title',
+    'form-start'    =>  'start',
+    'form-submit'   =>  'submit',
+    'form-reset'    =>  'reset',
+    'form-end'      =>  'end',
+    'form-invalid'  =>  'invalid',
+    'form-required' =>  'required',
+);
+
+our %FIELD_VARS = map { $_ => "$_-%s" } qw(
+    field
+    value
+    label
+    type
+    comment
+    required
+    error
+    invalid 
+    missing
+    nameopts
+    cleanopts
+);
+
 sub new {
     my $self  = shift;
     my $class = ref($self) || $self;
-    my %opt   = @_;
+    my $opt   = arghash(@_);
 
-    $opt{die_on_bad_params} = 0;    # force to avoid blow-ups
-    $opt{engine} = HTML::Template->new(%opt);
+    $opt->{die_on_bad_params} = 0;    # force to avoid blow-ups
+    $opt->{engine} = HTML::Template->new(%$opt);
 
-    return bless \%opt, $class;     # rebless
+    return bless $opt, $class;     # rebless
 }
 
 sub engine {
@@ -40,56 +75,53 @@ sub engine {
 
 sub render {
     my $self = shift;
-    my $form = shift;
+    my $tvar = shift || puke "Missing template expansion hashref (\$form->prepare failed?)";
 
-    # a couple special fields
-    my %tmplvar = $form->tmpl_param;
+    while(my($to, $from) = each %FORM_VARS) {
+        debug 1, "renaming attr $from to: <tmpl_var $to>";
+        $tvar->{$to} = delete $tvar->{$from};
+    }
 
-    # must generate JS first since it affects the others
-    $tmplvar{'js-head'}     = $form->script;
-    $tmplvar{'form-title'}  = $form->title;
-    $tmplvar{'form-start'}  = $form->start . $form->statetags . $form->keepextras;
-    $tmplvar{'form-submit'} = $form->submit;
-    $tmplvar{'form-reset'}  = $form->reset;
-    $tmplvar{'form-end'}    = $form->end;
-
-    # for HTML::Template, each data struct is manually assigned
+    #
+    # For HTML::Template, each data struct is manually assigned
     # to a separate <tmpl_var> and <tmpl_loop> tag
-    for my $field ($form->field) {
+    #
+    my @fieldlist;
+    for my $field (@{$tvar->{fields}}) {
 
-        # Extract value since used often
-        my @value = $field->tag_value;
+        # Field name is usually a good idea
+        my $name = $field->{name};
+        debug 1, "expanding field: $name";
 
-        # assign the field tag
-        $tmplvar{"field-$field"} = $field->tag;
-        debug 2, "<tmpl_var field-$field> = " . $tmplvar{"field-$field"};
+        # Get all values
+        my @value   = @{$tvar->{field}{$name}{values}  || []};
+        my @options = @{$tvar->{field}{$name}{options} || []};
 
-        # and the value tag - can only hold first value!
-        $tmplvar{"value-$field"} = $value[0];
-        debug 2, "<tmpl_var value-$field> = " . $tmplvar{"value-$field"};
+        #
+        # Auto-expand all of our field tags, such as field, label, value
+        # comment, error, etc, etc
+        #
+        while(my($key, $str) = each %FIELD_VARS) {
+            my $var = sprintf $str, $name;
+            $tvar->{$var} = $tvar->{field}{$name}{$key};
+            debug 2, "<tmpl_var $var> = " . $tvar->{$var};
+        }
 
-        # and the label tag for the field
-        $tmplvar{"label-$field"} = $field->label;
-        debug 2, "<tmpl_var label-$field> = " . $tmplvar{"value-$field"};
-
-        # and the comment tag
-        $tmplvar{"comment-$field"} = $field->comment;
-
-        # and any error
-        $tmplvar{"error-$field"} = $field->error;
-
-        # create a <tmpl_loop> for multi-values/multi-opts
+        #
+        # Create a <tmpl_loop> for multi-values/multi-opts
         # we can't include the field, really, since this would involve
         # too much effort knowing what type
+        #
         my @tmpl_loop = ();
-        for my $opt ($field->options) {
+        for my $opt (@{$tvar->{field}{$name}{options}}) {
             # Since our data structure is a series of ['',''] things,
             # we get the name from that. If not, then it's a list
             # of regular old data that we _toname if nameopts => 1 
+            debug 2, "looking at field $name option $opt";
             my($o,$n) = optval $opt;
-            $n ||= $field->nameopts ? toname($o) : $o;
+            $n ||= $tvar->{"nameopts-$name"} ? toname($o) : $o;
             my($slct, $chk) = ismember($o, @value) ? ('selected', 'checked') : ('','');
-            debug 2, "<tmpl_loop loop-$field> = adding { label => $n, value => $o }";
+            debug 2, "<tmpl_loop loop-$name> = adding { label => $n, value => $o }";
             push @tmpl_loop, {
                 label => $n,
                 value => $o,
@@ -98,29 +130,33 @@ sub render {
             };
         }
 
-        # now assign our loop-field
-        $tmplvar{"loop-$field"} = \@tmpl_loop;
+        # Now assign our loop-field
+        $tvar->{"loop-$name"} = \@tmpl_loop;
 
-        # finally, push onto a top-level loop named "fields"
-        push @{$tmplvar{fields}}, {
-            field   => $field->tag,
-            value   => $value[0],
+        # Finally, push onto a top-level loop named "fields"
+        push @fieldlist, {
+            field   => $tvar->{field},
+            value   => $tvar->{value},
             values  => \@value,
-            options => [ $field->options ],
-            label   => $field->label,
-            comment => $field->comment,
-            error   => $field->error,
+            options => \@options,
+            label   => $tvar->{label},
+            comment => $tvar->{comment},
+            error   => $tvar->{error},
+            required=> $tvar->{required},
+            missing => $tvar->{missing},
             loop    => \@tmpl_loop
-        }
+        };
     }
+    # kill our previous fields list
+    $tvar->{fields} = \@fieldlist;
 
     # loop thru each field we have and set the tmpl_param
-    while(my($param, $tag) = each %tmplvar) {
+    while(my($param, $tag) = each %$tvar) {
         $self->{engine}->param($param => $tag);
     }
 
-    # prepend header to template rendering
-    return $form->header . $self->{engine}->output;
+    # template output
+    return $self->{engine}->output;
 }
 
 1;
@@ -149,6 +185,22 @@ accepts by using a hashref:
                         loop_context_vars => 1
                     }
                 );
+
+The following methods are provided (usually only used internally):
+
+=head2 engine
+
+Returns a reference to the C<HTML::Template> object
+
+=head2 prepare
+
+Returns a hash of all the fields ready to be rendered.
+
+=head2 render
+
+Uses the prepared hash and expands the template, returning a string of HTML.
+
+=head1 TEMPLATES
 
 In your template, each of the form fields will correspond directly to
 a C<< <tmpl_var> >> of the same name prefixed with "field-" in the
@@ -196,6 +248,7 @@ several other C<< <tmpl_var> >> tags as well:
     <tmpl_var label-[field]>   - The human-readable label
     <tmpl_var comment-[field]> - Any optional comment
     <tmpl_var error-[field]>   - Error text if validation fails
+    <tmpl_var required-[field]> - See if the field is required
 
 This means you could say something like this in your template:
 
@@ -342,7 +395,7 @@ code would loop through each field, creating a table row for each:
     <table>
     <tmpl_loop fields>
     <tr>
-    <td class="small"><tmpl_var label></td>
+    <td class="small"><tmpl_if required><b><tmpl_var label></b><tmpl_else><tmpl_var label></tmpl_if></td>
     <td><tmpl_var field></td>
     </tr>
     </tmpl_loop>
@@ -358,7 +411,7 @@ L<CGI::FormBuilder>, L<CGI::FormBuilder::Template>, L<HTML::Template>
 
 =head1 REVISION
 
-$Id: HTML.pm,v 1.32 2006/02/24 01:42:29 nwiger Exp $
+$Id: HTML.pm 46 2006-08-22 16:11:04Z nwiger $
 
 =head1 AUTHOR
 

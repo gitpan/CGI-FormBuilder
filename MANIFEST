@@ -34,11 +34,13 @@ lib/CGI/FormBuilder/Messages/ja.pm
 lib/CGI/FormBuilder/Messages/ja_JP.pm
 lib/CGI/FormBuilder/Messages/no.pm
 lib/CGI/FormBuilder/Messages/no_NO.pm
+lib/CGI/FormBuilder/Messages/tr.pm
+lib/CGI/FormBuilder/Messages/tr_TR.pm
 lib/CGI/FormBuilder/Multi.pm
 lib/CGI/FormBuilder/Source.pm
 lib/CGI/FormBuilder/Source/File.pm
-lib/CGI/FormBuilder/Source/File.pm.n
 lib/CGI/FormBuilder/Template.pm
+lib/CGI/FormBuilder/Template/Builtin.pm
 lib/CGI/FormBuilder/Template/Fast.pm
 lib/CGI/FormBuilder/Template/HTML.pm
 lib/CGI/FormBuilder/Template/TT2.pm
@@ -80,6 +82,7 @@ t/1a-test27.html
 t/1a-test28.html
 t/1a-test29.html
 t/1a-test30.html
+t/1a-test31.html
 t/1b-fields.t
 t/1b-test12.html
 t/1b-test13.html
@@ -97,6 +100,11 @@ t/2b-test01.html
 t/2b-test02.html
 t/2b-test03.html
 t/2c-template-tt2.t
+t/2c-test00.html
+t/2c-test01.html
+t/2c-test02.html
+t/2c-test03.html
+t/2c-test04.html
 t/2d-template-fast.t
 t/2d-test01.html
 t/2d-test02.html

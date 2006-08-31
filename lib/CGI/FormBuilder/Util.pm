@@ -1,4 +1,9 @@
 
+###########################################################################
+# Copyright (c) 2000-2006 Nate Wiger <nate@wiger.org>. All Rights Reserved.
+# Please visit www.formbuilder.org for tutorials, support, and examples.
+###########################################################################
+
 package CGI::FormBuilder::Util;
 
 =head1 NAME
@@ -28,11 +33,14 @@ I said that, though.
 =cut
 
 use strict;
+use Carp;
 
 # Don't "use" or it collides with our basename()
 require File::Basename;
 
-our $VERSION = '3.0302';
+# Authoritative version information actually lives here
+our $VERSION  = '3.04';
+our $REVISION = do { (my $r='$Revision: 50 $') =~ s/\D+//g; $r };
 
 # Place functions you want to export by default in the
 # @EXPORT array. Any other functions can be requested
@@ -45,6 +53,7 @@ our @EXPORT = qw(
     htmlattr htmltag toname tovar ismember basename rearrange
 );
 our $DEBUG = 0;
+our %TAGNAMES = ();     # holds translated tag names (experimental)
 
 # To clean up the HTML, instead of just allowing the HTML tags that
 # we interpret are "valid", instead we yank out all the options and
@@ -68,6 +77,35 @@ our @OURATTR = qw(
 # trick for speedy lookup
 our %OURATTR = map { $_ => 1 } @OURATTR;
 
+# Have to populate ourselves to avoid carp'ing with bad information.
+# This makes it so deeply-nested calls throw top-level errors, rather
+# than referring to a sub-module that probably didn't do it.
+our @CARP_NOT = qw(
+    CGI::FormBuilder
+    CGI::FormBuilder::Field
+    CGI::FormBuilder::Field::button
+    CGI::FormBuilder::Field::checkbox
+    CGI::FormBuilder::Field::file
+    CGI::FormBuilder::Field::hidden
+    CGI::FormBuilder::Field::image
+    CGI::FormBuilder::Field::password
+    CGI::FormBuilder::Field::radio
+    CGI::FormBuilder::Field::select
+    CGI::FormBuilder::Field::static
+    CGI::FormBuilder::Field::text
+    CGI::FormBuilder::Field::textarea
+    CGI::FormBuilder::Messages
+    CGI::FormBuilder::Multi
+    CGI::FormBuilder::Source
+    CGI::FormBuilder::Source::File
+    CGI::FormBuilder::Template
+    CGI::FormBuilder::Template::Fast
+    CGI::FormBuilder::Template::HTML
+    CGI::FormBuilder::Template::TT2
+    CGI::FormBuilder::Template::Text
+    CGI::FormBuilder::Util
+);
+
 =head2 debug($level, $string)
 
 This prints out the given string only if C<$DEBUG> is greater than
@@ -85,7 +123,7 @@ sub debug ($;@) {
     return unless $DEBUG >= $_[0];  # first arg is debug level
     my $l = shift;  # using $_[0] directly above is just a little faster...
     my($func) = (caller(1))[3];
-    $func =~ s/(.*)::/$1->/;
+    #$func =~ s/(.*)::/$1->/;
     warn "[$func] (debug$l) ", @_, "\n";
 }
 
@@ -97,12 +135,7 @@ A modified C<warn> that prints out a better message with a newline added.
 
 sub belch (@) {
     my $i=1;
-    my($pkg,$file,$line,$func);
-    while (my @stk = caller($i++)) {
-        ($pkg,$file,$line,$func) = @stk;
-    }
-    $func =~ s/(.*)::/$1->/;
-    warn "[$func] Warning: ", @_, " at $file line $line\n";
+    carp "[FormBuilder] Warning: ", @_;
 }
 
 =head2 puke($string)
@@ -113,12 +146,8 @@ A modified C<die> that prints out a useful message.
 
 sub puke (@) {
     my $i=1;
-    my($pkg,$file,$line,$func);
-    while (my @stk = caller($i++)) {
-        ($pkg,$file,$line,$func) = @stk;
-    }
-    $func =~ s/(.*)::/$1->/;
-    die "[$func] Fatal: ", @_, " at $file line $line\n";
+    $DEBUG ? Carp::confess("Fatal: ", @_)
+           : croak "[FormBuilder] Fatal: ", @_
 }
 
 =head2 escapeurl($string)
@@ -181,6 +210,10 @@ sub htmltag ($;@) {
     my $name = shift || return;
     my $attr = htmlattr($name, @_);     # ref return faster
 
+    # see if we have a special tag name (experimental)
+    (my $look = $name) =~ s#^(/*)##;
+    $name = "$1$TAGNAMES{$look}" if $TAGNAMES{$look};
+
     my $htag = join(' ', $name,
                   map { qq($_=") . escapehtml($attr->{$_}) . '"' } sort keys %$attr);
 
@@ -215,6 +248,8 @@ sub htmlattr ($;@) {
                                 || ($key eq 'label'    && ($name ne 'optgroup' && $name ne 'option'))
                                 || ($key eq 'title'    && $name eq 'form'));
 
+        # see if we have a special tag name (experimental)
+        $key = $TAGNAMES{$key} if $TAGNAMES{$key};
         $html{$key} = $val;
     }
     # "double-name" fields with an id for easier DOM scripting
@@ -300,7 +335,7 @@ sub autodata ($) {
         } elsif ($ref eq 'HASH') {
             return wantarray ? %{$data} : $data;
         } else {
-            puke "Sorry, can't handle odd data ref '$ref'";
+            puke "Sorry, can't handle odd data ref '$ref' (only ARRAY or HASH)";
         }
     }
     return $data;   # return as-is
@@ -320,10 +355,10 @@ It will return a hashref in scalar context.
 =cut
 
 sub arghash (;@) {
-    return $_[0] if ref $_[0];        # assume good struct verbatim
+    return $_[0] if ref $_[0] && ! wantarray;
 
     belch "Odd number of arguments passed into ", (caller(1))[3]
-       if @_ % 2 != 0;
+       if @_ && @_ % 2 != 0;
 
     return wantarray ? @_ : { @_ };   # assume scalar hashref
 }
@@ -341,7 +376,7 @@ It will return an arrayref in scalar context.
 =cut
 
 sub arglist (;@) {
-    return $_[0] if ref $_[0];        # assume good struct verbatim
+    return $_[0] if ref $_[0] && ! wantarray;
     return wantarray ? @_ : [ @_ ];   # assume scalar arrayref
 }
 
@@ -485,7 +520,7 @@ L<CGI::FormBuilder>
 
 =head1 REVISION
 
-$Id: Util.pm,v 1.51 2006/02/24 01:42:29 nwiger Exp $
+$Id: Util.pm 50 2006-08-22 21:37:55Z nwiger $
 
 =head1 AUTHOR
 
@@ -496,3 +531,4 @@ the GNU General Public License, or the Artistic License, copies of
 which should have accompanied your Perl kit.
 
 =cut
+

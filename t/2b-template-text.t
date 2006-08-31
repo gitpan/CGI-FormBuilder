@@ -33,7 +33,7 @@ BEGIN {
 $ENV{REQUEST_METHOD} = 'GET';
 $ENV{QUERY_STRING}   = 'ticket=111&user=pete&replacement=TRUE';
 
-use CGI::FormBuilder;
+use CGI::FormBuilder 3.04;
 use CGI::FormBuilder::Test;
 
 # Create our template and store it in a scalarref
@@ -112,8 +112,7 @@ for (@test) {
     # (since render is called regardless of whether $SKIP is set)
     #
     my $out = outfile($seq++);
-    my $ren;
-    eval '$ren = $form->render';
+    my $ren = $SKIP ? '' : $form->render;
     my $ok = skip($SKIP, $ren, $out);
 
     if (! $ok && $ENV{LOGNAME} eq 'nwiger') {

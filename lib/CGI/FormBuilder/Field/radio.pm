@@ -1,34 +1,25 @@
 
-package CGI::FormBuilder::Field::radio;
-
-=head1 NAME
-
-CGI::FormBuilder::Field::radio - FormBuilder class for radio fields
-
-=head1 SYNOPSIS
-
-    use CGI::FormBuilder::Field;
-
-    # delegated straight from FormBuilder
-    my $f = CGI::FormBuilder::Field->new($form,
-                                         name => 'whatever',
-                                         type => 'radio');
-
-=cut
-
-use strict;
-
-our $VERSION = '3.0302';
-
-use CGI::FormBuilder::Util;
-use CGI::FormBuilder::Field;
-use base 'CGI::FormBuilder::Field';
+###########################################################################
+# Copyright (c) 2000-2006 Nate Wiger <nate@wiger.org>. All Rights Reserved.
+# Please visit www.formbuilder.org for tutorials, support, and examples.
+###########################################################################
 
 # The majority of this module's methods (including new) are
 # inherited directly from ::base, since they involve things
 # which are common, such as parameter parsing. The only methods
 # that are individual to different fields are those that affect
 # the rendering, such as script() and tag()
+
+package CGI::FormBuilder::Field::radio;
+
+use strict;
+
+use CGI::FormBuilder::Util;
+use CGI::FormBuilder::Field;
+use base 'CGI::FormBuilder::Field';
+
+our $REVISION = do { (my $r='$Revision: 50 $') =~ s/\D+//g; $r };
+our $VERSION  = $CGI::FormBuilder::Util::VERSION;
 
 sub script {
     my $self = shift;
@@ -122,8 +113,8 @@ sub tag {
     for my $opt (@opt) {
         #  Divide up checkboxes in a user-controlled manner
         if ($checkbox_table) {
-            $tag .= "  <tr>\n" if $checkbox_col % $self->columns == 0;
-            $tag .= '    <td>' . $self->{_form}->font;
+            $tag .= "  ".htmltag('tr')."\n" if $checkbox_col % $self->columns == 0;
+            $tag .= '    '.htmltag('td') . $self->{_form}->font;
         }
         # Since our data structure is a series of ['',''] things,
         # we get the name from that. If not, then it's a list
@@ -166,22 +157,23 @@ sub tag {
 
         # Each radio/checkbox gets a human thingy with <label> around it
         $tag .= htmltag('input', $attr);
-        $tag .= $checkbox_table ? ("</td>\n    <td>".$self->{_form}->font) : ' ';
+        $tag .= $checkbox_table
+              ? (htmltag('/td')."\n    ".htmltag('td').$self->{_form}->font) : ' ';
         my $c = $self->{_form}->class('_option');
         $tag .= htmltag('label', for => $attr->{id}, class => $c)
               . ($self->cleanopts ? escapehtml($n) : $n)
-              . '</label>';
+              . htmltag('/label');
 
         $tag .= '<br />' if $self->linebreaks;
 
         if ($checkbox_table) {
             $checkbox_col++;
-            $tag .= '</td>';
-            $tag .= "\n  </tr>" if $checkbox_col % $self->columns == 0;
+            $tag .= htmltag('/td');
+            $tag .= "\n  ".htmltag('/tr') if $checkbox_col % $self->columns == 0;
         }
         $tag .= "\n";
     }
-    $tag .= '  </table>' if $checkbox_table;
+    $tag .= '  '.htmltag('/table') if $checkbox_table;
 
     # add an additional tag for our _other field
     $tag .= ' ' . $self->othertag if $self->other;
@@ -194,30 +186,3 @@ sub tag {
 
 __END__
 
-=head1 DESCRIPTION
-
-This module is used to create B<FormBuilder> elements of a specific type.
-Currently, each type module inherits all of its methods from the main
-L<CGI::FormBuilder::Field> module except for C<tag()> and C<script()>,
-which affect the XHMTL representation of the field.
-
-Please refer to L<CGI::FormBuilder::Field> and L<CGI::FormBuilder> for
-documentation.
-
-=head1 SEE ALSO
-
-L<CGI::FormBuilder>, L<CGI::FormBuilder::Field>
-
-=head1 REVISION
-
-$Id: radio.pm,v 1.15 2006/02/24 01:42:29 nwiger Exp $
-
-=head1 AUTHOR
-
-Copyright (c) 2005-2006 Nate Wiger <nate@wiger.org>. All Rights Reserved.
-
-This module is free software; you may copy this under the terms of
-the GNU General Public License, or the Artistic License, copies of
-which should have accompanied your Perl kit.
-
-=cut

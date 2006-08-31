@@ -2,7 +2,7 @@ NAME
     Changes - Changes in FormBuilder 3.0, please also see the README
 
 COMPATIBILITY
-    FormBuilder 3.0 should be completely compatible with FormBuilder 2.x,
+    FormBuilder 3.x should be completely compatible with FormBuilder 2.x,
     with the singular exception that you can no longer use the shortcut
     autoload style of getting to fields:
 
@@ -12,7 +12,51 @@ COMPATIBILITY
     In order to allow the second form, you must specify the "fieldsubs"
     option to "new()".
 
-VERSION 3.0301
+VERSION 3.04
+    In addition to the below features, a new Catalyst FormBuilder plugin is
+    available on CPAN, "Catalyst::Plugin::FormBuilder".
+
+  New $form->prepare() method
+    You can now use "$form->prepare()" to get back an expanded hashref just
+    before "$form->render()" is called. This allows you to use FormBuilder
+    with Catalyst or other frameworks more easily, where the rendering is
+    done elsewhere:
+
+        my %expansion = $form->prepare;
+
+    This could be passed directly to, say, Template Toolkit without having
+    to use FormBuilder's Template Toolkit support.
+
+  New "inflate" option to field()
+    This is used the convert fields on the fly into objects or other values.
+    For example, you could convert a "date" field into a DateTime object.
+    Nice patch from Mark Hedges, check it out.
+
+  Turkish messages
+    Thanks to Recai Oktas.
+
+  Added "missing" property for fields
+    This can be queried in templates. To see if a field is missing
+    altogether, you can check "field.missing" or "missing-field" depending
+    on your template engine of choice.
+
+  Removal of custom "puke" and "belch"
+    FormBuilder now uses "Carp" and @CARP_NOT to handle its errors. As such,
+    you will probably notice some differences in error output. The benefit
+    is that setting "debug" will give you a stack trace on fatal errors.
+
+  CGI::FormBuilder::Template::Builtin
+    Moved the "render_builtin()" method to the above module, to unify the
+    rendering schemes.
+
+  New FORMBUILDER_DEBUG environment variable
+    Setting this has the same effect as using the "debug" option.
+
+  Removal of excess documentation
+    Removed all the stub docs from "Field::*" and "Messages::*" to make CPAN
+    happy.
+
+VERSION 3.0302
     This is a bugfix release to repair these main items:
 
         - optgroups bugfix for complex arrays
