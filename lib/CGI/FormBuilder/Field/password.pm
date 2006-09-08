@@ -14,8 +14,8 @@ use CGI::FormBuilder::Util;
 use CGI::FormBuilder::Field::text;
 use base 'CGI::FormBuilder::Field::text';
 
-our $REVISION = do { (my $r='$Revision: 61 $') =~ s/\D+//g; $r };
-our $VERSION = '3.04';
+our $REVISION = do { (my $r='$Revision: 64 $') =~ s/\D+//g; $r };
+our $VERSION = '3.0401';
 
 1;
 

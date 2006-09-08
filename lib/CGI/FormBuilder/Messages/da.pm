@@ -11,8 +11,8 @@ use utf8;
 
 use CGI::FormBuilder::Util;
 
-our $REVISION = do { (my $r='$Revision: 61 $') =~ s/\D+//g; $r };
-our $VERSION = '3.04';
+our $REVISION = do { (my $r='$Revision: 64 $') =~ s/\D+//g; $r };
+our $VERSION = '3.0401';
 
 # First, create a hash of messages for this language
 # Then, change "locale" to the 2-letter country code, such as "en" or "de"

@@ -28,7 +28,7 @@ BEGIN {
 $ENV{REQUEST_METHOD} = 'GET';
 $ENV{QUERY_STRING}   = 'ticket=111&user=pete&replacement=TRUE&action=Unsubscribe&name=Pete+Peteson&email=pete%40peteson.com&extra=junk';
 
-use CGI::FormBuilder 3.04;
+use CGI::FormBuilder 3.0401;
 use CGI::FormBuilder::Test;
 
 # For testing sortopts in test 18

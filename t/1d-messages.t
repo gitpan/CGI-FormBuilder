@@ -67,7 +67,7 @@ close(M);
 $ENV{REQUEST_METHOD} = 'GET';
 $ENV{QUERY_STRING}   = 'ticket=111&user=pete&replacement=TRUE&action=Unsubscribe&name=Pete+Peteson&email=pete%40peteson.com&extra=junk&_submitted=1&blank=&two=&two=';
 
-use CGI::FormBuilder 3.04;
+use CGI::FormBuilder 3.0401;
 
 # Now manually try a whole bunch of things
 my $hash = CGI::FormBuilder->new(

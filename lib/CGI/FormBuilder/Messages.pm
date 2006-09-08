@@ -26,8 +26,8 @@ use strict;
 
 use CGI::FormBuilder::Util;
 
-our $REVISION = do { (my $r='$Revision: 61 $') =~ s/\D+//g; $r };
-our $VERSION = '3.04';
+our $REVISION = do { (my $r='$Revision: 64 $') =~ s/\D+//g; $r };
+our $VERSION = '3.0401';
 our $AUTOLOAD;
 
 sub new {
@@ -285,7 +285,7 @@ L<CGI::FormBuilder>
 
 =head1 REVISION
 
-$Id: Messages.pm 61 2006-08-31 21:10:20Z nwiger $
+$Id: Messages.pm 64 2006-09-07 18:08:27Z nwiger $
 
 =head1 AUTHOR
 

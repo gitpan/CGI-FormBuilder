@@ -16,8 +16,8 @@ use CGI::FormBuilder::Util;
 use CGI::FormBuilder::Field;
 use base 'CGI::FormBuilder::Field';
 
-our $REVISION = do { (my $r='$Revision: 61 $') =~ s/\D+//g; $r };
-our $VERSION = '3.04';
+our $REVISION = do { (my $r='$Revision: 64 $') =~ s/\D+//g; $r };
+our $VERSION = '3.0401';
 
 sub script {
     return '';        # static fields get no messages

@@ -18,7 +18,7 @@ BEGIN {
     open(M, "<MANIFEST") || warn "Can't open MANIFEST ($!) - skipping imports";
     chomp(@pm = grep !/Template/, grep /\.pm$/, <M>);
 
-    my $numtests = 25 + @pm;
+    my $numtests = 26 + @pm;
 
     plan tests => $numtests;
 
@@ -41,7 +41,7 @@ for (@pm) {
 $ENV{REQUEST_METHOD} = 'GET';
 $ENV{QUERY_STRING}   = 'ticket=111&user=pete&replacement=TRUE&action=Unsubscribe&name=Pete+Peteson&email=pete%40peteson.com&extra=junk&_submitted=1&blank=&two=&two=&other_test=_other_other_test&_other_other_test=42&other_test_2=_other_other_test_2&_other_other_test_2=nope';
 
-use CGI::FormBuilder 3.04;
+use CGI::FormBuilder 3.0401;
 use CGI::FormBuilder::Test;
 
 # jump to a test if specified for debugging (goto eek!)
@@ -442,4 +442,32 @@ T25: ok(do{
     );
     $val == 42;
 }, 1);
+
+
+#26 - try to catch bad \%opt destruction errors
+T26: ok(do{
+    my $opt = {
+        source  => {type => 'File',
+                    source => \"name: one\nfields:a,b"},
+        values  => {a=>1,b=>2,c=>3,d=>4},
+        options => {a=>[1,2,3], d=>[4..10]},
+        submit  => 'Yeah',
+    };
+    my $form1 = CGI::FormBuilder->new($opt);
+    my $render1 = $form1->render;
+    my $form2 = CGI::FormBuilder->new($opt);
+    my $render2 = $form2->render;
+
+    $opt->{source} = {
+        type => 'File',
+        source => \"name: two\nmethod:post\nfields:c,d",
+    };
+    my $form3 = CGI::FormBuilder->new($opt);
+
+    $render1 eq $render2
+        && ! $form3->{fieldrefs}{a} && ! $form3->{fieldrefs}{b};
+    #warn "RENDER1 = $render1";
+    #warn "RENDER3 = " . $form3->render;
+}, 1);
+
 

@@ -72,8 +72,8 @@ use CGI::FormBuilder::Util;
 use CGI::FormBuilder::Field;
 use CGI::FormBuilder::Messages;
 
-our $VERSION = '3.04';
-our $REVISION = do { (my $r='$Revision: 61 $') =~ s/\D+//g; $r };
+our $VERSION = '3.0401';
+our $REVISION = do { (my $r='$Revision: 65 $') =~ s/\D+//g; $r };
 our $AUTOLOAD;
 
 # Default options for FormBuilder
@@ -149,20 +149,17 @@ sub new {
     my $self = shift;
 
     # A single arg is a source; others are opt => val pairs
-    my $opt;
+    my %opt;
     if (@_ == 1) {
-        $opt = UNIVERSAL::isa($_[0], 'HASH')
-                ? $_[0] : { source => shift() };
+        %opt = UNIVERSAL::isa($_[0], 'HASH')
+             ? %{ $_[0] }
+             : ( source => shift() );
     } else {
-        $opt = arghash(@_);
+        %opt = arghash(@_);
     }
 
-    #warn $opt->{source};
-    #use Data::Dumper;
-    #die Dumper($opt);
-
     # Pre-check for an external source
-    if (my $src = delete $opt->{source}) {
+    if (my $src = delete $opt{source}) {
 
         # check for engine type
         my $mod;
@@ -204,30 +201,30 @@ sub new {
 
         # per-instance variables win
         while (my($k,$v) = each %$sopt) {
-            $opt->{$k} = $v unless exists $opt->{$k};
+            $opt{$k} = $v unless exists $opt{$k};
         }
     }
 
     if (ref $self) {
         # cloned/original object
         debug 1, "rewriting existing FormBuilder object";
-        while (my($k,$v) = each %$opt) {
+        while (my($k,$v) = each %opt) {
             $self->{$k} = $v;
         }
     } else {
         debug 1, "constructing new FormBuilder object";
         # damn deep copy this is SO damn annoying
         while (my($k,$v) = each %DEFAULT) {
-            next if exists $opt->{$k};
+            next if exists $opt{$k};
             if (ref $v eq 'HASH') {
-                $opt->{$k} = { %$v };
+                $opt{$k} = { %$v };
             } elsif (ref $v eq 'ARRAY') {
-                $opt->{$k} = [ @$v ];
+                $opt{$k} = [ @$v ];
             } else {
-                $opt->{$k} = $v;
+                $opt{$k} = $v;
             }
         }
-        $self = bless $opt, $self;
+        $self = bless \%opt, $self;
     }
 
     # Create our CGI object if not present
@@ -4167,6 +4164,7 @@ reports, and encouraging feedback from a number of people, including:
     Kevin Lubic
     Robert Mathews
     Mehryar
+    Klaas Naajikens
     Koos Pol
     Shawn Poulson
     Dan Collis Puro
@@ -4191,7 +4189,7 @@ L<CGI::FastTemplate>
 
 =head1 REVISION
 
-$Id: FormBuilder.pm 61 2006-08-31 21:10:20Z nwiger $
+$Id: FormBuilder.pm 65 2006-09-07 18:11:43Z nwiger $
 
 =head1 AUTHOR
 

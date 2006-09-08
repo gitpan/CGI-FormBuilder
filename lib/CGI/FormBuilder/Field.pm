@@ -48,8 +48,8 @@ use strict;
 
 use CGI::FormBuilder::Util;
 
-our $REVISION = do { (my $r='$Revision: 61 $') =~ s/\D+//g; $r };
-our $VERSION = '3.04';
+our $REVISION = do { (my $r='$Revision: 64 $') =~ s/\D+//g; $r };
+our $VERSION = '3.0401';
 our $AUTOLOAD;
 
 # what to generate for tag
@@ -102,25 +102,6 @@ use overload '""'   => sub { $_[0]->name },
              '0+'   => sub { $_[0]->name },
              'bool' => sub { $_[0]->name },
              'eq'   => sub { $_[0]->name eq $_[1] };
-
-=for slower
-
-sub BEGIN {
-    eval "use Class::Accessor::Fast";
-    eval "use base 'Class::Accessor::Fast'";
-    unless ($@) {
-        # use these instead of AUTOLOAD
-        debug 1, "found Class::Accessor::Fast for speedup";
-        __PACKAGE__->mk_accessors(qw/
-            label jsclick onclick onchange
-            sticky required invalid missing
-            nameopts sortopts cleanopts optgroups order 
-            linebreaks selectname selectnum columns
-        /);
-    }
-}
-
-=cut
 
 sub new {
     puke "Not enough arguments for Field->new()" unless @_ > 1;
@@ -1028,7 +1009,7 @@ L<CGI::FormBuilder>
 
 =head1 REVISION
 
-$Id: Field.pm 61 2006-08-31 21:10:20Z nwiger $
+$Id: Field.pm 64 2006-09-07 18:08:27Z nwiger $
 
 =head1 AUTHOR
 

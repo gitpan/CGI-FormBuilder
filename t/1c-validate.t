@@ -27,7 +27,7 @@ BEGIN {
 $ENV{REQUEST_METHOD} = 'GET';
 $ENV{QUERY_STRING} = '_submitted=1&submit=ClickMe&blank=&hiphop=Early+East+Coast';
 
-use CGI::FormBuilder 3.04;
+use CGI::FormBuilder 3.0401;
 
 sub is_number {
     my $v = shift;

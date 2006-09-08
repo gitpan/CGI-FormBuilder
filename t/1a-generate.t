@@ -30,7 +30,7 @@ BEGIN {
 $ENV{REQUEST_METHOD} = 'GET';
 $ENV{QUERY_STRING}   = 'ticket=111&user=pete&replacement=TRUE&action=Unsubscribe&name=Pete+Peteson&email=pete%40peteson.com&extra=junk&other_test=_other_other_test&_other_other_test=42';
 
-use CGI::FormBuilder 3.04;
+use CGI::FormBuilder 3.0401;
 
 # What options we want to use, and what we expect to see
 my @test = (

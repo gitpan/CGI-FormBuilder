@@ -49,7 +49,8 @@ CGI::FormBuilder::Template - Template adapters for FormBuilder
 
 use strict;
 
-our $REVISION = do { (my $r='$Revision: 61 $') =~ s/\D+//g; $r };
+our $REVISION = do { (my $r='$Revision: 64 $') =~ s/\D+//g; $r };
+our $VERSION = '3.0401';
 warn __PACKAGE__, " is not a real module, please read the docs\n"; 
 1;
 __END__
@@ -191,7 +192,7 @@ L<CGI::FormBuilder::Template::Fast>
 
 =head1 REVISION
 
-$Id: Template.pm 61 2006-08-31 21:10:20Z nwiger $
+$Id: Template.pm 64 2006-09-07 18:08:27Z nwiger $
 
 =head1 AUTHOR
 

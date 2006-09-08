@@ -27,8 +27,8 @@ use strict;
 use 5.006; # or later
 use CGI::FormBuilder::Util;
 
-our $REVISION = do { (my $r='$Revision: 61 $') =~ s/\D+//g; $r };
-our $VERSION = '3.04';
+our $REVISION = do { (my $r='$Revision: 64 $') =~ s/\D+//g; $r };
+our $VERSION = '3.0401';
 
 # Begin "real" code
 sub new {
@@ -435,7 +435,7 @@ L<CGI::FormBuilder>, L<Text::FormBuilder>
 
 =head1 REVISION
 
-$Id: File.pm 61 2006-08-31 21:10:20Z nwiger $
+$Id: File.pm 64 2006-09-07 18:08:27Z nwiger $
 
 =head1 AUTHOR
 
