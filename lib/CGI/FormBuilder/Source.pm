@@ -42,9 +42,11 @@ CGI::FormBuilder::Source - Source adapters for FormBuilder
 =cut
 
 use strict;
+use warnings;
+no  warnings 'uninitialized';
 
-our $REVISION = do { (my $r='$Revision: 64 $') =~ s/\D+//g; $r };
-our $VERSION = '3.0401';
+our $REVISION = do { (my $r='$Revision: 91 $') =~ s/\D+//g; $r };
+our $VERSION = '3.05';
 warn __PACKAGE__, " is not a real module, please read the docs\n"; 
 1;
 __END__
@@ -101,7 +103,7 @@ L<CGI::FormBuilder>, L<CGI::FormBuilder::Source::File>,
 
 =head1 REVISION
 
-$Id: Source.pm 64 2006-09-07 18:08:27Z nwiger $
+$Id: Source.pm 91 2006-12-18 10:27:01Z nwiger $
 
 =head1 AUTHOR
 

@@ -90,9 +90,6 @@ function validate_order (form) {
         if (! invalid) invalid = 'The following';   // catch for programmer error
         alert(''+invalid+' error(s) were encountered with your submission:'+'\n\n'
                 +alertstr+'\n'+'Please correct these fields and try again.');
-        // reset counters
-        alertstr = '';
-        invalid  = 0;
         return false;
     }
     return true;  // all checked ok
@@ -105,9 +102,8 @@ function validate_order (form) {
 <noscript><font color="#cc0000"><b>Please enable Javascript or use a newer browser.</b></font></noscript>
 <p>Don't fuck up it causes me work. Fuck try again ok?</p>
 <form action="TEST" id="order" method="post" name="order" onsubmit="return validate_order(this);">
-<div>
-<input id="_submitted_order" name="_submitted_order" type="hidden" value="1" />
-<table>
+<div id="order_state"><input id="_submitted_order" name="_submitted_order" type="hidden" value="1" /></div>
+<table id="order_body">
 <tr id="order_first_name_row" valign="top">
   <td id="order_first_name_label"><b>First Name</b></td>
   <td id="order_first_name_field"><input id="first_name" name="first_name" type="text" /></td>
@@ -171,7 +167,6 @@ function validate_order (form) {
   <td align="center" colspan="2" id="order_submit_field"><input id="order_submit" name="_submit" onclick="this.form._submit.value = this.value;" type="submit" value="Place Order" /><input id="order_submit_2" name="_submit" onclick="this.form._submit.value = this.value;" type="submit" value="Cancel" /></td>
 </tr>
 </table>
-</div>
 </form>
 </body>
 </html>

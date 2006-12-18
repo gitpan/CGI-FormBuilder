@@ -5,19 +5,20 @@
 # 1a-generate.t - test FormBuilder generation of forms
 
 use strict;
-use vars qw($TESTING $DEBUG);
 
-$TESTING = 1;
-$DEBUG = $ENV{DEBUG} || 0;
+our $TESTING = 1;
+our $DEBUG = $ENV{DEBUG} || 0;
+our $VERSION;
+BEGIN { $VERSION = '3.05'; }
 
 use Test;
 use CGI::FormBuilder::Test;
 
 # use a BEGIN block so we print our plan before CGI::FormBuilder is loaded
 BEGIN {
-    my $numtests = 32;
+    my $numtests = 36;
 
-    plan tests => $numtests;
+    plan tests => $numtests + 1;
 
     # success if we said NOTEST
     if ($ENV{NOTEST}) {
@@ -30,7 +31,7 @@ BEGIN {
 $ENV{REQUEST_METHOD} = 'GET';
 $ENV{QUERY_STRING}   = 'ticket=111&user=pete&replacement=TRUE&action=Unsubscribe&name=Pete+Peteson&email=pete%40peteson.com&extra=junk&other_test=_other_other_test&_other_other_test=42';
 
-use CGI::FormBuilder 3.0401;
+use CGI::FormBuilder 3.05;
 
 # What options we want to use, and what we expect to see
 my @test = (
@@ -449,6 +450,105 @@ EOJS
         },
     },
 
+    #32 - fieldsets
+    {
+        opt => {
+            name => 'account',
+            fieldsets => [[acct=>'Account Information'],
+                          [prefs=>'User Preferences'],
+                          [phone=>'Phone Number(s)']],
+            stylesheet => 1,
+            fields => [qw/first_name last_name outside_1 email home_phone new_set
+                          work_phone call_me email_me outside_2 sex outside_3/],
+        },
+        mod => {
+            first_name => { fieldset => 'acct' },
+            last_name  => { fieldset => 'acct' },
+            email      => { fieldset => 'acct' },
+            home_phone => { fieldset => 'phone' },
+            work_phone => { fieldset => 'phone' },
+            new_set    => { fieldset => 'Inline Created' },
+            call_me    => { fieldset => 'prefs' },
+            email_me   => { fieldset => 'prefs' },
+            first_name => { fieldset => 'acct' },
+            sex        => { fieldset => 'acct', 
+                            options  => [qw/Yes No/] },
+        },
+    },
+
+    #33 - builtin Div.pm "template" support
+    {
+        opt => {
+            name => 'parts',
+            fields => [qw/ticket user email part_number/],
+            fieldsets => [[acct=>'Account Information'],
+                          [prefs=>'Part Information']],
+            method => 'post',
+            keepextras => 1,
+            validate => { ticket => '/^\d+$/' },
+            submit => [qw/Update Delete Cancel/],
+            lalign => 'left',
+            template => {type => 'div'},
+            stylesheet => 1,
+        },
+        mod => {
+            ticket => { fieldset => 'acct' },
+            email  => { fieldset => 'prefs' },
+        },
+    },
+
+    # Older tests moved from 1b-fields
+    #34 - misc checkboxes
+    {
+        opt => {
+            fields => [qw/name color/],
+            labels => {color => 'Favorite Color'},
+            validate => {email => 'EMAIL'},
+            required => [qw/name/],
+            sticky => 0, columns => 1,
+            action => 'TEST', title => 'TEST',
+        },
+        mod => {
+            color => {
+                options => [qw(red> green& blue")],
+                multiple => 1, cleanopts => 0,
+            },
+            name => {
+                options => [qw(lower UPPER)], nameopts => 1,
+            },
+        },
+    },
+
+    #35
+    {
+        # check individual fields as static
+        opt => {
+            fields => [qw/name email color/],
+            action => 'TEST',
+            columns => 1
+        },
+        mod => {
+            name  => { static => 1 },
+            email => { type => 'static' },
+        },
+    },
+
+    #36
+    {
+        opt => {
+            fields => [qw/name color hid1 hid2/],
+            action => 'TEST',
+            columns => 1,
+            values => { hid1 => 'Val1a' },
+        },
+        mod => {
+            name => { static => 1, type => 'text' },
+            hid1 => { type => 'hidden', value => 'Val1b' },  # should replace Val1a
+            hid2 => { type => 'hidden', value => 'Val2' },
+            color => { value => 'blew', options => [qw(read blew yell)] },
+            Tummy => { value => [qw(lg xxl)], options => [qw(sm med lg xl xxl xxxl)] },
+        },
+    },
 );
 
 sub refsort {
@@ -469,6 +569,7 @@ for (@test) {
 
     my $form = CGI::FormBuilder->new(
                     debug  => $DEBUG,
+                    header => $ENV{HEADER} || 0,
                     action => 'TEST',  # testing
                     title  => 'TEST',
                     %{ $_->{opt} }
@@ -487,15 +588,15 @@ for (@test) {
     my $ok  = ok($ren, $out);
 
     if (! $ok && $ENV{LOGNAME} eq 'nwiger') {
-        open(O, ">/tmp/fb.1.out");
+        open(O, ">/tmp/fb.1.html");
         print O $out;
         close O;
 
-        open(O, ">/tmp/fb.2.out");
+        open(O, ">/tmp/fb.2.html");
         print O $ren;
         close O;
 
-        system "diff /tmp/fb.1.out /tmp/fb.2.out";
+        system "diff /tmp/fb.1.html /tmp/fb.2.html";
         exit 1;
     }
 }

@@ -1,13 +1,15 @@
-#!/usr/bin/perl -Ilib -I../lib
+#!/usr/bin/perl -Ilib -I../lib -I.
 
 # Copyright (c) 2000-2006 Nathan Wiger <nate@wiger.org>.
 # All Rights Reserved. If you're reading this, you're bored.
 # 1b-fields.t - test Field generation/handling
 
 use strict;
-use vars qw($TESTING $DEBUG);
-$TESTING = 1;
-$DEBUG = $ENV{DEBUG} || 0;
+
+our $TESTING = 1;
+our $DEBUG = $ENV{DEBUG} || 0;
+our $VERSION;
+BEGIN { $VERSION = '3.05'; }
 
 use Test;
 
@@ -41,7 +43,7 @@ for (@pm) {
 $ENV{REQUEST_METHOD} = 'GET';
 $ENV{QUERY_STRING}   = 'ticket=111&user=pete&replacement=TRUE&action=Unsubscribe&name=Pete+Peteson&email=pete%40peteson.com&extra=junk&_submitted=1&blank=&two=&two=&other_test=_other_other_test&_other_other_test=42&other_test_2=_other_other_test_2&_other_other_test_2=nope';
 
-use CGI::FormBuilder 3.0401;
+use CGI::FormBuilder 3.05;
 use CGI::FormBuilder::Test;
 
 # jump to a test if specified for debugging (goto eek!)
@@ -211,44 +213,6 @@ exit if $t;
 
 #12
 T12: ok(do {
-    # see if our checkboxes work how we want them to
-    my $form = CGI::FormBuilder->new(
-                    debug => $DEBUG,
-                    fields => [qw/name color/],
-                    labels => {color => 'Favorite Color'},
-                    validate => {email => 'EMAIL'},
-                    required => [qw/name/],
-                    sticky => 0, columns => 1,
-                    action => 'TEST', title => 'TEST',
-               );
-    $form->field(name => 'color', options => [qw(red> green& blue")],
-                 multiple => 1, cleanopts => 0);
-    $form->field(name => 'name', options => [qw(lower UPPER)], nameopts => 1);
-
-    # Just return the form rendering
-    # This should really go in 00generate.t, but the framework is too tight
-    $form->render;
-}, outfile(12));
-exit if $t;
-
-#13
-T13: ok(do {
-    # check individual fields as static
-    my $form = CGI::FormBuilder->new(debug => $DEBUG, 
-                                    fields => [qw/name email color/],
-                                    action => 'TEST',
-                                    columns => 1);
-    $form->field(name => 'name', static => 1);
-    $form->field(name => 'email', type => 'static');
-
-    # Just return the form rendering
-    # This should really go in 00generate.t, but the framework is too tight
-    $form->render;
-}, outfile(13));
-exit if $t;
-
-#14
-T14: ok(do {
     # test of proper CGI precendence when manually setting values
     my $form = CGI::FormBuilder->new(
                     debug => $DEBUG,
@@ -267,8 +231,8 @@ T14: ok(do {
 }, 1);
 exit if $t;
 
-#15
-T15: ok(do {
+#13
+T13: ok(do {
     # test of proper CGI precendence when manually setting values
     my $form = CGI::FormBuilder->new(
                     debug => $DEBUG,
@@ -285,27 +249,8 @@ T15: ok(do {
 }, 1);
 exit if $t;
 
-#16
-T16: ok(do{
-    my $form = CGI::FormBuilder->new(debug  => $DEBUG, 
-                                     fields => [qw/name color hid1 hid2/],
-                                     action => 'TEST',
-                                     columns => 1);
-    $form->field(name => 'name', static => 1, type => 'text');
-    $form->field(name => 'hid1', type => 'hidden', value => 'Val1a');
-    $form->field(name => 'hid1', type => 'hidden', value => 'Val1b');   # should replace Val1a
-    $form->field(name => 'hid2', type => 'hidden', value => 'Val2');
-    $form->field(name => 'color', value => 'blew', options => [qw(read blew yell)]);
-    $form->field(name => 'Tummy', value => [qw(lg xxl)], options => [qw(sm med lg xl xxl xxxl)]);
-
-    # Just return the form rendering
-    # This should really go in 00generate.t, but the framework is too tight
-    $form->confirm;
-}, outfile(16));
-exit if $t;
-
-#17
-T17: ok(do{
+#14
+T14: ok(do{
     my $form = CGI::FormBuilder->new(debug => $DEBUG, fields => [qw/name color dress_size taco:punch/]);
     $form->field(name => 'blank', value => 175, force => 1);
     $form->field(name => 'user', value => 'bob');
@@ -318,8 +263,8 @@ T17: ok(do{
 }, 1);
 exit if $t;
 
-#18
-T18: ok(do{
+#15
+T15: ok(do{
     my $form = CGI::FormBuilder->new(
                         debug => $DEBUG,
                         smartness  => 0,
@@ -340,8 +285,8 @@ T18: ok(do{
 }, 1);
 exit if $t;
 
-#19
-T19: ok(do{
+#16
+T16: ok(do{
     my $form = CGI::FormBuilder->new(debug => $DEBUG);
     $form->fields([qw/one two three/]);
     my @v;
@@ -353,8 +298,8 @@ T19: ok(do{
 }, 1);
 exit if $t;
 
-#20
-T20: ok(do{
+#17
+T17: ok(do{
     my $form = CGI::FormBuilder->new(
                     debug => $DEBUG,
                     fields => [qw/one two three/],
@@ -369,8 +314,8 @@ T20: ok(do{
 }, 1);
 exit if $t;
 
-#21
-T21: ok(do{
+#18
+T18: ok(do{
     my $form = CGI::FormBuilder->new(
                     debug => $DEBUG,
                     fields => [qw/a b c/],
@@ -386,8 +331,8 @@ T21: ok(do{
 }, 1);
 exit if $t;
 
-#22
-T22: ok(do{
+#19
+T19: ok(do{
     my $form = CGI::FormBuilder->new(
                     fields  => [qw/name user/],
                     required => 'ALL',
@@ -405,8 +350,8 @@ T22: ok(do{
 }, 1);
 exit if $t;
 
-#23 - other field values
-T23: ok(do{
+#20 - other field values
+T20: ok(do{
     my $form = CGI::FormBuilder->new;
     $form->field(name => 'other_test', other => 1, type => 'select');
     $form->field(name => 'other_test_2', other => 0, value => 'nope');
@@ -417,8 +362,8 @@ T23: ok(do{
 }, 1);
 exit if $t;
 
-#24 - inflate coderef
-T24: ok(do{
+#21 - inflate coderef
+T21: ok(do{
     my $form = CGI::FormBuilder->new;
     $form->field(
         name    => 'inflate_test', 
@@ -433,8 +378,8 @@ T24: ok(do{
     $ok;
 }, 1);
 
-#25 - don't tell anyone this works
-T25: ok(do{
+#22 - don't tell anyone this works
+T22: ok(do{
     my $form = CGI::FormBuilder->new;
     my $val  = $form->field(
         name    => 'forty-two', 
@@ -444,8 +389,8 @@ T25: ok(do{
 }, 1);
 
 
-#26 - try to catch bad \%opt destruction errors
-T26: ok(do{
+#23 - try to catch bad \%opt destruction errors
+T23: ok(do{
     my $opt = {
         source  => {type => 'File',
                     source => \"name: one\nfields:a,b"},
@@ -470,4 +415,43 @@ T26: ok(do{
     #warn "RENDER3 = " . $form3->render;
 }, 1);
 
+
+#24 - fucking rt.cpan shit
+T24: ok(do{
+    my $form = CGI::FormBuilder->new;
+    $form->field(name => 'otter_test', other => 1, type => 'select',
+                 options => [1..5],    value => 6);
+    my $ok = 1;
+    # you know what? fuck Perl
+    $form->script;  # internals thing
+    my($f) = grep /^otter_test$/, $form->field;
+    my $h = $f->tag . "\n";
+    $h eq outfile(24);
+}, 1);
+
+#25 - fucking rt.cpan shit
+T25: ok(do{
+    my $form = CGI::FormBuilder->new;
+    $form->field(name => 'otter_test', other => 1, type => 'select',
+                 options => [1..5]);    # no value
+    my $ok = 1;
+    # you know what? fuck Perl
+    $form->script;  # internals thing
+    my($f) = grep /^otter_test$/, $form->field;
+    my $h = $f->tag . "\n";
+    $h eq outfile(25);
+}, 1);
+
+#26 - fucking rt.cpan shit
+T26: ok(do{
+    my $form = CGI::FormBuilder->new;
+    $form->field(name => 'otter_test', other => 1, type => 'select',
+                 options => [1..5], value => undef);    # undef value
+    my $ok = 1;
+    # you know what? fuck Perl
+    $form->script;  # internals thing
+    my($f) = grep /^otter_test$/, $form->field;
+    my $h = $f->tag . "\n";
+    $h eq outfile(26);
+}, 1);
 

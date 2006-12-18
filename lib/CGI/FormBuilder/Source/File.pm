@@ -23,12 +23,14 @@ CGI::FormBuilder::Source::File - Initialize FormBuilder from external file
 
 use Carp;
 use strict;
+use warnings;
+no  warnings 'uninitialized';
 
 use 5.006; # or later
 use CGI::FormBuilder::Util;
 
-our $REVISION = do { (my $r='$Revision: 64 $') =~ s/\D+//g; $r };
-our $VERSION = '3.0401';
+our $REVISION = do { (my $r='$Revision: 91 $') =~ s/\D+//g; $r };
+our $VERSION = '3.05';
 
 # Begin "real" code
 sub new {
@@ -71,6 +73,7 @@ sub parse {
     my $inval = 0;
     for (@file) {
         next if /^\s*$/ || /^\s*#/;     # blanks and comments
+        next if /^\s*\[\%\s*\#|^\s*-*\%\]/;   # TT comments too
         chomp;
         my($term, $line) = split /\s*:\s*/, $_, 2;
 
@@ -84,8 +87,9 @@ sub parse {
                 $term = $lterm;
             }
         } else {
-            $term =~ s/^(\s+)//;     # leading space
-            $s = length($1) + 1;     # counter+hack
+            # count leading space if it's there
+            $s = 1;     # reset
+            $s += length($1) if $term =~ s/^(\s+)//;
             $line =~ s/\s+$//;       # trailing space
 
             # uplevel pre-check (may have a value below)
@@ -130,12 +134,23 @@ sub parse {
             if ($term =~ /^js/ || $term eq 'messages') {
                 @val = $line;   # verbatim
             } elsif ($line =~ s/^\\(.)//) {
-                # reference - this is tricky
-                # go all the way up to the top to make sure
-                my $l=0;
-                1 while my $pkg = caller($l++);
-                $line = "${1}$pkg\::$line" unless $line =~ /::/;
+                # Reference - this is tricky. Go all the way up to
+                # the top to make sure, or use $self->{caller} if
+                # we were given a place to go.
+                my $r = $1;
+                my $l = 0;
+                my @p;
+                if ($self->{caller}) {
+                    @p = $self->{caller};
+                } else {
+                    while (my $pkg = caller($l++)) {
+                        push @p, $pkg;
+                    }
+                }
+                $line = "$r$p[-1]\::$line" unless $line =~ /::/;
+                debug 2, qq{eval "\@val = (\\$line)"};
                 eval "\@val = (\\$line)";
+                belch "Loading $line failed: $@" if $@;
             } else {
                 # split commas
                 @val = split /\s*,\s*/, $line;
@@ -435,7 +450,7 @@ L<CGI::FormBuilder>, L<Text::FormBuilder>
 
 =head1 REVISION
 
-$Id: File.pm 64 2006-09-07 18:08:27Z nwiger $
+$Id: File.pm 91 2006-12-18 10:27:01Z nwiger $
 
 =head1 AUTHOR
 

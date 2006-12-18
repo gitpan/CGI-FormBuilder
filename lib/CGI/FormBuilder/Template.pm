@@ -48,9 +48,11 @@ CGI::FormBuilder::Template - Template adapters for FormBuilder
 =cut
 
 use strict;
+use warnings;
+no  warnings 'uninitialized';
 
-our $REVISION = do { (my $r='$Revision: 64 $') =~ s/\D+//g; $r };
-our $VERSION = '3.0401';
+our $REVISION = do { (my $r='$Revision: 91 $') =~ s/\D+//g; $r };
+our $VERSION = '3.05';
 warn __PACKAGE__, " is not a real module, please read the docs\n"; 
 1;
 __END__
@@ -100,13 +102,15 @@ would look like this:
 The C<type> option specifies the name of the engine. Currently accepted
 types are:
 
-    HTML  -  HTML::Template (default)
-    Text  -  Text::Template
-    TT2   -  Template Toolkit
-    Fast  -  CGI::FastTemplate
+    Builtin -  Included, default rendering if no template specified
+    Div     -  Render form using <div> (no tables)
+    HTML    -  HTML::Template
+    Text    -  Text::Template
+    TT2     -  Template Toolkit
+    Fast    -  CGI::FastTemplate
 
 In addition to one of these types, you can also specify a complete package name,
-in which case that module will be autoloaded and its C<new()> and C<parse()>
+in which case that module will be autoloaded and its C<new()> and C<render()>
 routines used. For example:
 
     my $form = CGI::FormBuilder->new(
@@ -192,7 +196,7 @@ L<CGI::FormBuilder::Template::Fast>
 
 =head1 REVISION
 
-$Id: Template.pm 64 2006-09-07 18:08:27Z nwiger $
+$Id: Template.pm 91 2006-12-18 10:27:01Z nwiger $
 
 =head1 AUTHOR
 

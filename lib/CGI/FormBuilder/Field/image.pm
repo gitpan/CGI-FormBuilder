@@ -6,14 +6,17 @@
 
 package CGI::FormBuilder::Field::image;
 
+use strict;
+use warnings;
+no  warnings 'uninitialized';
 # image fields are rendered exactly like text fields
 
 use CGI::FormBuilder::Util;
 use CGI::FormBuilder::Field::text;
 use base 'CGI::FormBuilder::Field::text';
 
-our $REVISION = do { (my $r='$Revision: 64 $') =~ s/\D+//g; $r };
-our $VERSION = '3.0401';
+our $REVISION = do { (my $r='$Revision: 91 $') =~ s/\D+//g; $r };
+our $VERSION = '3.05';
 
 1;
 

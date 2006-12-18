@@ -9,6 +9,8 @@
 package CGI::FormBuilder::Field::button;
 
 use strict;
+use warnings;
+no  warnings 'uninitialized';
 
 # hidden and password fields are rendered exactly like text fields
 
@@ -16,8 +18,10 @@ use CGI::FormBuilder::Util;
 use CGI::FormBuilder::Field::text;
 use base 'CGI::FormBuilder::Field::text';
 
-our $REVISION = do { (my $r='$Revision: 64 $') =~ s/\D+//g; $r };
-our $VERSION = '3.0401';
+our $REVISION = do { (my $r='$Revision: 92 $') =~ s/\D+//g; $r };
+our $VERSION = '3.05';
+
+sub script { '' }
 
 1;
 

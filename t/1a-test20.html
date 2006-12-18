@@ -90,9 +90,6 @@ function validate_order (form) {
         if (! invalid) invalid = 'The following';   // catch for programmer error
         alert(''+invalid+' error(s) were encountered with your submission:'+'\n\n'
                 +alertstr+'\n'+'Please correct these fields and try again.');
-        // reset counters
-        alertstr = '';
-        invalid  = 0;
         return false;
     }
     return true;  // all checked ok
@@ -104,10 +101,9 @@ function validate_order (form) {
 <h3>Finalize Your Order</h3>
 <noscript><span class="shop_invalid">Please enable Javascript or use a newer browser.</span></noscript>
 <p>Fields that are <span class="shop_required">highlighted</span> are required.</p>
-<form action="TEST" id="order" method="post" name="order" onsubmit="return validate_order(this);">
-<div>
-<input id="_submitted_order" name="_submitted_order" type="hidden" value="1" />
-<table class="shop">
+<form action="TEST" class="shop_form" id="order" method="post" name="order" onsubmit="return validate_order(this);">
+<div class="shop_state" id="order_state"><input id="_submitted_order" name="_submitted_order" type="hidden" value="1" /></div>
+<table class="shop" id="order_body">
 <tr id="order_first_name_row">
   <td class="shop_label" id="order_first_name_label"><span class="shop_required">First Name</span></td>
   <td class="shop_field" id="order_first_name_field"><input class="shop_input" id="first_name" name="first_name" type="text" /></td>
@@ -171,7 +167,6 @@ function validate_order (form) {
   <td class="shop_submit" colspan="2" id="order_submit_field"><input class="shop_button" id="order_submit" name="_submit" onclick="this.form._submit.value = this.value;" type="submit" value="Place Order" /><input class="shop_button" id="order_submit_2" name="_submit" onclick="this.form._submit.value = this.value;" type="submit" value="Cancel" /></td>
 </tr>
 </table>
-</div>
 </form>
 </body>
 </html>

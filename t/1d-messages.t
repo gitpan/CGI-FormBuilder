@@ -5,9 +5,12 @@
 # 1d-messages.t - messages and localization
 
 use strict;
-use vars qw($TESTING $DEBUG);
-$TESTING = 1;
-$DEBUG = $ENV{DEBUG} || 0;
+
+our $TESTING = 1;
+our $DEBUG = $ENV{DEBUG} || 0;
+our $VERSION;
+BEGIN { $VERSION = '3.05'; }
+
 use Test;
 
 # use a BEGIN block so we print our plan before CGI::FormBuilder is loaded
@@ -67,7 +70,7 @@ close(M);
 $ENV{REQUEST_METHOD} = 'GET';
 $ENV{QUERY_STRING}   = 'ticket=111&user=pete&replacement=TRUE&action=Unsubscribe&name=Pete+Peteson&email=pete%40peteson.com&extra=junk&_submitted=1&blank=&two=&two=';
 
-use CGI::FormBuilder 3.0401;
+use CGI::FormBuilder 3.05;
 
 # Now manually try a whole bunch of things
 my $hash = CGI::FormBuilder->new(

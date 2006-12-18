@@ -5,9 +5,12 @@
 # 1c-validate.t - test validation
 
 use strict;
-use vars qw($TESTING $DEBUG);
-$TESTING = 1;
-$DEBUG = $ENV{DEBUG} || 0;
+
+our $TESTING = 1;
+our $DEBUG = $ENV{DEBUG} || 0;
+our $VERSION;
+BEGIN { $VERSION = '3.05'; }
+
 use Test;
 
 # use a BEGIN block so we print our plan before CGI::FormBuilder is loaded
@@ -27,7 +30,7 @@ BEGIN {
 $ENV{REQUEST_METHOD} = 'GET';
 $ENV{QUERY_STRING} = '_submitted=1&submit=ClickMe&blank=&hiphop=Early+East+Coast';
 
-use CGI::FormBuilder 3.0401;
+use CGI::FormBuilder 3.05;
 
 sub is_number {
     my $v = shift;

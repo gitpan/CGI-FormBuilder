@@ -36,13 +36,15 @@ CGI::FormBuilder::Template::Fast - FormBuilder interface to CGI::FastTemplate
 
 use Carp;
 use strict;
+use warnings;
+no  warnings 'uninitialized';
 
 use CGI::FormBuilder::Util;
 use CGI::FastTemplate;
 use base 'CGI::FastTemplate';
 
-our $REVISION = do { (my $r='$Revision: 64 $') =~ s/\D+//g; $r };
-our $VERSION = '3.0401';
+our $REVISION = do { (my $r='$Revision: 91 $') =~ s/\D+//g; $r };
+our $VERSION = '3.05';
 
 sub new {
     my $self  = shift;

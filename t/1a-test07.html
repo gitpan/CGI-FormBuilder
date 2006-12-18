@@ -4,10 +4,9 @@
 </head>
 <body>
 <h3>Econ 101</h3>
-<form action="/nowhere.cgi" id="econ" method="put" name="econ">
-<div>
-<input id="_submitted_econ" name="_submitted_econ" type="hidden" value="1" />
-<table class="fb">
+<form action="/nowhere.cgi" class="fb_form" id="econ" method="put" name="econ">
+<div class="fb_state" id="econ_state"><input id="_submitted_econ" name="_submitted_econ" type="hidden" value="1" /></div>
+<table class="fb" id="econ_body">
 <tr id="econ_supply_row">
   <td class="fb_label" id="econ_supply_label">Supply</td>
   <td class="fb_field" id="econ_supply_field"><select class="fb_select" id="supply" multiple="multiple" name="supply">
@@ -42,7 +41,6 @@
   <td class="fb_submit" colspan="2" id="econ_submit_field"><input class="fb_button" id="econ_submit" name="_submit" type="submit" value="Submit" /></td>
 </tr>
 </table>
-</div>
 </form>
 </body>
 </html>

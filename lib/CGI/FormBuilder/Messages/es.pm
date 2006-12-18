@@ -9,8 +9,8 @@ package CGI::FormBuilder::Messages::locale;
 use strict;
 use utf8;
 
-our $REVISION = do { (my $r='$Revision: 64 $') =~ s/\D+//g; $r };
-our $VERSION = '3.0401';
+our $REVISION = do { (my $r='$Revision: 94 $') =~ s/\D+//g; $r };
+our $VERSION = '3.05';
 
 # First, create a hash of messages for this language
 

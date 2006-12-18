@@ -13,13 +13,15 @@
 package CGI::FormBuilder::Field::select;
 
 use strict;
+use warnings;
+no  warnings 'uninitialized';
 
 use CGI::FormBuilder::Util;
 use CGI::FormBuilder::Field;
 use base 'CGI::FormBuilder::Field';
 
-our $REVISION = do { (my $r='$Revision: 64 $') =~ s/\D+//g; $r };
-our $VERSION = '3.0401';
+our $REVISION = do { (my $r='$Revision: 91 $') =~ s/\D+//g; $r };
+our $VERSION = '3.05';
 
 sub script {
     my $self = shift;
@@ -130,8 +132,9 @@ sub tag {
     my $optgroups = $self->optgroups;
     my $lastgroup = '';
     my $didgroup  = 0;
-
-    for my $opt (@opt) {
+    my $foundit   = 0;  # found option in list? (for "Other:")
+    debug 2, "$self->{name}: rendering options: (@opt)";
+    while (defined(my $opt = shift @opt)) {
         # Since our data structure is a series of ['',''] things,
         # we get the name from that. If not, then it's a list
         # of regular old data that we toname() if nameopts => 1
@@ -168,9 +171,17 @@ sub tag {
             }
         }
 
-        my %slct = ismember($o, @value) ? (selected => 'selected') : ();
+        my %slct;
+        if (ismember($o, @value) ||
+            (! $foundit && $self->other &&  @value && ! @opt))
+        {
+            debug 2, "$self->{name}: found $o as member of (@value), setting 'selected'";
+            %slct = (selected => 'selected');
+            $foundit++;
+        }
         $slct{value} = $o;
 
+        debug 2, "$self->{name}: tag .= option $n";
         $tag .= '  '
               . htmltag('option', %slct)
               . ($self->cleanopts ? escapehtml($n) : $n)

@@ -11,9 +11,12 @@ sub AUTOLOAD { 1 }
 package main;
 
 use strict;
-use vars qw($TESTING $DEBUG $NOSESSION);
-$TESTING = 1;
-$DEBUG = $ENV{DEBUG} || 0;
+
+our $TESTING = 1;
+our $DEBUG = $ENV{DEBUG} || 0;
+our $VERSION;
+BEGIN { $VERSION = '3.05'; }
+
 use Test;
 
 # use a BEGIN block so we print our plan before CGI::FormBuilder is loaded
@@ -34,7 +37,7 @@ BEGIN {
 $ENV{REQUEST_METHOD} = 'GET';
 $ENV{QUERY_STRING}   = 'ticket=111&user=pete&replacement=TRUE&action=Unsubscribe&name=Pete+Peteson&email=pete%40peteson.com&extra=junk&_submitted=1&blank=&two=&two=&_page=2&_submitted_p2=2';
 
-use CGI::FormBuilder 3.0401;
+use CGI::FormBuilder 3.05;
 use CGI::FormBuilder::Multi;
 use CGI::FormBuilder::Test;
 
@@ -74,8 +77,6 @@ my $form3 = {
     },
     header => 1,
 };
-
-my $html3 = outfile(3);
 
 my $multi = CGI::FormBuilder::Multi->new(
                  $form1, $form2, $form3,
@@ -118,7 +119,15 @@ ok($multi->page = $multi->pages, 3);    #19
 ok($form = $multi->form);   #20
 ok($form->field('replacement'), 'TRUE');  # 21
 
-ok($form->render, $html3);  #22
+# hack
+my $ren = $form->render;
+if ($ENV{LOGNAME} eq 'nwiger') {
+    open(REN, ">/tmp/fb.2.html");
+    print REN $ren;
+    close(REN);
+}
+
+ok($ren, outfile(22));  #22
 ok($form->field('action'), 'Unsubscribe');  #23
 ok($form->field('ticket'), '-1million');    #24
 ok(--$multi->page, 2);      #25
@@ -146,7 +155,7 @@ EOE
 
 # Placeholders so code can continue
 $session ||= new Stub;
-$NOSESSION = $@ ? 'skip: CGI::Session not installed here' : 0;
+our $NOSESSION = $@ ? 'skip: CGI::Session not installed here' : 0;
 
 skip($NOSESSION, $form->sessionid($session->id), $session->id);     #35
 

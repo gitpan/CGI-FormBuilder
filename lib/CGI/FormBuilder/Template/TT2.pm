@@ -25,12 +25,14 @@ CGI::FormBuilder::Template::TT2 - FormBuilder interface to Template Toolkit
 
 use Carp;
 use strict;
+use warnings;
+no  warnings 'uninitialized';
 
 use CGI::FormBuilder::Util;
 use Template;
 
-our $REVISION = do { (my $r='$Revision: 64 $') =~ s/\D+//g; $r };
-our $VERSION = '3.0401';
+our $REVISION = do { (my $r='$Revision: 91 $') =~ s/\D+//g; $r };
+our $VERSION = '3.05';
 
 sub new {
     my $self  = shift;
@@ -95,7 +97,7 @@ The following methods are provided (usually only used internally):
 
 =head2 engine
 
-Returns a reference to the C<HTML::Template> object
+Returns a reference to the C<Template> object
 
 =head2 prepare
 
@@ -238,7 +240,7 @@ L<CGI::FormBuilder>, L<CGI::FormBuilder::Template>, L<Template>
 
 =head1 REVISION
 
-$Id: TT2.pm 64 2006-09-07 18:08:27Z nwiger $
+$Id: TT2.pm 91 2006-12-18 10:27:01Z nwiger $
 
 =head1 AUTHOR
 

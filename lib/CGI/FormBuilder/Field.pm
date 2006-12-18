@@ -45,11 +45,13 @@ CGI::FormBuilder::Field - Base class for FormBuilder fields
 
 use Carp;   # confess used manually in this pkg
 use strict;
+use warnings;
+no  warnings 'uninitialized';
 
 use CGI::FormBuilder::Util;
 
-our $REVISION = do { (my $r='$Revision: 64 $') =~ s/\D+//g; $r };
-our $VERSION = '3.0401';
+our $REVISION = do { (my $r='$Revision: 91 $') =~ s/\D+//g; $r };
+our $VERSION = '3.05';
 our $AUTOLOAD;
 
 # what to generate for tag
@@ -169,11 +171,12 @@ sub othertag {
     # default settings
     $oa->{type}  ||= 'text';
     my $v = $self->{_form}->cgi_param($self->othername);
-    if ($self->sticky and $v) {
+    $v = $self->tag_value unless defined $v;
+    if ($self->sticky and defined $v) {
         $oa->{value} = $v;
     }
 
-    $oa->{disabled} = 'disabled' if $self->javascript && ! $v;   # fanciness
+    $oa->{disabled} = 'disabled' if $self->javascript && ! defined $v;   # fanciness
     return htmltag('input', $oa);
 }
 
@@ -654,8 +657,8 @@ sub validate () {
     # This function does all the validation on the Perl side.
     # It doesn't generate JavaScript; see render() for that...
 
-    my $self = shift;
-    my $form = $self->{_form};   # alias for examples (paint-by-numbers)
+    my $self  = shift;
+    my $form  = $self->{_form};   # alias for examples (paint-by-numbers)
     local $^W = 0;               # -w sucks
 
     my $pattern = shift || $self->{validate};
@@ -716,8 +719,9 @@ sub validate () {
             }
         } elsif (ref $pattern eq 'CODE') {
             # eval that mofo, which gives them $form
-            debug 2, "$field: does $pattern($value) ret true ?";
-            unless (&{$pattern}($value)) {
+            my $extra = $form->{c} || $form;
+            debug 2, "$field: does $pattern($value, $extra) ret true ?";
+            unless (&{$pattern}($value, $extra)) {
                 $thisfail = ++$bad;
             }
         } elsif ($pattern eq 'VALUE') {
@@ -889,6 +893,25 @@ Once you have a C<$field> object, you call this method the exact same way
 that you would call the main C<field()> method, minus the field name. Again
 you should use the top-level call instead.
 
+=head2 inflate($subref)
+
+This sets the inflate attribute: subroutine reference used to inflate values 
+returned by value() into objects or whatever you want.  If no parameter, 
+returns the inflate subroutine reference that is set.  For example:
+    
+ use DateTime::Format::Strptime;
+ my $date_format = DateTime::Format::Strptime->new(
+    pattern   => '%D',    # for MM/DD/YYYY american dates
+    locale    => 'en_US',
+    time_zone => 'America/Los_Angeles',
+ );
+ $field->inflate( sub { return $date_format->format_datetime(shift) } );
+
+=head2 invalid
+
+This returns the opposite value that C<validate()> would return, with
+some extra magic that keeps state for form rendering purposes.
+
 =head2 jsfunc()
 
 Returns the appropriate JavaScript validation code (see above).
@@ -938,25 +961,6 @@ status previously set via required() and (possibly) the top-level new()
 call in FormBuilder. Usually running per-field validate() calls is not
 what you want. Instead, you want to run the one on C<$form>, which in
 turn calls each individual field's and saves some temp state.
-
-=head2 inflate($subref)
-
-This sets the inflate attribute: subroutine reference used to inflate values 
-returned by value() into objects or whatever you want.  If no parameter, 
-returns the inflate subroutine reference that is set.  For example:
-    
- use DateTime::Format::Strptime;
- my $date_format = DateTime::Format::Strptime->new(
-    pattern   => '%D',    # for MM/DD/YYYY american dates
-    locale    => 'en_US',
-    time_zone => 'America/Los_Angeles',
- );
- $field->inflate( sub { return $date_format->format_datetime(shift) } );
-
-=head2 invalid
-
-This returns the opposite value that C<validate()> would return, with
-some extra magic that keeps state for form rendering purposes.
 
 =head2 value($val)
 
@@ -1009,7 +1013,7 @@ L<CGI::FormBuilder>
 
 =head1 REVISION
 
-$Id: Field.pm 64 2006-09-07 18:08:27Z nwiger $
+$Id: Field.pm 91 2006-12-18 10:27:01Z nwiger $
 
 =head1 AUTHOR
 

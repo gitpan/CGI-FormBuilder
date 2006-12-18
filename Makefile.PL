@@ -53,7 +53,7 @@ WriteMakefile(
     PREREQ_PM      => { CGI => 0 },
     CONFIGURE      => \&modcheck,
     ($] >= 5.005 ?
-      (ABSTRACT_FROM => 'lib/CGI/FormBuilder.pm',  # abstract from POD
+      (ABSTRACT_FROM => 'lib/CGI/FormBuilder.pod',  # abstract from POD
        AUTHOR        => 'Nathan Wiger (nate@wiger.org)') : ()
     ),
 );

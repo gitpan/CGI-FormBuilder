@@ -12,6 +12,34 @@ COMPATIBILITY
     In order to allow the second form, you must specify the "fieldsubs"
     option to "new()".
 
+VERSION 3.05
+    Just a short time after 3.04, several new features evolved very quickly:
+
+  Fieldset support
+    A new "fieldsets" option to "new()" and a "fieldset" option to the
+    "field()" method can be used to organize your form into sections.
+    Currently works with the built-in "<table>" and new "<div>" renderer
+    only, but template support is in the works.
+
+  Div rendering
+    In addition to the builtin "<table>" rendering module, a new "Div"
+    rendering template has been included as well. If you select this, you
+    get a table-free form which you can manipulate using stylesheets:
+
+        $form->new(template => {type => 'div'});
+
+    This provides a couple additional benefits, like separate divs for every
+    submit button.
+
+  Additional classes
+    A couple additional CSS classes were added, wrapping around the fields
+    as a unit for better styling. The "<form>" tag now gets a ".fb_form"
+    style as well.
+
+  Fixed HTML::Template support
+    A couple bugs were introduced in 3.04 that have been fixed, and more
+    tests added.
+
 VERSION 3.04
     In addition to the below features, a new Catalyst FormBuilder plugin is
     available on CPAN, "Catalyst::Plugin::FormBuilder".

@@ -4,6 +4,7 @@ MANIFEST
 Makefile.PL
 README
 lib/CGI/FormBuilder.pm
+lib/CGI/FormBuilder.pod
 lib/CGI/FormBuilder/Field.pm
 lib/CGI/FormBuilder/Field/button.pm
 lib/CGI/FormBuilder/Field/checkbox.pm
@@ -14,6 +15,7 @@ lib/CGI/FormBuilder/Field/password.pm
 lib/CGI/FormBuilder/Field/radio.pm
 lib/CGI/FormBuilder/Field/select.pm
 lib/CGI/FormBuilder/Field/static.pm
+lib/CGI/FormBuilder/Field/submit.pm
 lib/CGI/FormBuilder/Field/text.pm
 lib/CGI/FormBuilder/Field/textarea.pm
 lib/CGI/FormBuilder/Messages.pm
@@ -41,6 +43,7 @@ lib/CGI/FormBuilder/Source.pm
 lib/CGI/FormBuilder/Source/File.pm
 lib/CGI/FormBuilder/Template.pm
 lib/CGI/FormBuilder/Template/Builtin.pm
+lib/CGI/FormBuilder/Template/Div.pm
 lib/CGI/FormBuilder/Template/Fast.pm
 lib/CGI/FormBuilder/Template/HTML.pm
 lib/CGI/FormBuilder/Template/TT2.pm
@@ -83,10 +86,15 @@ t/1a-test28.html
 t/1a-test29.html
 t/1a-test30.html
 t/1a-test31.html
+t/1a-test32.html
+t/1a-test33.html
+t/1a-test34.html
+t/1a-test35.html
+t/1a-test36.html
 t/1b-fields.t
-t/1b-test12.html
-t/1b-test13.html
-t/1b-test16.html
+t/1b-test24.html
+t/1b-test25.html
+t/1b-test26.html
 t/1c-validate.t
 t/1d-messages.t
 t/2a-template-html.t
@@ -94,6 +102,8 @@ t/2a-test00.html
 t/2a-test01.html
 t/2a-test02.html
 t/2a-test03.html
+t/2a-test04.html
+t/2a-test99.html
 t/2b-template-text.t
 t/2b-test00.html
 t/2b-test01.html
@@ -139,5 +149,5 @@ t/3a-test26.html
 t/3a-test27.html
 t/3a-test28.html
 t/3b-multi-page.t
-t/3b-test03.html
+t/3b-test22.html
 t/runtests

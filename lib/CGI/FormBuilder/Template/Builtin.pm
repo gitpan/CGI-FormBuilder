@@ -19,16 +19,18 @@ CGI::FormBuilder::Template::Builtin - Builtin HTML rendering
 
 use Carp;
 use strict;
+use warnings;
+no  warnings 'uninitialized';
 
 use CGI::FormBuilder::Util;
 
-our $REVISION = do { (my $r='$Revision: 64 $') =~ s/\D+//g; $r };
-our $VERSION = '3.0401';
+our $REVISION = do { (my $r='$Revision: 94 $') =~ s/\D+//g; $r };
+our $VERSION = '3.05';
 
 sub new {
     my $self  = shift;
     my $class = ref($self) || $self;
-    my %opt   = @_;
+    my %opt   = @_ if @_ > 1;
     return bless \%opt, $class;
 }
 
@@ -42,7 +44,8 @@ sub prepare {
     my $hd = $form->header;
     if (defined $hd) {
         push @html, ($hd . $form->dtd), htmltag('head');
-        push @html, (htmltag('title').$form->title.htmltag('/title')) if $form->title;
+        push @html, htmltag('title') . $form->title . htmltag('/title')
+          if $form->title;
 
         # stylesheet path if specified
         if ($form->{stylesheet} && $form->{stylesheet} ne 1) {
@@ -63,47 +66,112 @@ sub prepare {
     if (defined $hd) {
         push @html, htmltag('/head'), $form->body;
         push @html, $font if $font;
-        push @html, (htmltag('h3').$form->title.htmltag('/h3')) if $form->title;
+        push @html, htmltag('h3') . $form->title . htmltag('/h3')
+          if $form->title;
     }
 
     # Include warning if noscript
     push @html, $form->noscript if $js;
 
+    # Put id's around state tags if so required
+    my($stid, $keid);
+    if (my $fn = $form->name) {
+        $stid = tovar("${fn}$form->{statename}");
+        $keid = tovar("${fn}$form->{extraname}");
+    }
+
     # Begin form
     my $txt = $form->text;
     push @html, $txt if $txt;
-    push @html, $form->start, '<div>', ($form->statetags . $form->keepextras);
+    push @html, $form->start;
+
+    # Put id's around state tags if they exist
+    if (my $st = $form->statetags) {
+        push @html,
+             $form->div(id => $form->idname($form->statename),
+                        class => $form->class($form->statename)) .
+             $st . htmltag('/div');
+    }
+    if (my $ke = $form->keepextras) {
+        push @html,
+             $form->div(id => $form->idname($form->extraname),
+                        class => $form->class($form->extraname)) .
+             $ke . htmltag('/div');
+    }
 
     # Render hidden fields first
     my @unhidden;
-    for my $field ($form->field) {
+    for my $field ($form->fieldlist) {
         push(@unhidden, $field), next if $field->type ne 'hidden';
         push @html, $field->tag;   # no label/etc for hidden fields
     }
 
+    # Support fieldset => 'name' to organize by fieldset on the fly
+    my $legend = $form->fieldsets;
+
     # Get table stuff and reused calls
-    my $table = $form->table;
+    my $table = $form->table(id => $form->idname($form->bodyname), class => $form->class);
+    my $tabn = 1;
     push @html, $table if $table;
 
     # Render regular fields in table
+    my $lastset;
     for my $field (@unhidden) {
+        if (my $set = $field->fieldset) {
+            # hooks (hack?) for fieldsets
+            if ($set ne $lastset) {
+                # close any open tables/fieldsets
+                if ($lastset) {
+                    push @html, htmltag('/table') if $table;
+                    push @html, htmltag('/fieldset');
+                    push @html, htmltag('/div');
+                } elsif ($table) {
+                    # Catch in case we have an empty table - ie the previous
+                    # element is just <table>. This workaround is needed
+                    # in case the user wants to mix fields with/without
+                    # fieldsets in the same form
+                    if ($html[-1] =~ /^<table\b/) {
+                        pop @html;
+                    } else {
+                        # close non-fieldset table
+                        push @html, htmltag('/table');
+                    }
+                }
+
+                # Wrap fieldset in a <div> to allow jquery #tabs
+                push @html, $form->div(id => $form->idname($form->tabname.$tabn++),
+                                       class => $form->class($form->tabname));
+
+                (my $sn = lc $set) =~ s/\W+/_/g;
+                push @html, htmltag('fieldset', id => $form->idname("_$sn"),
+                                                class => $form->class('_set'));
+                push @html, htmltag('legend') . ($legend->{$set}||$set) . htmltag('/legend')
+                  if defined $legend->{$set};
+
+                # Wrap fields in a table
+                push @html, $form->table if $table;
+
+                $lastset = $set;
+            }
+        } elsif ($lastset) {
+            # ended <fieldset> defs before form has ended
+            # remaining fields are not in a fieldset
+            push @html, htmltag('/table') if $table;
+            push @html, htmltag('/fieldset');
+            push @html, htmltag('/div');
+            push @html, $table if $table;
+            undef $lastset;     # avoid dup </fieldset> below
+        }
+
         debug 2, "render: attacking normal field '$field'";
         next if $field->static > 1 && ! $field->tag_value;  # skip missing static vals
 
         if ($table) {
-            my($trid, $laid, $inid, $erid, $cmid, $cl);
-            if ($form->{name}) {
-                # add id's to all elements
-                $trid = tovar("$form->{name}_$field$form->{rowname}");
-                $laid = tovar("$form->{name}_$field$form->{labelname}");
-                $inid = tovar("$form->{name}_$field$form->{fieldname}");
-                $erid = tovar("$form->{name}_$field$form->{errorname}");
-                $cmid = tovar("$form->{name}_$field$form->{commentname}");
-            }
-            push @html, $form->tr(id => $trid);
+            push @html, $form->tr(id => $form->idname("_$field", $form->rowname));
 
-            $cl = $form->class($form->{labelname});
-            my $row = '  ' . $form->td(id => $laid, class => $cl) . $font;
+            my $cl  = $form->class($form->labelname);
+            my $row = '  ' . $form->td(id => $form->idname("_$field", $form->labelname),
+                                       class => $cl) . $font;
             if ($field->invalid) {
                 $row .= $form->invalid_tag($field->label);
             } elsif ($field->required && ! $field->static) {
@@ -124,7 +192,8 @@ sub prepare {
             }
             $row = $field->tag . $row;
             $cl  = $form->class($form->{fieldname});
-            push @html, ('  ' . $form->td(id => $inid, class => $cl) . $font 
+            push @html, ('  ' . $form->td(id => $form->idname("_$field", $form->fieldname),
+                                          class => $cl) . $font 
                         . $row . $fcls . htmltag('/td'));
             push @html, htmltag('/tr');
         } else {
@@ -146,33 +215,42 @@ sub prepare {
         }
     }
 
+    # Close fieldset before [Submit] if using fieldsets
+    if ($lastset) {
+        push @html, htmltag('/table') if $table;
+        push @html, htmltag('/fieldset');
+        push @html, htmltag('/div');
+        undef $table;   # avoid dup </table> below
+    }
+
     # Throw buttons in a colspan
     my $buttons = $form->reset . $form->submit;
     if ($buttons) {
         my $row = '';
         if ($table) {
-            my($trid, $inid);
-            if ($form->{name}) {
-                # add id's
-                $trid = tovar("$form->{name}_submit$form->{rowname}");
-                $inid = tovar("$form->{name}_submit$form->{fieldname}");
-            }
             my $c = $form->class($form->{submitname});
             my %a = $c ? () : (align => 'center');
-            $row .= $form->tr(id => $trid) . "\n  "
-                  . $form->td(id => $inid, class => $c, colspan => 2, %a) . $font;
+            $row .= $form->tr(id => $form->idname($form->submitname, $form->rowname)) . "\n  "
+                  . $form->td(id => $form->idname($form->submitname, $form->fieldname),
+                              class => $c, colspan => 2, %a) . $font;
+        } else {
+            # wrap in a <div> for fieldsets
+            $row .= $form->div(id => $form->idname('_controls'),
+                               class => $form->class('_controls'));
         }
         $row .= $buttons;
         if ($table) {
             $row .= htmltag('/font') if $font;
             $row .= htmltag('/td') . "\n" . htmltag('/tr') if $table;
+        } else {
+            $row .= htmltag('/div');
         }
         push @html, $row;
     }
 
     # Properly nest closing tags
     push @html, htmltag('/table')  if $table;
-    push @html, htmltag('/div'), htmltag('/form');   # $form->end
+    push @html, htmltag('/form');   # $form->end
     push @html, htmltag('/font')   if $font && defined $hd;
     push @html, htmltag('/body'),htmltag('/html') if defined $hd;
 
@@ -202,7 +280,7 @@ L<CGI::FormBuilder::Template::Fast>
 
 =head1 REVISION
 
-$Id: Builtin.pm 64 2006-09-07 18:08:27Z nwiger $
+$Id: Builtin.pm 94 2006-12-18 10:44:52Z nwiger $
 
 =head1 AUTHOR
 

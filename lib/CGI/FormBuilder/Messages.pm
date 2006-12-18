@@ -23,11 +23,13 @@ CGI::FormBuilder::Messages - Localized message support for FormBuilder
 =cut
 
 use strict;
+use warnings;
+no  warnings 'uninitialized';
 
 use CGI::FormBuilder::Util;
 
-our $REVISION = do { (my $r='$Revision: 64 $') =~ s/\D+//g; $r };
-our $VERSION = '3.0401';
+our $REVISION = do { (my $r='$Revision: 91 $') =~ s/\D+//g; $r };
+our $VERSION = '3.05';
 our $AUTOLOAD;
 
 sub new {
@@ -285,7 +287,7 @@ L<CGI::FormBuilder>
 
 =head1 REVISION
 
-$Id: Messages.pm 64 2006-09-07 18:08:27Z nwiger $
+$Id: Messages.pm 91 2006-12-18 10:27:01Z nwiger $
 
 =head1 AUTHOR
 

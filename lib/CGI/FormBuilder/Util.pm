@@ -33,14 +33,16 @@ I said that, though.
 =cut
 
 use strict;
+use warnings;
+no  warnings 'uninitialized';
 use Carp;
 
 # Don't "use" or it collides with our basename()
 require File::Basename;
 
 # Authoritative version information actually lives here
-our $VERSION = '3.0401';
-our $REVISION = do { (my $r='$Revision: 64 $') =~ s/\D+//g; $r };
+our $VERSION = '3.05';
+our $REVISION = do { (my $r='$Revision: 91 $') =~ s/\D+//g; $r };
 
 # Place functions you want to export by default in the
 # @EXPORT array. Any other functions can be requested
@@ -61,17 +63,16 @@ our %TAGNAMES = ();     # holds translated tag names (experimental)
 # specified in the generation of HTML tags, and also means that this
 # module doesn't go out of date when the HTML spec changes next week.
 our @OURATTR = qw(
-    attr autofill autofillshow body buttonname checknum cleanopts
-    columns cookies comment debug delete dtd errorname fields
-    fieldattr fieldsubs fieldtype fieldname fieldopts font force
-    growable growname header idprefix inputname invalid javascript
-    jsmessage jsname jsprefix jsfunc jshead keepextras labels labelname
-    lalign linebreaks message messages nameopts newline other othername
+    attr autofill autofillshow body bodyname buttonname caller checknum cleanopts 
+    columns cookies comment debug delete dtd errorname extraname fields
+    fieldattr fieldsubs fieldtype fieldname fieldopts fieldset fieldsets
+    font force formname growable growname header idprefix inputname invalid
+    javascript jsmessage jsname jsprefix jsfunc jshead jserror jsvalid keepextras
+    labels labelname lalign linebreaks message messages nameopts newline other othername
     optgroups options override page pages pagename params render required
     reset resetname rowname selectname selectnum sessionidname sessionid
-    smartness source sortopts static sticky stylesheet styleclass submit
-    submitname submittedname table
-    template validate values
+    smartness source sortopts static statename sticky stylesheet styleclass submit
+    submitname submittedname table tabname template validate values
 );
 
 # trick for speedy lookup
@@ -99,6 +100,7 @@ our @CARP_NOT = qw(
     CGI::FormBuilder::Source
     CGI::FormBuilder::Source::File
     CGI::FormBuilder::Template
+    CGI::FormBuilder::Template::Builtin
     CGI::FormBuilder::Template::Fast
     CGI::FormBuilder::Template::HTML
     CGI::FormBuilder::Template::TT2
@@ -520,7 +522,7 @@ L<CGI::FormBuilder>
 
 =head1 REVISION
 
-$Id: Util.pm 64 2006-09-07 18:08:27Z nwiger $
+$Id: Util.pm 91 2006-12-18 10:27:01Z nwiger $
 
 =head1 AUTHOR
 

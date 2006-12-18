@@ -5,9 +5,12 @@
 # 3a-source-file.t - test C::FB::Source::File support
 
 use strict;
-use vars qw($TESTING $DEBUG);
-$TESTING = 1;
-$DEBUG = $ENV{DEBUG} || 0;
+
+our $TESTING = 1;
+our $DEBUG = $ENV{DEBUG} || 0;
+our $VERSION;
+BEGIN { $VERSION = '3.05'; }
+
 use Test;
 
 # use a BEGIN block so we print our plan before CGI::FormBuilder is loaded
@@ -28,7 +31,7 @@ BEGIN {
 $ENV{REQUEST_METHOD} = 'GET';
 $ENV{QUERY_STRING}   = 'ticket=111&user=pete&replacement=TRUE&action=Unsubscribe&name=Pete+Peteson&email=pete%40peteson.com&extra=junk';
 
-use CGI::FormBuilder 3.0401;
+use CGI::FormBuilder 3.05;
 use CGI::FormBuilder::Test;
 
 # For testing sortopts in test 18
@@ -165,7 +168,7 @@ fieldtype: select
     {
         str => '
 fields: db:name,db:type,db:tab,ux:user,ux:name
-static: Yip
+static: 1
 ',
     },
 
@@ -421,15 +424,15 @@ for (@test) {
 
     if (! $ok && $ENV{LOGNAME} eq 'nwiger') {
 
-        open(O, ">/tmp/fb.1.out");
+        open(O, ">/tmp/fb.1.html");
         print O $out;
         close O;
 
-        open(O, ">/tmp/fb.2.out");
+        open(O, ">/tmp/fb.2.html");
         print O $ren;
         close O;
 
-        system "diff /tmp/fb.1.out /tmp/fb.2.out";
+        system "diff /tmp/fb.1.html /tmp/fb.2.html";
         exit 1;
     }
 }

@@ -25,9 +25,6 @@ function validate (form) {
         if (! invalid) invalid = 'The following';   // catch for programmer error
         alert(''+invalid+' error(s) were encountered with your submission:'+'\n\n'
                 +alertstr+'\n'+'Please correct these fields and try again.');
-        // reset counters
-        alertstr = '';
-        invalid  = 0;
         return false;
     }
     return true;  // all checked ok
@@ -37,8 +34,7 @@ function validate (form) {
 <noscript><font color="#cc0000"><b>Please enable Javascript or use a newer browser.</b></font></noscript>
 <p>Fields that are <b>highlighted</b> are required.</p>
 <form action="TEST" method="get" onsubmit="return validate(this);">
-<div>
-<input id="_submitted" name="_submitted" type="hidden" value="1" />
+<div><input id="_submitted" name="_submitted" type="hidden" value="1" /></div>
 <table>
 <tr valign="top">
   <td><b>Name</b></td>
@@ -56,5 +52,4 @@ function validate (form) {
   <td align="center" colspan="2"><input id="_submit" name="_submit" type="submit" value="Submit" /></td>
 </tr>
 </table>
-</div>
 </form>

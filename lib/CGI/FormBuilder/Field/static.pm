@@ -11,13 +11,15 @@
 package CGI::FormBuilder::Field::static;
 
 use strict;
+use warnings;
+no  warnings 'uninitialized';
 
 use CGI::FormBuilder::Util;
 use CGI::FormBuilder::Field;
 use base 'CGI::FormBuilder::Field';
 
-our $REVISION = do { (my $r='$Revision: 64 $') =~ s/\D+//g; $r };
-our $VERSION = '3.0401';
+our $REVISION = do { (my $r='$Revision: 91 $') =~ s/\D+//g; $r };
+our $VERSION = '3.05';
 
 sub script {
     return '';        # static fields get no messages
@@ -75,7 +77,7 @@ sub tag {
         }
 
         # print the value out too when in a static context
-        $tmp .= escapehtml($value);
+        $tmp .= $self->cleanopts ? escapehtml($value) : $value;
         push @tag, $tmp;
     }
 

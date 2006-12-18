@@ -5,15 +5,18 @@
 # 2a-template-html.t - test HTML::Template support
 
 use strict;
-use vars qw($TESTING $DEBUG $SKIP);
-$TESTING = 1;
-$DEBUG = $ENV{DEBUG} || 0;
+
+our $TESTING = 1;
+our $DEBUG = $ENV{DEBUG} || 0;
+our $VERSION;
+BEGIN { $VERSION = '3.05'; }
 
 use Test;
 
 # use a BEGIN block so we print our plan before CGI::FormBuilder is loaded
+our $SKIP;
 BEGIN {
-    my $numtests = 4;
+    my $numtests = 5;
 
     plan tests => $numtests;
 
@@ -33,11 +36,12 @@ BEGIN {
 $ENV{REQUEST_METHOD} = 'GET';
 $ENV{QUERY_STRING}   = 'ticket=111&user=pete&replacement=TRUE';
 
-use CGI::FormBuilder 3.0401;
+use CGI::FormBuilder 3.05;
 use CGI::FormBuilder::Test;
 
 # Grab our template from our test00.html file
 my $template = outfile(0);
+my $kurtlidl = outfile(99);
 
 # What options we want to use, and what we expect to see
 my @test = (
@@ -77,6 +81,17 @@ my @test = (
                },
 
     },
+    {
+        opt => { fields => [qw/field1 field2/], method => 'post',
+                 title => 'test form page', header => 0,
+                 template => { scalarref => \$kurtlidl },
+               },
+        mod => {
+            field1 => { value => 109, comment => '<i>Hello</i>' },
+            field2 => { type => 'submit', value => "1 < 2 < 3", label => "Reefer", comment => '<i>goodbyE@</i>' },
+            field3 => { type => 'button', value => "<<PUSH>>", comment => '<i>onSubmit</i>' },
+        },
+    },
 );
 
 # Perl 5 is sick sometimes.
@@ -110,15 +125,17 @@ for (@test) {
     my $ok = skip($SKIP, $ren, $out);
 
     if (! $ok && $ENV{LOGNAME} eq 'nwiger') {
-        open(O, ">/tmp/fb.1.out");
+        #use Data::Dumper;
+        #die Dumper($form);
+        open(O, ">/tmp/fb.1.html");
         print O $out;
         close O;
 
-        open(O, ">/tmp/fb.2.out");
+        open(O, ">/tmp/fb.2.html");
         print O $ren;
         close O;
 
-        system "diff /tmp/fb.1.out /tmp/fb.2.out";
+        system "diff /tmp/fb.1.html /tmp/fb.2.html";
         exit 1;
     }
 }

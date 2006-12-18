@@ -15,6 +15,40 @@ autoload style of getting to fields:
 In order to allow the second form, you must specify the C<fieldsubs>
 option to C<new()>.
 
+=head1 VERSION 3.05
+
+Just a short time after 3.04, several new features evolved very quickly:
+
+=head2 Fieldset support
+
+A new C<fieldsets> option to C<new()> and a C<fieldset> option to
+the C<field()> method can be used to organize your form into sections.
+Currently works with the built-in C<< <table> >> and new C<< <div> >>
+renderer only, but template support is in the works.
+
+=head2 Div rendering
+
+In addition to the builtin C<< <table> >> rendering module, a new
+C<Div> rendering template has been included as well. If you select
+this, you get a table-free form which you can manipulate using
+stylesheets:
+
+    $form->new(template => {type => 'div'});
+
+This provides a couple additional benefits, like separate divs
+for every submit button.
+
+=head2 Additional classes
+
+A couple additional CSS classes were added, wrapping around the
+fields as a unit for better styling. The C<< <form> >> tag now
+gets a C<.fb_form> style as well.
+
+=head2 Fixed HTML::Template support
+
+A couple bugs were introduced in 3.04 that have been fixed, and 
+more tests added.
+
 =head1 VERSION 3.04
 
 In addition to the below features, a new Catalyst FormBuilder plugin

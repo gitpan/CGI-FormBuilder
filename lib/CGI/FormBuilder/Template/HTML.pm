@@ -21,13 +21,15 @@ CGI::FormBuilder::Template::HTML - FormBuilder interface to HTML::Template
 
 use Carp;
 use strict;
+use warnings;
+no  warnings 'uninitialized';
 
 use CGI::FormBuilder::Util;
 use HTML::Template;
 use base 'HTML::Template';
 
-our $REVISION = do { (my $r='$Revision: 64 $') =~ s/\D+//g; $r };
-our $VERSION = '3.0401';
+our $REVISION = do { (my $r='$Revision: 91 $') =~ s/\D+//g; $r };
+our $VERSION = '3.05';
 
 #
 # For legacy reasons, and due to its somewhat odd interface, 
@@ -79,7 +81,7 @@ sub render {
 
     while(my($to, $from) = each %FORM_VARS) {
         debug 1, "renaming attr $from to: <tmpl_var $to>";
-        $tvar->{$to} = delete $tvar->{$from};
+        $tvar->{$to} = "$tvar->{$from}";
     }
 
     #
@@ -101,10 +103,12 @@ sub render {
         # Auto-expand all of our field tags, such as field, label, value
         # comment, error, etc, etc
         #
+        my %all_loop;
         while(my($key, $str) = each %FIELD_VARS) {
             my $var = sprintf $str, $name;
-            $tvar->{$var} = $tvar->{field}{$name}{$key};
-            debug 2, "<tmpl_var $var> = " . $tvar->{$var};
+            $all_loop{$key} = $tvar->{field}{$name}{$key};
+            $tvar->{$var}   = "$tvar->{field}{$name}{$key}";   # fuck Perl
+            debug 2, "<tmpl_var $var> = " . $all_loop{$str};
         }
 
         #
@@ -113,7 +117,7 @@ sub render {
         # too much effort knowing what type
         #
         my @tmpl_loop = ();
-        for my $opt (@{$tvar->{field}{$name}{options}}) {
+        for my $opt (@options) {
             # Since our data structure is a series of ['',''] things,
             # we get the name from that. If not, then it's a list
             # of regular old data that we _toname if nameopts => 1 
@@ -135,16 +139,17 @@ sub render {
 
         # Finally, push onto a top-level loop named "fields"
         push @fieldlist, {
-            field   => $tvar->{field},
-            value   => $tvar->{value},
-            values  => \@value,
-            options => \@options,
-            label   => $tvar->{label},
-            comment => $tvar->{comment},
-            error   => $tvar->{error},
-            required=> $tvar->{required},
-            missing => $tvar->{missing},
-            loop    => \@tmpl_loop
+            field   => $all_loop{field},
+            value   => $all_loop{value},
+            values  => [ @value ],
+            options => [ @options ],
+            label   => $all_loop{label},
+            comment => $all_loop{comment},
+            error   => $all_loop{error},
+            required=> $all_loop{required},
+            missing => $all_loop{missing},
+            fieldset=> $all_loop{fieldset},
+            loop    => [ @tmpl_loop ],
         };
     }
     # kill our previous fields list
@@ -411,7 +416,7 @@ L<CGI::FormBuilder>, L<CGI::FormBuilder::Template>, L<HTML::Template>
 
 =head1 REVISION
 
-$Id: HTML.pm 64 2006-09-07 18:08:27Z nwiger $
+$Id: HTML.pm 91 2006-12-18 10:27:01Z nwiger $
 
 =head1 AUTHOR
 
