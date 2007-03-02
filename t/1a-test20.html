@@ -1,3 +1,5 @@
+Content-type: text/html
+
 <html>
 <head>
 <title>Finalize Your Order</title>
@@ -5,6 +7,7 @@
 function validate_order (form) {
     var alertstr = '';
     var invalid  = 0;
+    var invalid_fields = new Array();
 
     // skip validation if they clicked "Cancel"
     if (form._submit.value == 'Cancel') return true;
@@ -13,18 +16,21 @@ function validate_order (form) {
     if (first_name == null || first_name === "") {
         alertstr += '- Invalid entry for the "First Name" field\n';
         invalid++;
+        invalid_fields.push('first_name');
     }
     // last_name: standard text, hidden, password, or textarea box
     var last_name = form.elements['last_name'].value;
     if (last_name == null || last_name === "") {
         alertstr += '- Invalid entry for the "Last Name" field\n';
         invalid++;
+        invalid_fields.push('last_name');
     }
     // email: standard text, hidden, password, or textarea box
     var email = form.elements['email'].value;
     if (email == null || ! email.match(/^[\w\-\+\._]+\@[a-zA-Z0-9][-a-zA-Z0-9\.]*\.[a-zA-Z]+$/)) {
         alertstr += '- Invalid entry for the "Email" field\n';
         invalid++;
+        invalid_fields.push('email');
     }
     // send_me_emails: radio group or multiple checkboxes
     var send_me_emails = null;
@@ -36,6 +42,7 @@ function validate_order (form) {
             if (send_me_emails == null || send_me_emails === "") {
                 alertstr += '- Choose one of the "Send Me Emails" options\n';
                 invalid++;
+                invalid_fields.push('send_me_emails');
             }
         } // if
     } // for send_me_emails
@@ -49,6 +56,7 @@ function validate_order (form) {
     if (address == null || address === "") {
         alertstr += '- Invalid entry for the "Address" field\n';
         invalid++;
+        invalid_fields.push('address');
     }
     // state: select list, always assume it's multiple to get all values
     var state = null;
@@ -60,6 +68,7 @@ function validate_order (form) {
             if (state == null || state === "") {
                 alertstr += '- Select an option from the "State" list\n';
                 invalid++;
+                invalid_fields.push('state');
             }
         } // if
     } // for state
@@ -73,18 +82,21 @@ function validate_order (form) {
     if (zipcode == null || ! zipcode.match(/^\d{5}$|^\d{5}\-\d{4}$/)) {
         alertstr += '- Invalid entry for the "Zipcode" field\n';
         invalid++;
+        invalid_fields.push('zipcode');
     }
     // credit_card: standard text, hidden, password, or textarea box
     var credit_card = form.elements['credit_card'].value;
     if (credit_card == null || ! credit_card.match(/^\d{4}[\- ]?\d{4}[\- ]?\d{4}[\- ]?\d{4}$|^\d{4}[\- ]?\d{6}[\- ]?\d{5}$/)) {
         alertstr += '- Invalid entry for the "Credit Card" field\n';
         invalid++;
+        invalid_fields.push('credit_card');
     }
     // expiration: standard text, hidden, password, or textarea box
     var expiration = form.elements['expiration'].value;
     if (expiration == null || ! expiration.match(/^(0?[1-9]|1[0-2])\/?[0-9]{2}$/)) {
         alertstr += '- Invalid entry for the "Expiration" field\n';
         invalid++;
+        invalid_fields.push('expiration');
     }
     if (invalid > 0 || alertstr != '') {
         if (! invalid) invalid = 'The following';   // catch for programmer error

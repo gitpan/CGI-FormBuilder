@@ -1,3 +1,5 @@
+Content-type: text/html
+
 <html>
 <head>
 <title>TEST</title>
@@ -6,12 +8,14 @@
 function validate (form) {
     var alertstr = '';
     var invalid  = 0;
+    var invalid_fields = new Array();
 
     // fullname: standard text, hidden, password, or textarea box
     var fullname = form.elements['fullname'].value;
     if (fullname == null || fullname === "") {
         alertstr += '- Invalid entry for the "Full Name" field\n';
         invalid++;
+        invalid_fields.push('fullname');
     }
     if (invalid > 0 || alertstr != '') {
         if (! invalid) invalid = 'The following';   // catch for programmer error

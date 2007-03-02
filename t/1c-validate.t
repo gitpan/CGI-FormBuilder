@@ -1,4 +1,4 @@
-#!/usr/bin/perl -Ilib -I../lib
+#!/usr/bin/perl
 
 # Copyright (c) 2000-2006 Nathan Wiger <nate@wiger.org>.
 # All Rights Reserved. If you're reading this, you're bored.
@@ -9,13 +9,15 @@ use strict;
 our $TESTING = 1;
 our $DEBUG = $ENV{DEBUG} || 0;
 our $VERSION;
-BEGIN { $VERSION = '3.05'; }
+BEGIN { $VERSION = '3.0501'; }
 
 use Test;
+use FindBin;
 
 # use a BEGIN block so we print our plan before CGI::FormBuilder is loaded
 BEGIN { 
     my $numtests = 11;
+    unshift @INC, "$FindBin::Bin/../lib";
 
     plan tests => $numtests;
 
@@ -30,7 +32,7 @@ BEGIN {
 $ENV{REQUEST_METHOD} = 'GET';
 $ENV{QUERY_STRING} = '_submitted=1&submit=ClickMe&blank=&hiphop=Early+East+Coast';
 
-use CGI::FormBuilder 3.05;
+use CGI::FormBuilder 3.0501;
 
 sub is_number {
     my $v = shift;

@@ -5,6 +5,7 @@ Please update your info and hit "Submit".
 function validate (form) {
     var alertstr = '';
     var invalid  = 0;
+    var invalid_fields = new Array();
 
     // sex: radio group or multiple checkboxes
     var sex = null;
@@ -16,6 +17,7 @@ function validate (form) {
             if (sex == null || (sex != '1' && sex != '3' && sex != '5')) {
                 alertstr += '- Choose one of the "glass EYE fucker" options\n';
                 invalid++;
+                invalid_fields.push('sex');
             }
         } // if
     } // for sex

@@ -621,6 +621,39 @@ templates or embedding forms in other HTML.
 If set to 1, JavaScript is generated in addition to HTML, the
 default setting.
 
+=item jserror => 'function_name'
+
+If specified, this will get called instead of the standard JS
+C<alert()> function on error. The function signature is:
+
+    function_name(form, invalid, alertstr, invalid_fields)
+
+The function can be named anything you like. A simple one might
+look like this:
+
+    my $form = CGI::FormBuilder->new(
+        jserror => 'field_errors',
+        jshead => <<'EOJS',
+function field_errors(form, invalid, alertstr, invalid_fields) {
+    // first reset all fields
+    for (var i=0; i < form.elements.length; i++) {
+        form.elements[i].className = 'normal_field';
+    }
+    // now attach a special style class to highlight the field
+    for (var i=0; i < invalid_fields.length; i++) {
+        form.elements[invalid_fields[i]].className = 'invalid_field';
+    }
+    alert(alertstr);
+    return false;
+}
+EOJS
+    );
+
+Note that it should return false to prevent form submission.
+
+This can be used in conjunction with C<jsfunc>, which can add
+additional manual validations before C<jserror> is called.
+
 =item jsfunc => $jscode
 
 This is verbatim JavaScript that will go into the C<validate>
@@ -2652,6 +2685,7 @@ reports, and encouraging feedback from a number of people, including:
     Florian Helmberger
     Mark Hedges
     Mark Houliston
+    Victor Igumnov
     Robert James Kaes
     Dimitry Kharitonov
     Randy Kobes

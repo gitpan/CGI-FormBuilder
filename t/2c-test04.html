@@ -5,12 +5,14 @@
 function validate (form) {
     var alertstr = '';
     var invalid  = 0;
+    var invalid_fields = new Array();
 
     // yomomma: standard text, hidden, password, or textarea box
     var yomomma = form.elements['yomomma'].value;
     if (yomomma == null || ! yomomma.match(/^[a-zA-Z]+$/)) {
         alertstr += '- Invalid entry for the "Yomomma" field\n';
         invalid++;
+        invalid_fields.push('yomomma');
     }
     if (invalid > 0 || alertstr != '') {
         if (! invalid) invalid = 'The following';   // catch for programmer error

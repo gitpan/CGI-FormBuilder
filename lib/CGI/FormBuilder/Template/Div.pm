@@ -25,7 +25,7 @@ no  warnings 'uninitialized';
 use CGI::FormBuilder::Util;
 
 our $REVISION = do { (my $r='$Revision: 68 $') =~ s/\D+//g; $r };
-our $VERSION = '3.05';
+our $VERSION = '3.0501';
 
 sub new {
     my $self  = shift;
@@ -43,7 +43,7 @@ sub prepare {
     # Opening CGI/title gunk 
     my $hd = $form->header;
     if (defined $hd) {
-        push @html, ($hd . $form->dtd), htmltag('head');
+        push @html, $form->dtd, htmltag('head');
         push @html, htmltag('title') . $form->title . htmltag('/title')
           if $form->title;
 

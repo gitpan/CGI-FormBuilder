@@ -1,4 +1,4 @@
-#!/usr/bin/perl -Ilib -I../lib
+#!/usr/bin/perl
 
 # Copyright (c) 2000-2006 Nathan Wiger <nate@wiger.org>.
 # All Rights Reserved. If you're reading this, you're bored.
@@ -9,13 +9,14 @@ use strict;
 our $TESTING = 1;
 our $DEBUG = $ENV{DEBUG} || 0;
 our $VERSION;
-BEGIN { $VERSION = '3.05'; }
+BEGIN { $VERSION = '3.0501'; }
 
 use Test;
-use CGI::FormBuilder::Test;
+use FindBin;
 
 # use a BEGIN block so we print our plan before CGI::FormBuilder is loaded
 BEGIN {
+    unshift @INC, "$FindBin::Bin/../lib";
     my $numtests = 36;
 
     plan tests => $numtests + 1;
@@ -31,7 +32,8 @@ BEGIN {
 $ENV{REQUEST_METHOD} = 'GET';
 $ENV{QUERY_STRING}   = 'ticket=111&user=pete&replacement=TRUE&action=Unsubscribe&name=Pete+Peteson&email=pete%40peteson.com&extra=junk&other_test=_other_other_test&_other_other_test=42';
 
-use CGI::FormBuilder 3.05;
+use CGI::FormBuilder 3.0501;
+use CGI::FormBuilder::Test;
 
 # What options we want to use, and what we expect to see
 my @test = (

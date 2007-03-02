@@ -50,8 +50,8 @@ no  warnings 'uninitialized';
 
 use CGI::FormBuilder::Util;
 
-our $REVISION = do { (my $r='$Revision: 91 $') =~ s/\D+//g; $r };
-our $VERSION = '3.05';
+our $REVISION = do { (my $r='$Revision: 100 $') =~ s/\D+//g; $r };
+our $VERSION = '3.0501';
 our $AUTOLOAD;
 
 # what to generate for tag
@@ -171,7 +171,7 @@ sub othertag {
     # default settings
     $oa->{type}  ||= 'text';
     my $v = $self->{_form}->cgi_param($self->othername);
-    $v = $self->tag_value unless defined $v;
+    #$v = $self->tag_value unless defined $v;
     if ($self->sticky and defined $v) {
         $oa->{value} = $v;
     }
@@ -639,6 +639,7 @@ sub jsfield {
     $jsfunc .= <<EOJS;
 $in    alertstr += '$alertstr';
 $in    invalid++;
+$in    invalid_fields.push('$jsfield');
 $in}$close_brace
 EOJS
 
@@ -1013,7 +1014,7 @@ L<CGI::FormBuilder>
 
 =head1 REVISION
 
-$Id: Field.pm 91 2006-12-18 10:27:01Z nwiger $
+$Id: Field.pm 100 2007-03-02 18:13:13Z nwiger $
 
 =head1 AUTHOR
 

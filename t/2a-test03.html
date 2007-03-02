@@ -5,6 +5,7 @@ Please update your info and hit "Submit".
 function validate (form) {
     var alertstr = '';
     var invalid  = 0;
+    var invalid_fields = new Array();
 
     // color: radio group or multiple checkboxes
     var color = null;
@@ -16,6 +17,7 @@ function validate (form) {
             if (color == null || (color != 'red' && color != 'blue' && color != 'yellow' && color != 'pink')) {
                 alertstr += '- Check one or more of the "Color" options\n';
                 invalid++;
+                invalid_fields.push('color');
             }
         } // if
     } // for color

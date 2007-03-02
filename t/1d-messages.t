@@ -1,4 +1,4 @@
-#!/usr/bin/perl -Ilib -I../lib
+#!/usr/bin/perl
 
 # Copyright (c) 2000-2006 Nathan Wiger <nate@wiger.org>.
 # All Rights Reserved. If you're reading this, you're bored.
@@ -9,14 +9,16 @@ use strict;
 our $TESTING = 1;
 our $DEBUG = $ENV{DEBUG} || 0;
 our $VERSION;
-BEGIN { $VERSION = '3.05'; }
+BEGIN { $VERSION = '3.0501'; }
 
 use Test;
+use FindBin;
 
 # use a BEGIN block so we print our plan before CGI::FormBuilder is loaded
 my @pm;
 my %messages;
 BEGIN { 
+    unshift @INC, "$FindBin::Bin/../lib";
     %messages = (
         form_invalid_text   => 'You fucked up',
         js_invalid_text     => 'Yep, shit sucks!',
@@ -70,7 +72,7 @@ close(M);
 $ENV{REQUEST_METHOD} = 'GET';
 $ENV{QUERY_STRING}   = 'ticket=111&user=pete&replacement=TRUE&action=Unsubscribe&name=Pete+Peteson&email=pete%40peteson.com&extra=junk&_submitted=1&blank=&two=&two=';
 
-use CGI::FormBuilder 3.05;
+use CGI::FormBuilder 3.0501;
 
 # Now manually try a whole bunch of things
 my $hash = CGI::FormBuilder->new(

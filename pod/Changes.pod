@@ -15,6 +15,10 @@ autoload style of getting to fields:
 In order to allow the second form, you must specify the C<fieldsubs>
 option to C<new()>.
 
+=head1 VERSION 3.0501
+
+Bugfix release to repair a memory leak and a few "other" field edge cases.
+
 =head1 VERSION 3.05
 
 Just a short time after 3.04, several new features evolved very quickly:

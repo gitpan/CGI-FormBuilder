@@ -28,8 +28,8 @@ no  warnings 'uninitialized';
 
 use CGI::FormBuilder::Util;
 
-our $REVISION = do { (my $r='$Revision: 91 $') =~ s/\D+//g; $r };
-our $VERSION = '3.05';
+our $REVISION = do { (my $r='$Revision: 100 $') =~ s/\D+//g; $r };
+our $VERSION = '3.0501';
 our $DEBUG = 0;
 
 use Exporter;
@@ -53,7 +53,7 @@ sub outfile ($) {
 
 =head1 REVISION
 
-$Id: Test.pm 91 2006-12-18 10:27:01Z nwiger $
+$Id: Test.pm 100 2007-03-02 18:13:13Z nwiger $
 
 =head1 AUTHOR
 

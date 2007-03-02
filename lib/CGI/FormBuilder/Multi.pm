@@ -103,8 +103,8 @@ no  warnings 'uninitialized';
 use CGI::FormBuilder;
 use CGI::FormBuilder::Util;
 
-our $REVISION = do { (my $r='$Revision: 91 $') =~ s/\D+//g; $r };
-our $VERSION = '3.05';
+our $REVISION = do { (my $r='$Revision: 100 $') =~ s/\D+//g; $r };
+our $VERSION = '3.0501';
 
 our %DEFAULT = (
     pagename => '_page',
@@ -121,10 +121,17 @@ sub new {
     while (ref $_[0]) {
         push @forms, shift;
     }
-    puke "Must specify at least one form to ::Multi" unless @forms;
 
     # Remaining options are form opts
     my %opt  = arghash(@_);
+
+    # If no forms, and specified number of pages, use that instead
+    if ($opt{pages}) {
+        puke "Can't specify pages and form hashrefs" if @forms;
+        my $p = 0;
+        push @forms, {} while $p++ < $opt{pages};
+    }
+    puke "Must specify at least one form or 'pages' option for ::Multi" unless @forms;
 
     # Check for CGI params
     # This is duplicated code straight out of FormBuilder.pm,
@@ -286,6 +293,14 @@ C<header> (which will likely be the same), and then override
 individual settings like C<fields> and C<validate> on a per-form
 basis.
 
+If you do not wish to specify any options for your forms, you
+can instead just specify the C<pages> option, for example:
+
+    my $multi = CGI::FormBuilder::Multi->new(pages => 3);
+
+With this approach, you will have to dynamically assemble each
+page as you come to them. The mailing list can help.
+
 The L</"SYNOPSIS"> above is very representative of typical usage.
 
 =head2 form()
@@ -348,7 +363,7 @@ L<CGI::FormBuilder>
 
 =head1 REVISION
 
-$Id: Multi.pm 91 2006-12-18 10:27:01Z nwiger $
+$Id: Multi.pm 100 2007-03-02 18:13:13Z nwiger $
 
 =head1 AUTHOR
 

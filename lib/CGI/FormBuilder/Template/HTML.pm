@@ -28,8 +28,8 @@ use CGI::FormBuilder::Util;
 use HTML::Template;
 use base 'HTML::Template';
 
-our $REVISION = do { (my $r='$Revision: 91 $') =~ s/\D+//g; $r };
-our $VERSION = '3.05';
+our $REVISION = do { (my $r='$Revision: 100 $') =~ s/\D+//g; $r };
+our $VERSION = '3.0501';
 
 #
 # For legacy reasons, and due to its somewhat odd interface, 
@@ -416,7 +416,7 @@ L<CGI::FormBuilder>, L<CGI::FormBuilder::Template>, L<HTML::Template>
 
 =head1 REVISION
 
-$Id: HTML.pm 91 2006-12-18 10:27:01Z nwiger $
+$Id: HTML.pm 100 2007-03-02 18:13:13Z nwiger $
 
 =head1 AUTHOR
 

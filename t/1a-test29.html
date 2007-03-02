@@ -2,24 +2,28 @@
 function validate (form) {
     var alertstr = '';
     var invalid  = 0;
+    var invalid_fields = new Array();
 
     // name: standard text, hidden, password, or textarea box
     var name = form.elements['name'].value;
     if (name == null || name === "") {
         alertstr += '- Invalid entry for the "Name" field\n';
         invalid++;
+        invalid_fields.push('name');
     }
     // email: standard text, hidden, password, or textarea box
     var email = form.elements['email'].value;
     if (email == null || email === "") {
         alertstr += '- Invalid entry for the "Email" field\n';
         invalid++;
+        invalid_fields.push('email');
     }
     // user: standard text, hidden, password, or textarea box
     var user = form.elements['user'].value;
     if (user == null || user === "") {
         alertstr += '- Invalid entry for the "User" field\n';
         invalid++;
+        invalid_fields.push('user');
     }
     if (invalid > 0 || alertstr != '') {
         if (! invalid) invalid = 'The following';   // catch for programmer error

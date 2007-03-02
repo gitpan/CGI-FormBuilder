@@ -12,14 +12,13 @@ use Carp;
 use strict;
 use warnings;
 no  warnings 'uninitialized';
-use Scalar::Util qw(weaken);
 
 use CGI::FormBuilder::Util;
 use CGI::FormBuilder::Field;
 use CGI::FormBuilder::Messages;
 
 our $VERSION = '3.0501';
-our $REVISION = do { (my $r='$Revision: 100 $') =~ s/\D+//g; $r };
+our $REVISION = do { (my $r='$Revision: 91 $') =~ s/\D+//g; $r };
 our $AUTOLOAD;
 
 # Default options for FormBuilder
@@ -277,10 +276,9 @@ sub new {
             # init a new one
             $fprop{name} = "$_";
             $_ = $self->new_field(%fprop);
-            weaken($_->{_form});
         }
         debug 2, "push \@(@ftmp), $_";
-        weaken($self->{fieldrefs}{"$_"} = $_);
+        $self->{fieldrefs}{"$_"} = $_;
         push @ftmp, $_;
     }
 
@@ -377,11 +375,8 @@ sub field {
     # if we're still in here, we need to init a new field
     # push it onto our mail fields array, just like initfields()
     my $f = $self->new_field(%$args);
-    weaken($self->{fieldrefs}{"$f"} = $f);
-    weaken($f->{_form});
-    weaken($f->{fieldrefs}{"$f"});
+    $self->{fieldrefs}{"$f"} = $f;
     push @{$self->{fields}}, $f;
-    
     return $f->value;
 }
 
@@ -408,7 +403,7 @@ sub new_field {
             $args->{$k} = $v;
         }
     }
-    
+
     my $f = CGI::FormBuilder::Field->new($self, $args);
     debug 1, "created field $f";
     return $f;   # already set args above ^^^
@@ -1473,10 +1468,10 @@ sub render {
         $ref = 'HASH';  # tricky
         debug 2, "rewrote 'template' option since found filename";
     }
+
     # Get ourselves ready
     $self->{prepare} = $self->prepare;
-    # weaken($self->{prepare});
-    
+
     my $opt;
     if ($ref eq 'HASH') {
         # must copy to avoid destroying
@@ -1504,9 +1499,8 @@ sub render {
     puke "Bad template engine $mod: $@" if $@;
 
     # create new object
-    #CGI::FormBuilder::Template::Builtin
-    
     my $tmpl = $mod->new($opt);
+
     # Experiemental: Alter tag names as we're rendering, to support 
     # Ajaxian markup schemes that use their own tags (Backbase, Dojo, etc)
     local %CGI::FormBuilder::Util::TAGNAMES;
@@ -1514,24 +1508,16 @@ sub render {
         $CGI::FormBuilder::Util::TAGNAMES{$k} = $v;
     }
 
-
     # Call the engine's prepare too, if it exists
     # Give it the form object so it can do what it wants
     # This will have all of the prepared data in {prepare} anyways
     if ($tmpl && UNIVERSAL::can($tmpl, 'prepare')) {
         $tmpl->prepare($self);
     }
-    
-
 
     # dispatch to engine, prepend header
     debug 1, "returning $tmpl->render($self->{prepare})";
-
-    my $ret = $self->header . $tmpl->render($self->{prepare});
-    
-    #we have a circular reference but we need to kill it after setting up return
-    weaken($self->{prepare});
-    return $ret;
+    return $self->header . $tmpl->render($self->{prepare});
 }
 
 # These routines should be moved to ::Mail or something since they're rarely used

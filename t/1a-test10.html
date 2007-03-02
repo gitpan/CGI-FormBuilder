@@ -1,3 +1,5 @@
+Content-type: text/html
+
 <html>
 <head>
 <title>TEST</title>
@@ -5,18 +7,21 @@
 function validate (form) {
     var alertstr = '';
     var invalid  = 0;
+    var invalid_fields = new Array();
 
     // hostname: standard text, hidden, password, or textarea box
     var hostname = form.elements['hostname'].value;
     if (hostname == null || ! hostname.match(/^[a-zA-Z0-9][-a-zA-Z0-9]*$/)) {
         alertstr += '- Invalid entry for the "Hostname" field\n';
         invalid++;
+        invalid_fields.push('hostname');
     }
     // domain: standard text, hidden, password, or textarea box
     var domain = form.elements['domain'].value;
     if (domain == null || ! domain.match(/^[a-zA-Z0-9][-a-zA-Z0-9\.]*\.[a-zA-Z]+$/)) {
         alertstr += '- Invalid entry for the "Domain" field\n';
         invalid++;
+        invalid_fields.push('domain');
     }
     if (invalid > 0 || alertstr != '') {
         if (! invalid) invalid = 'The following';   // catch for programmer error

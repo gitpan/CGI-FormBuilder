@@ -2,12 +2,14 @@
 function validate_parts (form) {
     var alertstr = '';
     var invalid  = 0;
+    var invalid_fields = new Array();
 
     // ticket: standard text, hidden, password, or textarea box
     var ticket = form.elements['ticket'].value;
     if (ticket == null || ! ticket.match(/^\d+$/)) {
         alertstr += '- Invalid entry for the "Ticket" field\n';
         invalid++;
+        invalid_fields.push('ticket');
     }
     if (invalid > 0 || alertstr != '') {
         if (! invalid) invalid = 'The following';   // catch for programmer error

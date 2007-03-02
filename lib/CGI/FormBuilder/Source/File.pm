@@ -29,8 +29,8 @@ no  warnings 'uninitialized';
 use 5.006; # or later
 use CGI::FormBuilder::Util;
 
-our $REVISION = do { (my $r='$Revision: 91 $') =~ s/\D+//g; $r };
-our $VERSION = '3.05';
+our $REVISION = do { (my $r='$Revision: 100 $') =~ s/\D+//g; $r };
+our $VERSION = '3.0501';
 
 # Begin "real" code
 sub new {
@@ -450,7 +450,7 @@ L<CGI::FormBuilder>, L<Text::FormBuilder>
 
 =head1 REVISION
 
-$Id: File.pm 91 2006-12-18 10:27:01Z nwiger $
+$Id: File.pm 100 2007-03-02 18:13:13Z nwiger $
 
 =head1 AUTHOR
 

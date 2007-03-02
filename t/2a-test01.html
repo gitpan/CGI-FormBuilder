@@ -5,12 +5,14 @@ Please update your info and hit "Submit".
 function validate (form) {
     var alertstr = '';
     var invalid  = 0;
+    var invalid_fields = new Array();
 
     // name: standard text, hidden, password, or textarea box
     var name = form.elements['name'].value;
     if (name == null || ! name.match(/^[a-zA-Z]+$/)) {
         alertstr += '- Invalid entry for the "Name" field\n';
         invalid++;
+        invalid_fields.push('name');
     }
     if (invalid > 0 || alertstr != '') {
         if (! invalid) invalid = 'The following';   // catch for programmer error

@@ -1,4 +1,4 @@
-#!/usr/bin/perl -Ilib -I../lib -I.
+#!/usr/bin/perl
 
 # Copyright (c) 2000-2006 Nathan Wiger <nate@wiger.org>.
 # All Rights Reserved. If you're reading this, you're bored.
@@ -9,13 +9,15 @@ use strict;
 our $TESTING = 1;
 our $DEBUG = $ENV{DEBUG} || 0;
 our $VERSION;
-BEGIN { $VERSION = '3.05'; }
+BEGIN { $VERSION = '3.0501'; }
 
 use Test;
+use FindBin;
 
 # use a BEGIN block so we print our plan before CGI::FormBuilder is loaded
 my @pm;
 BEGIN { 
+    unshift @INC, "$FindBin::Bin/../lib";
     # try to load all the .pm's except templates from MANIFEST
     open(M, "<MANIFEST") || warn "Can't open MANIFEST ($!) - skipping imports";
     chomp(@pm = grep !/Template/, grep /\.pm$/, <M>);
@@ -43,7 +45,7 @@ for (@pm) {
 $ENV{REQUEST_METHOD} = 'GET';
 $ENV{QUERY_STRING}   = 'ticket=111&user=pete&replacement=TRUE&action=Unsubscribe&name=Pete+Peteson&email=pete%40peteson.com&extra=junk&_submitted=1&blank=&two=&two=&other_test=_other_other_test&_other_other_test=42&other_test_2=_other_other_test_2&_other_other_test_2=nope';
 
-use CGI::FormBuilder 3.05;
+use CGI::FormBuilder 3.0501;
 use CGI::FormBuilder::Test;
 
 # jump to a test if specified for debugging (goto eek!)
@@ -419,39 +421,39 @@ T23: ok(do{
 #24 - fucking rt.cpan shit
 T24: ok(do{
     my $form = CGI::FormBuilder->new;
-    $form->field(name => 'otter_test', other => 1, type => 'select',
+    $form->field(name => 'other_test', other => 1, type => 'select',
                  options => [1..5],    value => 6);
     my $ok = 1;
     # you know what? fuck Perl
     $form->script;  # internals thing
-    my($f) = grep /^otter_test$/, $form->field;
+    my($f) = grep /^other_test$/, $form->field;
     my $h = $f->tag . "\n";
-    $h eq outfile(24);
+    $h eq outfile(24) ? 1 : 0;
 }, 1);
 
 #25 - fucking rt.cpan shit
 T25: ok(do{
     my $form = CGI::FormBuilder->new;
-    $form->field(name => 'otter_test', other => 1, type => 'select',
+    $form->field(name => 'butter_test', other => 1, type => 'select',
                  options => [1..5]);    # no value
     my $ok = 1;
     # you know what? fuck Perl
     $form->script;  # internals thing
-    my($f) = grep /^otter_test$/, $form->field;
+    my($f) = grep /^butter_test$/, $form->field;
     my $h = $f->tag . "\n";
-    $h eq outfile(25);
+    $h eq outfile(25) ? 1 : 0;
 }, 1);
 
 #26 - fucking rt.cpan shit
 T26: ok(do{
     my $form = CGI::FormBuilder->new;
-    $form->field(name => 'otter_test', other => 1, type => 'select',
+    $form->field(name => 'butter_test', other => 1, type => 'select',
                  options => [1..5], value => undef);    # undef value
     my $ok = 1;
     # you know what? fuck Perl
     $form->script;  # internals thing
-    my($f) = grep /^otter_test$/, $form->field;
+    my($f) = grep /^butter_test$/, $form->field;
     my $h = $f->tag . "\n";
-    $h eq outfile(26);
+    $h eq outfile(26) ? 1 : 0;
 }, 1);
 

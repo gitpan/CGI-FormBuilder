@@ -2,18 +2,21 @@
 function validate (form) {
     var alertstr = '';
     var invalid  = 0;
+    var invalid_fields = new Array();
 
     // email: standard text, hidden, password, or textarea box
     var email = form.elements['email'].value;
     if (email != null && email != "" && ! email.match(/^[\w\-\+\._]+\@[a-zA-Z0-9][-a-zA-Z0-9\.]*\.[a-zA-Z]+$/)) {
         alertstr += '- Invalid entry for the "Email" field\n';
         invalid++;
+        invalid_fields.push('email');
     }
     // first_name: standard text, hidden, password, or textarea box
     var first_name = form.elements['first_name'].value;
     if (first_name == null || first_name === "") {
         alertstr += '- Invalid entry for the "First Name" field\n';
         invalid++;
+        invalid_fields.push('first_name');
     }
     if (invalid > 0 || alertstr != '') {
         if (! invalid) invalid = 'The following';   // catch for programmer error

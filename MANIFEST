@@ -4,6 +4,7 @@ MANIFEST
 Makefile.PL
 README
 lib/CGI/FormBuilder.pm
+lib/CGI/FormBuilder.pm.orig
 lib/CGI/FormBuilder.pod
 lib/CGI/FormBuilder/Field.pm
 lib/CGI/FormBuilder/Field/button.pm

@@ -41,8 +41,8 @@ use Carp;
 require File::Basename;
 
 # Authoritative version information actually lives here
-our $VERSION = '3.05';
-our $REVISION = do { (my $r='$Revision: 91 $') =~ s/\D+//g; $r };
+our $VERSION = '3.0501';
+our $REVISION = do { (my $r='$Revision: 100 $') =~ s/\D+//g; $r };
 
 # Place functions you want to export by default in the
 # @EXPORT array. Any other functions can be requested
@@ -522,7 +522,7 @@ L<CGI::FormBuilder>
 
 =head1 REVISION
 
-$Id: Util.pm 91 2006-12-18 10:27:01Z nwiger $
+$Id: Util.pm 100 2007-03-02 18:13:13Z nwiger $
 
 =head1 AUTHOR
 

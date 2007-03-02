@@ -51,8 +51,8 @@ use strict;
 use warnings;
 no  warnings 'uninitialized';
 
-our $REVISION = do { (my $r='$Revision: 91 $') =~ s/\D+//g; $r };
-our $VERSION = '3.05';
+our $REVISION = do { (my $r='$Revision: 100 $') =~ s/\D+//g; $r };
+our $VERSION = '3.0501';
 warn __PACKAGE__, " is not a real module, please read the docs\n"; 
 1;
 __END__
@@ -196,7 +196,7 @@ L<CGI::FormBuilder::Template::Fast>
 
 =head1 REVISION
 
-$Id: Template.pm 91 2006-12-18 10:27:01Z nwiger $
+$Id: Template.pm 100 2007-03-02 18:13:13Z nwiger $
 
 =head1 AUTHOR
 

@@ -2,6 +2,7 @@
 function validate (form) {
     var alertstr = '';
     var invalid  = 0;
+    var invalid_fields = new Array();
 
     // name: radio group or multiple checkboxes
     var name = null;
@@ -13,6 +14,7 @@ function validate (form) {
             if (name == null || name === "") {
                 alertstr += '- Choose one of the "Name" options\n';
                 invalid++;
+                invalid_fields.push('name');
             }
         } // if
     } // for name
