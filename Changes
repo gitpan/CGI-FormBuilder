@@ -12,6 +12,11 @@ COMPATIBILITY
     In order to allow the second form, you must specify the "fieldsubs"
     option to "new()".
 
+VERSION 3.06
+    Maintenance release with a couple new features: support for "charset:
+    utf8" in "Source::File", add_before_option/add_after_option c/o Victor
+    Porton, and support for HTML5 type names c/o Wolfgang Radke.
+
 VERSION 3.0501
     Bugfix release to repair a memory leak and a few "other" field edge
     cases.
@@ -373,8 +378,8 @@ VERSION 3.00
                         styleclass => 'myFB',   # default is "fb_"
                         stylesheet => 1,        # turn on style
                    );
-                
-        print $form->render;
+                    
+    print $form->render;
 
         # HTML will include
         #   <input class="myFBname" id="name" name="name" type="text" />
@@ -446,7 +451,7 @@ VERSION 3.00
     overdue.
 
 AUTHOR
-    Copyright (c) 2000-2006 Nate Wiger <nate@wiger.org> All Rights Reserved.
+    Copyright (c) Nate Wiger. All Rights Reserved.
 
     This module is free software; you may copy this under the terms of the
     GNU General Public License, or the Artistic License, copies of which

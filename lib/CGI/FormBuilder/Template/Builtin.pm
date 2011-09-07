@@ -1,7 +1,7 @@
 
 ###########################################################################
-# Copyright (c) 2000-2006 Nate Wiger <nate@wiger.org>. All Rights Reserved.
-# Please visit www.formbuilder.org for tutorials, support, and examples.
+# Copyright (c) Nate Wiger http://nateware.com. All Rights Reserved.
+# Please visit http://formbuilder.org for tutorials, support, and examples.
 ###########################################################################
 
 package CGI::FormBuilder::Template::Builtin;
@@ -25,7 +25,7 @@ no  warnings 'uninitialized';
 use CGI::FormBuilder::Util;
 
 our $REVISION = do { (my $r='$Revision: 100 $') =~ s/\D+//g; $r };
-our $VERSION = '3.0501';
+our $VERSION = '3.06';
 
 sub new {
     my $self  = shift;
@@ -276,15 +276,15 @@ See the documentation in L<CGI::FormBuilder> for more details.
 
 L<CGI::FormBuilder>, L<CGI::FormBuilder::Template::HTML>,
 L<CGI::FormBuilder::Template::Text>, L<CGI::FormBuilder::Template::TT2>,
-L<CGI::FormBuilder::Template::Fast>
+L<CGI::FormBuilder::Template::Fast>, L<CGI::FormBuilder::Template::CGI_SSI>
 
 =head1 REVISION
 
-$Id: Builtin.pm 100 2007-03-02 18:13:13Z nwiger $
+$Id: Builtin.pm 97 2007-02-06 17:10:39Z nwiger $
 
 =head1 AUTHOR
 
-Copyright (c) 2000-2006 Nate Wiger <nate@wiger.org>. All Rights Reserved.
+Copyright (c) L<Nate Wiger|http://nateware.com>. All Rights Reserved.
 
 This module is free software; you may copy this under the terms of
 the GNU General Public License, or the Artistic License, copies of

@@ -1,7 +1,7 @@
 
 ###########################################################################
-# Copyright (c) 2000-2006 Nate Wiger <nate@wiger.org>. All Rights Reserved.
-# Please visit www.formbuilder.org for tutorials, support, and examples.
+# Copyright (c) Nate Wiger http://nateware.com. All Rights Reserved.
+# Please visit http://formbuilder.org for tutorials, support, and examples.
 ###########################################################################
 
 package CGI::FormBuilder::Source::File;
@@ -30,7 +30,7 @@ use 5.006; # or later
 use CGI::FormBuilder::Util;
 
 our $REVISION = do { (my $r='$Revision: 100 $') =~ s/\D+//g; $r };
-our $VERSION = '3.0501';
+our $VERSION = '3.06';
 
 # Begin "real" code
 sub new {
@@ -57,6 +57,7 @@ sub parse {
 
     my $refield = 0;
     my @file;
+    my $utf8 = 0;   # parse file as utf8
 
     debug 1, "parsing $file as input source";
     if (ref $file eq 'SCALAR') {
@@ -76,6 +77,8 @@ sub parse {
         next if /^\s*\[\%\s*\#|^\s*-*\%\]/;   # TT comments too
         chomp;
         my($term, $line) = split /\s*:\s*/, $_, 2;
+        $utf8 = 1 if $term eq 'charset' && $line =~ /^utf/;  # key off charset to decode value
+        $line = Encode::decode('utf-8', $line) if $utf8;
 
         # here string term-inator (har)
         if ($here) {
@@ -131,7 +134,7 @@ sub parse {
             }
 
             my @val;
-            if ($term =~ /^js/ || $term eq 'messages') {
+            if ($term =~ /^js/ || $term =~ /^on[a-z]/ || $term eq 'messages' || $term eq 'comment') {
                 @val = $line;   # verbatim
             } elsif ($line =~ s/^\\(.)//) {
                 # Reference - this is tricky. Go all the way up to
@@ -156,17 +159,18 @@ sub parse {
                 @val = split /\s*,\s*/, $line;
 
                 # m=Male, f=Female -> [m,Male], [f,Female]
-                for (@val) {
-                    $_ = [ split /\s*=\s*/, $_, 2 ] if /=/;
+                for (my $i=0; $i < @val; $i++) {
+                    $val[$i] = [ split /\s*=\s*/, $val[$i], 2 ] if $val[$i] =~ /=/;
                 }
             }
 
             # only arrayref on multi values b/c FB is "smart"
             if ($ptr->{$term}) {
                 $ptr->{$term} = (ref $ptr->{$term})
-                                    ? [ @{$ptr->{$term}}, @val ] : @val > 1 ? \@val : $val[0];
+                                    ? [ @{$ptr->{$term}}, @val ] : @val > 1 ? \@val :
+                                      ref($val[0]) eq 'ARRAY' ? \@val : $val[0];
             } else {
-                $ptr->{$term} = @val > 1 ? \@val : $val[0];
+                $ptr->{$term} = @val > 1 ? \@val : ref($val[0]) eq 'ARRAY' ? \@val : $val[0];
             }
             $inval = 1;
         } else {
@@ -454,7 +458,7 @@ $Id: File.pm 100 2007-03-02 18:13:13Z nwiger $
 
 =head1 AUTHOR
 
-Copyright (c) 2005-2006 Nathan Wiger <nate@wiger.org>. All Rights Reserved.
+Copyright (c) L<Nate Wiger|http://nateware.com>. All Rights Reserved.
 
 This module is free software; you may copy this under the terms of
 the GNU General Public License, or the Artistic License, copies of

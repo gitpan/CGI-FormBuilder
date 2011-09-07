@@ -13,6 +13,7 @@ sub modcheck () {
          'Text::Template     1.43  (for CGI::FormBuilder::Template::Text)',
          'Template           2.08  (for CGI::FormBuilder::Template::TT2)',
          'CGI::FastTemplate  1.09  (for CGI::FormBuilder::Template::Fast)',
+         'CGI::SSI           0.92  (for CGI::FormBuilder::Template::CGI_SSI)',
     ) {
         my($mod,$ver) = split;
         eval "use $mod $ver";
@@ -54,6 +55,6 @@ WriteMakefile(
     CONFIGURE      => \&modcheck,
     ($] >= 5.005 ?
       (ABSTRACT_FROM => 'lib/CGI/FormBuilder.pod',  # abstract from POD
-       AUTHOR        => 'Nathan Wiger (nate@wiger.org)') : ()
+       AUTHOR        => 'Nate Wiger (nate@wiger.org)') : ()
     ),
 );

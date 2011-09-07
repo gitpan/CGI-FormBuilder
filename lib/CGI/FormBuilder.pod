@@ -58,14 +58,10 @@ CGI::FormBuilder - Easily generate and process stateful forms
 =head1 DESCRIPTION
 
 If this is your first time using B<FormBuilder>, you should check out
-the website for tutorials and examples:
+the website for tutorials and examples at L<http://formbuilder.org>.
 
-    www.formbuilder.org
-
-You should also consider joining the mailing list by sending an email to:
-
-    fbusers-subscribe@formbuilder.org
-
+You should also consider joining the google group at 
+L<http://groups.google.com/group/perl-formbuilder>.
 There are some pretty smart people on the list that can help you out.
 
 =head2 Overview
@@ -1082,25 +1078,27 @@ By default, the C<validate> option also toggles each field to make
 it required. However, you can use the C<required> option to change
 this, see it for more details.
 
-Let's look at a concrete example:
+Let's look at a concrete example.  Note that the javascript
+validation is a negative match, while the perl validation
+is a positive match.
 
     my $form = CGI::FormBuilder->new(
-                    fields => [
-                        qw(username password confirm_password
-                           first_name last_name email)
-                    ],
-                    validate => {
-                        username   => [qw(nate jim bob)],
-                        first_name => '/^\w+$/',    # note the 
-                        last_name  => '/^\w+$/',    # single quotes!
-                        email      => 'EMAIL',
-                        password   => \&check_password,
-                        confirm_password => {
-                            javascript => '== form.password.value',
-                            perl       => 'eq $form->field("password")'
-                        },
-                    },
-               );
+        fields => [qw(
+            username    password    confirm_password
+            first_name  last_name   email
+        )],
+        validate => {
+            username   => [qw(nate jim bob)],
+            first_name => '/^\w+$/',    # note the 
+            last_name  => '/^\w+$/',    # single quotes!
+            email      => 'EMAIL',
+            password   => \&check_password,
+            confirm_password => {
+                javascript => '!= form.password.value',       # neg
+                perl       => 'eq $form->field("password")',  # pos
+            },
+        },
+    );
 
     # simple sub example to check the password
     sub check_password ($) {
@@ -1281,6 +1279,14 @@ However, if you're specifying more than one argument, then you must
 include the C<name> part:
 
     $form->field(name => 'email', size => '40');
+
+=item add_after_option => $html
+
+Adds the specified HTML code after each checkbox (or radio) option.
+
+=item add_before_option => $html
+
+Adds the specified HTML code before each checkbox (or radio) option.
 
 =item columns => 0 | $width
 
@@ -2696,7 +2702,9 @@ reports, and encouraging feedback from a number of people, including:
     Klaas Naajikens
     Koos Pol
     Shawn Poulson
+    Victor Porton
     Dan Collis Puro
+    Wolfgang Radke
     David Siegal
     Stephan Springl
     Ryan Tate
@@ -2722,7 +2730,7 @@ $Id: FormBuilder.pm 65 2006-09-07 18:11:43Z nwiger $
 
 =head1 AUTHOR
 
-Copyright (c) 2000-2006 Nate Wiger <nate@wiger.org>. All Rights Reserved.
+Copyright (c) L<Nate Wiger|http://nateware.com>. All Rights Reserved.
 
 This module is free software; you may copy this under the terms of
 the GNU General Public License, or the Artistic License, copies of

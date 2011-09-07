@@ -1,7 +1,7 @@
 
 ###########################################################################
-# Copyright (c) 2000-2006 Nate Wiger <nate@wiger.org>. All Rights Reserved.
-# Please visit www.formbuilder.org for tutorials, support, and examples.
+# Copyright (c) Nate Wiger http://nateware.com. All Rights Reserved.
+# Please visit http://formbuilder.org for tutorials, support, and examples.
 ###########################################################################
 
 # The majority of this module's methods (including new) are
@@ -21,7 +21,7 @@ use CGI::FormBuilder::Field;
 use base 'CGI::FormBuilder::Field';
 
 our $REVISION = do { (my $r='$Revision: 100 $') =~ s/\D+//g; $r };
-our $VERSION = '3.0501';
+our $VERSION = '3.06';
 
 sub script {
     my $self = shift;

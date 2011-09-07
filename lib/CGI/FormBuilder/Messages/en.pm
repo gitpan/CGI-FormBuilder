@@ -1,7 +1,7 @@
 
 ###########################################################################
-# Copyright (c) 2000-2006 Nate Wiger <nate@wiger.org>. All Rights Reserved.
-# Please visit www.formbuilder.org for tutorials, support, and examples.
+# Copyright (c) Nate Wiger http://nateware.com. All Rights Reserved.
+# Please visit http://formbuilder.org for tutorials, support, and examples.
 ###########################################################################
 
 package CGI::FormBuilder::Messages::locale;
@@ -9,7 +9,7 @@ package CGI::FormBuilder::Messages::locale;
 use strict;
 
 our $REVISION = do { (my $r='$Revision: 100 $') =~ s/\D+//g; $r };
-our $VERSION = '3.0501';
+our $VERSION = '3.06';
 
 # Simply create a hash of messages for this language
 our %MESSAGES = (

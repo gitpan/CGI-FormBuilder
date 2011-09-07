@@ -1,8 +1,8 @@
-#!/usr/bin/perl
+#!/usr/bin/perl 
 
-# Copyright (c) 2000-2006 Nathan Wiger <nate@wiger.org>.
+# Copyright (c) Nate Wiger http://nateware.com.
 # All Rights Reserved. If you're reading this, you're bored.
-# 2b-template-text.t - test Text::Template support
+# 2e-template-ssi.t - test CGI::SSI support
 
 use strict;
 
@@ -17,15 +17,15 @@ use FindBin;
 # use a BEGIN block so we print our plan before CGI::FormBuilder is loaded
 our $SKIP;
 BEGIN {
-    my $numtests = 4;
+    my $numtests = 5;
     unshift @INC, "$FindBin::Bin/../lib";
 
     plan tests => $numtests;
 
     # try to load template engine so absent template does
     # not cause all tests to fail
-    eval "require Text::Template";
-    $SKIP = $@ ? 'skip: Text::Template not installed here' : 0;
+    eval "require CGI::SSI";
+    $SKIP = $@ ? 'skip: CGI::SSI not installed here' : 0;   # eval failed, skip all tests
 
     # success if we said NOTEST
     if ($ENV{NOTEST}) {
@@ -34,7 +34,6 @@ BEGIN {
     }
 }
 
-
 # Need to fake a request or else we stall
 $ENV{REQUEST_METHOD} = 'GET';
 $ENV{QUERY_STRING}   = 'ticket=111&user=pete&replacement=TRUE';
@@ -42,53 +41,59 @@ $ENV{QUERY_STRING}   = 'ticket=111&user=pete&replacement=TRUE';
 use CGI::FormBuilder 3.06;
 use CGI::FormBuilder::Test;
 
-# Create our template and store it in a scalarref
+# Grab our template from our test00.html file
 my $template = outfile(0);
+my $kurtlidl = outfile(99);
 
 # What options we want to use, and what we expect to see
 my @test = (
     {
-        opt => { fields => [qw/name color/],
-                 submit => 'No esta una button del resetto',
-                 template => { type => 'Text', TYPE => 'STRING', template => $template, },
+        opt => { fields => [qw/name color/], 
+                 submit => 0, 
+                 reset  => 'No esta una button del submito',
+                 template => { type=>'CGI_SSI', string => $template },
                  validate => { name => 'NAME' },
+                 
                },
-        mod => { color => { options => [qw/red green blue/],
-                            label => 'Best Color', value => 'red' },
-                 size  => { value => 42 },
-                 sex   => { options => [[M=>'Male'],[F=>'Female']] }
-               },
-    },
+        mod => { color => { options => [qw/red green blue/], nameopts => 1 },
+                 size  => { value => 42 } },
 
+    },
     {
         opt => { fields => [qw/name color size/],
-                 template => { type => 'Text', TYPE => 'STRING', template => $template, },
+                 template => { type=>'CGI_SSI', string => $template },
                  values => {color => [qw/purple/], size => 8},
-                 submit => 'Start over, boob!',
+                 reset => 'Start over, boob!',
+                 validate => {},    # should be empty
                },
 
-        mod => { color => { options => [[white=>'White'],[black=>'Black'],[red=>'Green']],
-                            label => 'Mom', },
-                 name => { size => 80, maxlength => 80, comment => 'Fuck off' },
-                 sex   => { options => [[1=>'Yes'], [0=>'No'], [-1=>'Maybe']],
-                            label => 'Fuck me?<br>' },
-               },
+        mod => { color => { options => [qw/white black other/] },
+                 name => { size => 80 } },
+
     },
-
     {
         opt => { fields => [qw/name color email/], submit => [qw/Update Delete/], reset => 0,
-                 template => { type => 'Text', TYPE => 'STRING', template => $template, },
+                 template => { type=>'CGI_SSI', string => $template },
                  values => {color => [qw/yellow green orange/]},
-                 validate => { sex => [qw(1 3 5)] },
+                 validate => { color => [qw(red blue yellow pink)] },
                },
 
         mod => { color => {options => [[red => 1], [blue => 2], [yellow => 3], [pink => 4]] },
-                 size  => {comment => '(unknown)', value => undef, force => 1 } ,
-                 sex   => {label => 'glass EYE fucker', options => [[1,2],[3,4],[5,6]] },
+                 size  => {value => '(unknown)' } 
                },
+
     },
-
-
+    {
+        opt => { fields => [qw/field1 field2/], method => 'post',
+                 title => 'test form page', header => 0,
+                 template => { type=>'CGI_SSI', string => $kurtlidl },
+               },
+        mod => {
+            field1 => { value => 109, comment => '<i>Hello</i>' },
+            field2 => { type => 'submit', value => "1 < 2 < 3", label => "Reefer", comment => '<i>goodbyE@</i>' },
+            field3 => { type => 'button', value => "<<PUSH>>", comment => '<i>onSubmit</i>' },
+        },
+    },
 );
 
 # Perl 5 is sick sometimes.
@@ -122,6 +127,8 @@ for (@test) {
     my $ok = skip($SKIP, $ren, $out);
 
     if (! $ok && $ENV{LOGNAME} eq 'nwiger') {
+        #use Data::Dumper;
+        #die Dumper($form);
         open(O, ">/tmp/fb.1.html");
         print O $out;
         close O;
@@ -140,7 +147,7 @@ for (@test) {
 # from eszpee for tmpl_param
 skip($SKIP, do{
     my $form2 = CGI::FormBuilder->new(
-                    template => { type => 'Text', engine => {TYPE => 'STRING', SOURCE => '<% $test %>'} }
+                    template => { type=>'CGI_SSI', string => '<!--#echo var="test" -->' }
                 );
     $form2->tmpl_param(test => "this message should appear");
     eval '$form2->render';

@@ -1,7 +1,7 @@
 
 ###########################################################################
-# Copyright (c) 2000-2006 Nate Wiger <nate@wiger.org>. All Rights Reserved.
-# Please visit www.formbuilder.org for tutorials, support, and examples.
+# Copyright (c) Nate Wiger http://nateware.com. All Rights Reserved.
+# Please visit http://formbuilder.org for tutorials, support, and examples.
 ###########################################################################
 
 package CGI::FormBuilder::Field;
@@ -51,7 +51,7 @@ no  warnings 'uninitialized';
 use CGI::FormBuilder::Util;
 
 our $REVISION = do { (my $r='$Revision: 100 $') =~ s/\D+//g; $r };
-our $VERSION = '3.0501';
+our $VERSION = '3.06';
 our $AUTOLOAD;
 
 # what to generate for tag
@@ -409,6 +409,7 @@ sub type {
 
     # Re-bless into the appropriate package
     my $pkg = __PACKAGE__ . '::' . $type;
+    $pkg =~ s/\-/_/g;  # handle HTML5 type names ala 'datetime-local'
     eval "require $pkg";
     puke "Can't load $pkg for field '$name' (type '$type'): $@" if $@;
     bless $self, $pkg;
@@ -731,6 +732,9 @@ sub validate () {
             unless (defined($value) && length($value)) {
                 $thisfail = ++$bad;
             }
+        } elsif (! defined $pattern) {
+            debug 2, "$field: length('$value') > 0";
+            $thisfail = ++$bad unless length($value) > 0;
         } else {
             # literal string is a literal comparison, but warn of typos...
             belch "Validation string '$pattern' may be a typo of a builtin pattern"
@@ -1018,7 +1022,7 @@ $Id: Field.pm 100 2007-03-02 18:13:13Z nwiger $
 
 =head1 AUTHOR
 
-Copyright (c) 2000-2006 Nate Wiger <nate@wiger.org>. All Rights Reserved.
+Copyright (c) L<Nate Wiger|http://nateware.com>. All Rights Reserved.
 
 This module is free software; you may copy this under the terms of
 the GNU General Public License, or the Artistic License, copies of

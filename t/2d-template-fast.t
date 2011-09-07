@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-# Copyright (c) 2000-2006 Nathan Wiger <nate@wiger.org>.
+# Copyright (c) Nate Wiger http://nateware.com.
 # All Rights Reserved. If you're reading this, you're bored.
 # 2d-template-fast.t - test CGI::FastTemplate support
 
@@ -9,7 +9,7 @@ use strict;
 our $TESTING = 1;
 our $DEBUG = $ENV{DEBUG} || 0;
 our $VERSION;
-BEGIN { $VERSION = '3.0501'; }
+BEGIN { $VERSION = '3.06'; }
 
 use Test;
 use FindBin;
@@ -39,7 +39,7 @@ BEGIN {
 $ENV{REQUEST_METHOD} = 'GET';
 $ENV{QUERY_STRING}   = 'ticket=111&user=pete&replacement=TRUE';
 
-use CGI::FormBuilder 3.0501;
+use CGI::FormBuilder 3.06;
 use CGI::FormBuilder::Test;
 
 # Create our template and store it in a scalarref

@@ -93,14 +93,12 @@ KEY FEATURES
     lines of Perl, FormBuilder is for you.
 
 SUPPORT
-    There is a whole website devoted to this module:
+    If this is your first time using FormBuilder, you should check out the
+    website for tutorials and examples at <http://formbuilder.org>.
 
-        www.formbuilder.org
-
-    There are online tutorials, code examples, full documentation, and much
-    more. There is also a mailing list with some pretty smart people on it:
-
-        fbusers-subscribe@formbuilder.org
+    You should also consider joining the google group at
+    <http://groups.google.com/group/perl-formbuilder>. There are some pretty
+    smart people on the list that can help you out.
 
     Have fun!
 
@@ -108,7 +106,7 @@ INSTALLATION
     For details on installation, please read the file "INSTALL".
 
 AUTHOR
-    Copyright (c) 2000-2006 Nate Wiger <nate@wiger.org> All Rights Reserved.
+    Copyright (c) Nate Wiger. All Rights Reserved.
 
     This module is free software; you may copy this under the terms of the
     GNU General Public License, or the Artistic License, copies of which

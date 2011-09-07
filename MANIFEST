@@ -2,9 +2,9 @@ Changes
 INSTALL
 MANIFEST
 Makefile.PL
+Makefile.PL
 README
 lib/CGI/FormBuilder.pm
-lib/CGI/FormBuilder.pm.orig
 lib/CGI/FormBuilder.pod
 lib/CGI/FormBuilder/Field.pm
 lib/CGI/FormBuilder/Field/button.pm
@@ -37,6 +37,10 @@ lib/CGI/FormBuilder/Messages/ja.pm
 lib/CGI/FormBuilder/Messages/ja_JP.pm
 lib/CGI/FormBuilder/Messages/no.pm
 lib/CGI/FormBuilder/Messages/no_NO.pm
+lib/CGI/FormBuilder/Messages/ru.pm
+lib/CGI/FormBuilder/Messages/ru_RU.pm
+lib/CGI/FormBuilder/Messages/sv.pm
+lib/CGI/FormBuilder/Messages/sv_SE.pm
 lib/CGI/FormBuilder/Messages/tr.pm
 lib/CGI/FormBuilder/Messages/tr_TR.pm
 lib/CGI/FormBuilder/Multi.pm
@@ -44,6 +48,7 @@ lib/CGI/FormBuilder/Source.pm
 lib/CGI/FormBuilder/Source/File.pm
 lib/CGI/FormBuilder/Template.pm
 lib/CGI/FormBuilder/Template/Builtin.pm
+lib/CGI/FormBuilder/Template/CGI_SSI.pm
 lib/CGI/FormBuilder/Template/Div.pm
 lib/CGI/FormBuilder/Template/Fast.pm
 lib/CGI/FormBuilder/Template/HTML.pm
@@ -60,7 +65,6 @@ t/1a-test02.html
 t/1a-test03.html
 t/1a-test04.html
 t/1a-test05.html
-t/1a-test05.html~
 t/1a-test06.html
 t/1a-test07.html
 t/1a-test08.html
@@ -120,6 +124,13 @@ t/2d-template-fast.t
 t/2d-test01.html
 t/2d-test02.html
 t/2d-test03.html
+t/2e-template-ssi.t
+t/2e-test00.html
+t/2e-test01.html
+t/2e-test02.html
+t/2e-test03.html
+t/2e-test04.html
+t/2e-test99.html
 t/3a-source-file.t
 t/3a-test01.html
 t/3a-test02.html
@@ -151,4 +162,3 @@ t/3a-test27.html
 t/3a-test28.html
 t/3b-multi-page.t
 t/3b-test22.html
-t/runtests
