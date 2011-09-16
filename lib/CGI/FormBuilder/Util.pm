@@ -41,8 +41,8 @@ use Carp;
 require File::Basename;
 
 # Authoritative version information actually lives here
-our $VERSION = '3.06';
-our $REVISION = do { (my $r='$Revision: 100 $') =~ s/\D+//g; $r };
+our $VERSION = '3.07';
+
 
 # Place functions you want to export by default in the
 # @EXPORT array. Any other functions can be requested

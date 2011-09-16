@@ -10,7 +10,7 @@
 # that are individual to different fields are those that affect
 # the rendering, such as script() and tag()
 
-package CGI::FormBuilder::Field::text;
+package CGI::FormBuilder::Field::email;
 
 use strict;
 use warnings;

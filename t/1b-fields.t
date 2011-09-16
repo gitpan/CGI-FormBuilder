@@ -8,22 +8,19 @@ use strict;
 
 our $TESTING = 1;
 our $DEBUG = $ENV{DEBUG} || 0;
+our $LOGNAME = $ENV{LOGNAME} || '';
 our $VERSION;
-BEGIN { $VERSION = '3.06'; }
+BEGIN { $VERSION = '3.07'; }
 
 use Test;
 use FindBin;
+use File::Find;
 
 # use a BEGIN block so we print our plan before CGI::FormBuilder is loaded
-my @pm;
 BEGIN { 
     unshift @INC, "$FindBin::Bin/../lib";
-    # try to load all the .pm's except templates from MANIFEST
-    open(M, "<MANIFEST") || warn "Can't open MANIFEST ($!) - skipping imports";
-    chomp(@pm = grep !/Template/, grep /\.pm$/, <M>);
 
-    my $numtests = 26 + @pm;
-
+    my $numtests = 26;
     plan tests => $numtests;
 
     # success if we said NOTEST
@@ -33,19 +30,11 @@ BEGIN {
     }
 }
 
-my $n = 0;
-for (@pm) {
-    close(STDERR);
-    eval "package blah$n; require '$_'; package main;";
-    ok(!$@);
-    $n++;
-}
-
 # Fake a submission request
 $ENV{REQUEST_METHOD} = 'GET';
 $ENV{QUERY_STRING}   = 'ticket=111&user=pete&replacement=TRUE&action=Unsubscribe&name=Pete+Peteson&email=pete%40peteson.com&extra=junk&_submitted=1&blank=&two=&two=&other_test=_other_other_test&_other_other_test=42&other_test_2=_other_other_test_2&_other_other_test_2=nope';
 
-use CGI::FormBuilder 3.06;
+use CGI::FormBuilder 3.07;
 use CGI::FormBuilder::Test;
 
 # jump to a test if specified for debugging (goto eek!)

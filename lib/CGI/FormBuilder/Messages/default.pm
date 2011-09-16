@@ -8,11 +8,11 @@ package CGI::FormBuilder::Messages::locale;
 
 use strict;
 
-our $REVISION = do { (my $r='$Revision: 100 $') =~ s/\D+//g; $r };
-our $VERSION = '3.06';
+use CGI::FormBuilder::Messages::base;
+use base 'CGI::FormBuilder::Messages::base';
 
 # Simply create a hash of messages for this language
-our %MESSAGES = (
+__PACKAGE__->define_messages({
     lang                  => 'en_US',
     charset               => 'iso-8859-1',
 
@@ -27,6 +27,12 @@ our %MESSAGES = (
     js_invalid_password   => '- Invalid entry for the "%s" field',
     js_invalid_textarea   => '- Please fill in the "%s" field',
     js_invalid_file       => '- Invalid filename for the "%s" field',
+    js_invalid_number     => '- Invalid numerical entry for the "%s" field',
+    js_invalid_date       => '- Invalid date for the "%s" field',
+    js_invalid_url        => '- Invalid url for the "%s" field',
+    js_invalid_email      => '- Invalid email for the "%s" field',
+    js_invalid_time       => '- Invalid time for the "%s" field',
+   'js_invalid_datetime-local'    => '- Invalid date for the "%s" field',
     js_invalid_default    => '- Invalid entry for the "%s" field',
 
     js_noscript           => 'Please enable Javascript or use a newer browser.',
@@ -63,12 +69,7 @@ If you have any questions, please contact our staff by replying
 to this email.
 EOT
     mail_results_subject  => '%s Submission Results',
-);
-
-# This method should remain unchanged
-sub messages {
-    return wantarray ? %MESSAGES : \%MESSAGES;
-}
+});
 
 1;
 __END__

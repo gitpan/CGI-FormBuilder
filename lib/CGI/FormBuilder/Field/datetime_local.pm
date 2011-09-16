@@ -10,7 +10,7 @@
 # that are individual to different fields are those that affect
 # the rendering, such as script() and tag()
 
-package CGI::FormBuilder::Field::text;
+package CGI::FormBuilder::Field::datetime_local;
 
 use strict;
 use warnings;
@@ -103,6 +103,7 @@ sub tag {
     push @opt, [$self->othername, $self->{_form}{messages}->form_other_default]
              if $self->other;
 
+	$attr->{type}='datetime-local'; # Special wegen hyphen :-(
     debug 2, "$self->{name}: generating $attr->{type} input type";
 
     # We iterate over each value - this is the only reliable
@@ -126,7 +127,11 @@ sub tag {
             last;
         }
         
-        # setup the value
+        # setup the value, convert standard if necessary
+        if ($value=~ m/([0-9]{4,4}-[0-9]{2,2}-[0-9]{2,2}) ([0-9]{2,2}[:-][0-9]{2,2}[:-][0-9]{2,2})/){
+			$value=$1 . 'T' . $2;
+			warn "### new value: $value",
+		}
         $attr->{value} = $value;      # override
         delete $attr->{value} unless defined $value;
 

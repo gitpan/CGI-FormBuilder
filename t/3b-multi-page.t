@@ -14,8 +14,9 @@ use strict;
 
 our $TESTING = 1;
 our $DEBUG = $ENV{DEBUG} || 0;
+our $LOGNAME = $ENV{LOGNAME} || '';
 our $VERSION;
-BEGIN { $VERSION = '3.06'; }
+BEGIN { $VERSION = '3.07'; }
 
 use Test;
 use FindBin;
@@ -39,7 +40,7 @@ BEGIN {
 $ENV{REQUEST_METHOD} = 'GET';
 $ENV{QUERY_STRING}   = 'ticket=111&user=pete&replacement=TRUE&action=Unsubscribe&name=Pete+Peteson&email=pete%40peteson.com&extra=junk&_submitted=1&blank=&two=&two=&_page=2&_submitted_p2=2';
 
-use CGI::FormBuilder 3.06;
+use CGI::FormBuilder 3.07;
 use CGI::FormBuilder::Multi;
 use CGI::FormBuilder::Test;
 
@@ -123,7 +124,7 @@ ok($form->field('replacement'), 'TRUE');  # 21
 
 # hack
 my $ren = $form->render;
-if ($ENV{LOGNAME} eq 'nwiger') {
+if ($LOGNAME eq 'nwiger') {
     open(REN, ">/tmp/fb.2.html");
     print REN $ren;
     close(REN);
@@ -180,3 +181,6 @@ skip($NOSESSION, $session->param('name'), 'Tater Salad');    #41
 
 skip($NOSESSION, $session->param('email'), undef);      #42
 
+# cleanup
+undef $session;
+system 'rm -f cgisess*';

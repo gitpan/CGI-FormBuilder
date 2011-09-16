@@ -8,8 +8,9 @@ use strict;
 
 our $TESTING = 1;
 our $DEBUG = $ENV{DEBUG} || 0;
+our $LOGNAME = $ENV{LOGNAME} || '';
 our $VERSION;
-BEGIN { $VERSION = '3.06'; }
+BEGIN { $VERSION = '3.07'; }
 
 use Test;
 use FindBin;
@@ -33,7 +34,7 @@ BEGIN {
 $ENV{REQUEST_METHOD} = 'GET';
 $ENV{QUERY_STRING}   = 'ticket=111&user=pete&replacement=TRUE&action=Unsubscribe&name=Pete+Peteson&email=pete%40peteson.com&extra=junk';
 
-use CGI::FormBuilder 3.06;
+use CGI::FormBuilder 3.07;
 use CGI::FormBuilder::Test;
 
 # For testing sortopts in test 18
@@ -428,7 +429,7 @@ for (@test) {
     my $out = outfile($seq++);
     my $ok = ok($ren, $out);
 
-    if (! $ok && $ENV{LOGNAME} eq 'nwiger') {
+    if (! $ok && $LOGNAME eq 'nwiger') {
 
         open(O, ">/tmp/fb.1.html");
         print O $out;

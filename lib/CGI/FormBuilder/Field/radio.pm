@@ -20,8 +20,8 @@ use CGI::FormBuilder::Util;
 use CGI::FormBuilder::Field;
 use base 'CGI::FormBuilder::Field';
 
-our $REVISION = do { (my $r='$Revision: 100 $') =~ s/\D+//g; $r };
-our $VERSION = '3.06';
+
+our $VERSION = '3.07';
 
 sub script {
     my $self = shift;
@@ -178,6 +178,7 @@ sub tag {
         }
         $tag .= "\n";
     }
+    $tag .= '  '.htmltag('/tr') if $checkbox_table && ($checkbox_col % $self->columns > 0);
     $tag .= '  '.htmltag('/table') if $checkbox_table;
 
     # add an additional tag for our _other field

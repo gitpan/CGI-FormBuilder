@@ -50,8 +50,8 @@ no  warnings 'uninitialized';
 
 use CGI::FormBuilder::Util;
 
-our $REVISION = do { (my $r='$Revision: 100 $') =~ s/\D+//g; $r };
-our $VERSION = '3.06';
+
+our $VERSION = '3.07';
 our $AUTOLOAD;
 
 # what to generate for tag
