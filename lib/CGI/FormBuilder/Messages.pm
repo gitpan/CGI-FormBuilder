@@ -28,8 +28,7 @@ no  warnings 'uninitialized';
 
 use CGI::FormBuilder::Util;
 
-
-our $VERSION = '3.07';
+our $VERSION = '3.08';
 our $AUTOLOAD;
 
 sub new {
@@ -47,7 +46,7 @@ sub new {
         # load defaults from English
         # anonymize the %hash or we get fucked with refs later
         require CGI::FormBuilder::Messages::default;
-        %hash = CGI::FormBuilder::Messages::locale->messages;
+        %hash = CGI::FormBuilder::Messages::default->messages;
 
         while(my($k,$v) = each %$src) {
             $hash{$k} = $v;     # just override individual messages
@@ -59,7 +58,7 @@ sub new {
         # load defaults from English, in case we can't find translators
         # as we add new features
         require CGI::FormBuilder::Messages::default;
-        %hash = CGI::FormBuilder::Messages::locale->messages;
+        %hash = CGI::FormBuilder::Messages::default->messages;
         my %h2 = ();
 
         # Note that the $src may be comma-separated, since this is the
@@ -89,7 +88,7 @@ sub new {
         if (-f $src && -r _ && open(M, "<$src")) {
             # load defaults from English
             require CGI::FormBuilder::Messages::default;
-            %hash = CGI::FormBuilder::Messages::locale->messages;
+            %hash = CGI::FormBuilder::Messages::default->messages;
 
             while(<M>) {
                 next if /^\s*#/ || /^\s*$/;
@@ -104,7 +103,7 @@ sub new {
     # Load default messages if no/invalid source given
     unless (%hash) {
         require CGI::FormBuilder::Messages::default;
-        %hash = CGI::FormBuilder::Messages::locale->messages;
+        %hash = CGI::FormBuilder::Messages::default->messages;
     }
 
     return bless \%hash, $class;

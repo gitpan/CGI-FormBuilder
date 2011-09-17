@@ -4,14 +4,17 @@
 # Please visit http://formbuilder.org for tutorials, support, and examples.
 ###########################################################################
 
-package CGI::FormBuilder::Messages::locale;
+package CGI::FormBuilder::Messages::default;
 
 use strict;
+use utf8;
 
 use CGI::FormBuilder::Messages::base;
 use base 'CGI::FormBuilder::Messages::base';
 
-# Simply create a hash of messages for this language
+our $VERSION = '3.08';
+
+# Default messages (US English)
 __PACKAGE__->define_messages({
     lang                  => 'en_US',
     charset               => 'iso-8859-1',
@@ -73,4 +76,3 @@ EOT
 
 1;
 __END__
-
