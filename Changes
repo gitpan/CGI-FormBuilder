@@ -378,8 +378,8 @@ VERSION 3.00
                         styleclass => 'myFB',   # default is "fb_"
                         stylesheet => 1,        # turn on style
                    );
-                    
-    print $form->render;
+                
+        print $form->render;
 
         # HTML will include
         #   <input class="myFBname" id="name" name="name" type="text" />
@@ -451,7 +451,7 @@ VERSION 3.00
     overdue.
 
 AUTHOR
-    Copyright (c) Nate Wiger. All Rights Reserved.
+    Copyright (c) Nate Wiger <http://nateware.com>. All Rights Reserved.
 
     This module is free software; you may copy this under the terms of the
     GNU General Public License, or the Artistic License, copies of which

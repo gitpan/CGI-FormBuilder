@@ -10,7 +10,7 @@ our $TESTING = 1;
 our $DEBUG = $ENV{DEBUG} || 0;
 our $LOGNAME = $ENV{LOGNAME} || '';
 our $VERSION;
-BEGIN { $VERSION = '3.08'; }
+BEGIN { $VERSION = '3.09'; }
 
 use Test;
 use FindBin;
@@ -39,7 +39,7 @@ BEGIN {
 $ENV{REQUEST_METHOD} = 'GET';
 $ENV{QUERY_STRING}   = 'ticket=111&user=pete&replacement=TRUE';
 
-use CGI::FormBuilder 3.08;
+use CGI::FormBuilder 3.09;
 use CGI::FormBuilder::Test;
 
 # Create our template and store it in a scalarref
@@ -114,7 +114,8 @@ for (@test) {
                );
 
     # the ${mod} key twiddles fields
-    while(my($f,$o) = each %{$_->{mod} || {}}) {
+    for my $f ( sort keys %{$_->{mod} || {}} ) {
+        my $o = $_->{mod}{$f};
         $o->{name} = $f;
         $form->field(%$o);
     }
